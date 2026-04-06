@@ -1,0 +1,90 @@
+from __future__ import annotations
+
+import json
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=str(PROJECT_ROOT / ".env"),
+        env_prefix="AZEROTHFLIPLOCAL_",
+        extra="ignore",
+        enable_decoding=False,
+    )
+
+    app_name: str = "AzerothFlipLocal"
+    api_title: str = "AzerothFlipLocal API"
+    api_version: str = "0.1.0"
+    database_url: str = f"sqlite:///{(BACKEND_ROOT / 'azerothfliplocal.db').as_posix()}"
+    cors_origins: list[str] = Field(
+        default_factory=lambda: [
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+        ]
+    )
+    default_region: str = "us"
+    default_listing_provider: str = "file_import"
+    enable_scheduler: bool = True
+    log_level: str = "INFO"
+    request_timeout_seconds: int = 8
+    saddlebag_metadata_url: str = ""
+    saddlebag_listing_url: str = ""
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, value: object) -> list[str]:
+        default_origins = [
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+        ]
+
+        if value is None or value == "":
+            return default_origins
+
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+
+        if isinstance(value, str):
+            raw = value.strip()
+            if not raw:
+                return default_origins
+
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                parsed = [part.strip() for part in raw.split(",")]
+
+            if isinstance(parsed, str):
+                parsed = [parsed]
+
+            if isinstance(parsed, list):
+                origins = [str(item).strip() for item in parsed if str(item).strip()]
+                if origins:
+                    return origins
+
+        raise ValueError("cors_origins must be a JSON array or a comma-separated string.")
+
+    @field_validator("default_listing_provider", mode="before")
+    @classmethod
+    def normalize_default_listing_provider(cls, value: object) -> str:
+        raw = str(value or "").strip().lower()
+        if not raw or raw in {"stored", "mock"}:
+            return "file_import"
+        return raw
+
+
+@lru_cache(maxsize=1)
+def get_settings() -> Settings:
+    return Settings()
+
+
+def clear_settings_cache() -> None:
+    get_settings.cache_clear()

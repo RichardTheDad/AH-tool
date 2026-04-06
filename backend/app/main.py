@@ -1,0 +1,56 @@
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api import health, imports, items, presets, providers, realms, scans, settings
+from app.core.config import get_settings
+from app.core.logging import configure_logging
+from app.db.init_db import create_db_and_tables, initialize_app_data
+from app.db.session import get_session_factory
+from app.jobs.scheduler import manager as scheduler_manager
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    configure_logging()
+    create_db_and_tables()
+    session = get_session_factory()()
+    try:
+        initialize_app_data(session)
+    finally:
+        session.close()
+
+    if get_settings().enable_scheduler:
+        scheduler_manager.start()
+    yield
+    scheduler_manager.stop()
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title=get_settings().api_title,
+        version=get_settings().api_version,
+        lifespan=lifespan,
+    )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_settings().cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.include_router(health.router)
+    app.include_router(providers.router)
+    app.include_router(realms.router)
+    app.include_router(items.router)
+    app.include_router(imports.router)
+    app.include_router(scans.router)
+    app.include_router(presets.router)
+    app.include_router(settings.router)
+    return app
+
+
+app = create_app()
