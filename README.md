@@ -262,3 +262,7 @@ npm run build
 - No frontend calls to third-party APIs
 - No fake runtime listings or demo scan output
 - Remote provider failures are logged and surfaced without crashing the app
+
+## Release Checklist
+
+Before cutting a release, walk through [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md).
