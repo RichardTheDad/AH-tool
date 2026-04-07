@@ -68,12 +68,30 @@ frontend/
 
 ## Setup
 
-1. Copy `.env.example` to `.env`.
+1. Create or edit `.env` in the repo root.
 2. Create a Python virtual environment.
 3. Install backend dependencies.
 4. Install frontend dependencies.
 5. Run the backend.
 6. Run the frontend.
+
+Minimum `.env` example:
+
+```env
+AZEROTHFLIPLOCAL_DATABASE_URL=sqlite:///./backend/azerothfliplocal.db
+AZEROTHFLIPLOCAL_CORS_ORIGINS=http://127.0.0.1:5173,http://localhost:5173
+AZEROTHFLIPLOCAL_DEFAULT_LISTING_PROVIDER=blizzard_auctions
+AZEROTHFLIPLOCAL_ENABLE_SCHEDULER=true
+AZEROTHFLIPLOCAL_LOG_LEVEL=INFO
+AZEROTHFLIPLOCAL_REQUEST_TIMEOUT_SECONDS=8
+AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_ID=
+AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_SECRET=
+AZEROTHFLIPLOCAL_BLIZZARD_API_REGION=us
+AZEROTHFLIPLOCAL_BLIZZARD_LOCALE=en_US
+AZEROTHFLIPLOCAL_TSM_API_KEY=
+AZEROTHFLIPLOCAL_TSM_REGION_ID=1
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
 
 ### Backend
 
@@ -126,6 +144,11 @@ Important values:
 - `AZEROTHFLIPLOCAL_TSM_API_KEY`
 - `AZEROTHFLIPLOCAL_TSM_REGION_ID`
 - `VITE_API_BASE_URL`
+
+Notes:
+
+- `.env` is the only runtime config file the app reads.
+- `.env` contains real secrets and should stay local.
 
 ## Recommended Daily-Driver Setup
 
@@ -250,6 +273,16 @@ For Blizzard listings specifically:
 cd backend
 pytest
 ```
+
+If you use the launcher-managed `backend\.deps` install instead of a virtual environment, use:
+
+```powershell
+cd backend
+$env:PYTHONPATH=".\.deps;."
+& "C:\Users\Richard\AppData\Local\Python\pythoncore-3.14-64\python.exe" -m compileall app
+```
+
+That compile check is a lightweight sanity check for the backend runtime environment used by the launcher.
 
 ### Frontend
 

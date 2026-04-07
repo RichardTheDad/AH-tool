@@ -109,6 +109,10 @@ export function Scanner() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
       queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
+      window.setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
+        queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
+      }, 3000);
     },
   });
 
@@ -241,7 +245,7 @@ export function Scanner() {
               disabled={!readiness.items_missing_metadata || refreshMissingMetadataMutation.isPending || scanRunning}
               className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {refreshMissingMetadataMutation.isPending ? "Refreshing metadata..." : "Refresh missing metadata"}
+              {refreshMissingMetadataMutation.isPending ? "Queueing metadata sweep..." : "Queue metadata sweep"}
             </button>
             <button
               type="button"

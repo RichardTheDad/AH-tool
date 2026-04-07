@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.db.models import AppSettings, Item, ScanResult, ScanSession
 from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead
-from app.services.metadata_backfill_service import queue_missing_metadata_refresh
+from app.services.metadata_backfill_service import queue_missing_metadata_refresh, queue_missing_metadata_sweep
 from app.services.metadata_service import (
+    get_cached_tsm_region_stats,
     item_has_missing_metadata,
     item_is_noncommodity_trusted,
+    refresh_tsm_market_stats,
     scan_result_to_schema,
 )
 from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_started
@@ -22,7 +24,7 @@ from app.services.listing_service import (
 )
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
-from app.services.scoring_service import MarketHistoryContext, score_opportunity
+from app.services.scoring_service import MarketHistoryContext, TsmMarketContext, score_opportunity
 
 
 def select_cheapest_buy_snapshot(snapshots):
@@ -79,7 +81,33 @@ def _serialize_scan_results(results: list[ScanResult], history_by_item: dict[int
     ]
 
 
-def select_best_sell_snapshot(item, buy_snapshot, snapshots, settings, include_losers: bool, history_by_realm: dict[str, list] | None = None):
+def _derive_tsm_market_context(item: Item | None) -> TsmMarketContext | None:
+    if item is None:
+        return None
+    stats = get_cached_tsm_region_stats(item)
+    if not stats:
+        return None
+
+    sale_rate = stats.get("db_region_sale_rate")
+    sold_per_day = stats.get("db_region_sold_per_day")
+    if sale_rate is None and sold_per_day is None:
+        return None
+
+    return TsmMarketContext(
+        sale_rate=float(sale_rate) if sale_rate is not None else None,
+        sold_per_day=float(sold_per_day) if sold_per_day is not None else None,
+    )
+
+
+def select_best_sell_snapshot(
+    item,
+    buy_snapshot,
+    snapshots,
+    settings,
+    include_losers: bool,
+    history_by_realm: dict[str, list] | None = None,
+    tsm_market: TsmMarketContext | None = None,
+):
     candidates = [snapshot for snapshot in snapshots if snapshot.realm != buy_snapshot.realm]
     if not candidates:
         return None, None
@@ -93,6 +121,7 @@ def select_best_sell_snapshot(item, buy_snapshot, snapshots, settings, include_l
             candidate,
             settings,
             history=_build_history_context(buy_snapshot, candidate, history_by_realm),
+            tsm_market=tsm_market,
         )
         if not include_losers and score.estimated_profit <= 0:
             continue
@@ -262,6 +291,26 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         if readiness.status != "ready":
             warning_parts.append(readiness.message)
 
+        candidate_item_ids: list[int] = []
+        for item_id, snapshots in grouped.items():
+            if len(snapshots) < 2:
+                continue
+            buy_snapshot = select_cheapest_buy_snapshot(snapshots)
+            best_observed_sell = max(
+                (float(snapshot.lowest_price or 0) for snapshot in snapshots if snapshot.realm != buy_snapshot.realm),
+                default=0.0,
+            )
+            if best_observed_sell <= 0:
+                continue
+            estimated_raw_profit = (best_observed_sell * (1 - app_settings.ah_cut_percent)) - float(buy_snapshot.lowest_price or 0) - app_settings.flat_buffer
+            if estimated_raw_profit > 0:
+                candidate_item_ids.append(item_id)
+
+        if candidate_item_ids:
+            tsm_summary = refresh_tsm_market_stats(session, candidate_item_ids[:120])
+            if tsm_summary["warnings"] and tsm_summary["refreshed_count"] == 0:
+                warning_parts.append(tsm_summary["warnings"][0])
+
         scan_session = ScanSession(
             provider_name=payload.provider_name or "stored",
             warning_text=" ".join(warning_parts) if warning_parts else None,
@@ -299,6 +348,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 app_settings,
                 payload.include_losers,
                 history_by_realm=history_by_item.get(item_id),
+                tsm_market=_derive_tsm_market_context(item),
             )
 
             if best_candidate is None or best_score is None:
@@ -349,6 +399,11 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 queued_count = queue_missing_metadata_refresh(refresh_targets)
                 if queued_count:
                     warning_parts.append(f"Queued live Blizzard metadata refresh for {queued_count} scanned items.")
+
+        if metadata_configured and readiness.items_missing_metadata:
+            sweep_queued = queue_missing_metadata_sweep(limit=200)
+            if sweep_queued:
+                warning_parts.append(f"Queued metadata sweep for {sweep_queued} unresolved cached items.")
 
         if warning_parts:
             scan_session.warning_text = " ".join(warning_parts)

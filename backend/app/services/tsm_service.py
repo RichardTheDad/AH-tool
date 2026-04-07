@@ -17,6 +17,7 @@ class TsmMarketService:
     PRICING_API_BASE_URL = "https://pricing-api.tradeskillmaster.com"
     CLIENT_ID = "c260f00d-1071-409a-992f-dda2e5498536"
     SCOPE = "app:realm-api app:pricing-api"
+    DEFAULT_TOKEN_TTL_SECONDS = 3600
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
@@ -56,6 +57,25 @@ class TsmMarketService:
             logger.warning("TSM market stats lookup failed for item %s: %s", item_id, exc)
             return None, f"TSM market stats lookup failed: {exc}"
 
+    def is_market_stats_fresh(self, item_metadata: dict[str, Any] | None, *, max_age_hours: int = 24) -> bool:
+        if not isinstance(item_metadata, dict):
+            return False
+        if not isinstance(item_metadata.get("tsm_region_stats"), dict):
+            return False
+
+        updated_at_raw = item_metadata.get("tsm_updated_at")
+        if not updated_at_raw:
+            return False
+
+        try:
+            updated_at = datetime.fromisoformat(str(updated_at_raw).replace("Z", "+00:00"))
+        except ValueError:
+            return False
+
+        if updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        return updated_at.astimezone(timezone.utc) >= datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+
     def _resolve_region_id(self) -> int | None:
         if self.settings.tsm_region_id is not None:
             return self.settings.tsm_region_id
@@ -84,13 +104,38 @@ class TsmMarketService:
         response.raise_for_status()
         payload = response.json()
         token = payload.get("access_token")
-        expires_in = int(payload.get("expires_in", 0) or 0)
-        if not token or expires_in <= 0:
-            raise ValueError("TSM auth response was missing access_token or expires_in.")
+        expires_in = self._extract_expiry_seconds(payload)
+        if not token:
+            raise ValueError("TSM auth response was missing access_token.")
 
         self._access_token = str(token)
         self._access_token_expires_at = now + timedelta(seconds=expires_in)
         return self._access_token
+
+    def _extract_expiry_seconds(self, payload: dict[str, Any]) -> int:
+        raw_expires_in = payload.get("expires_in")
+        if raw_expires_in not in (None, ""):
+            try:
+                parsed = int(raw_expires_in)
+                if parsed > 0:
+                    return parsed
+            except (TypeError, ValueError):
+                pass
+
+        raw_expires_at = payload.get("expires_at")
+        if raw_expires_at not in (None, ""):
+            try:
+                expires_at = datetime.fromisoformat(str(raw_expires_at).replace("Z", "+00:00"))
+                if expires_at.tzinfo is None:
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                delta_seconds = int((expires_at.astimezone(timezone.utc) - datetime.now(timezone.utc)).total_seconds())
+                if delta_seconds > 60:
+                    return delta_seconds
+            except ValueError:
+                pass
+
+        logger.info("TSM auth response did not include a usable expiry; defaulting token lifetime to %s seconds.", self.DEFAULT_TOKEN_TTL_SECONDS)
+        return self.DEFAULT_TOKEN_TTL_SECONDS
 
     def _normalize_region_stats(self, payload: Any) -> dict[str, float | None] | None:
         flat = self._flatten(payload)

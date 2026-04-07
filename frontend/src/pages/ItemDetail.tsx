@@ -5,7 +5,7 @@ import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { ItemListingsTable } from "../components/items/ItemListingsTable";
-import { formatGold, formatPercent, formatScore } from "../utils/format";
+import { formatGold, formatMarketPerDay, formatMarketPercent, formatPercent, formatScore } from "../utils/format";
 
 export function ItemDetail() {
   const params = useParams();
@@ -140,14 +140,28 @@ export function ItemDetail() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sale rate</p>
-              <p className="mt-1 font-semibold text-ink">{formatPercent(item.tsm_region_stats.db_region_sale_rate)}</p>
+              <p
+                className="mt-1 font-semibold text-ink"
+                title={
+                  item.tsm_region_stats.db_region_sale_rate === null || item.tsm_region_stats.db_region_sale_rate === undefined
+                    ? "No TSM sale-rate data available."
+                    : `Raw value: ${item.tsm_region_stats.db_region_sale_rate}`
+                }
+              >
+                {formatMarketPercent(item.tsm_region_stats.db_region_sale_rate)}
+              </p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sold / day</p>
-              <p className="mt-1 font-semibold text-ink">
-                {item.tsm_region_stats.db_region_sold_per_day === null || item.tsm_region_stats.db_region_sold_per_day === undefined
-                  ? "--"
-                  : item.tsm_region_stats.db_region_sold_per_day.toFixed(3)}
+              <p
+                className="mt-1 font-semibold text-ink"
+                title={
+                  item.tsm_region_stats.db_region_sold_per_day === null || item.tsm_region_stats.db_region_sold_per_day === undefined
+                    ? "No TSM sold-per-day data available."
+                    : `Raw value: ${item.tsm_region_stats.db_region_sold_per_day}`
+                }
+              >
+                {formatMarketPerDay(item.tsm_region_stats.db_region_sold_per_day)}
               </p>
             </div>
           </div>

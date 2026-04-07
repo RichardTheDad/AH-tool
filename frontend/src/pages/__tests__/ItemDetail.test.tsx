@@ -78,5 +78,6 @@ describe("ItemDetail page", () => {
     expect(screen.getByRole("button", { name: "Check live Blizzard listings" })).toBeInTheDocument();
     expect(screen.getByText("TSM market stats")).toBeInTheDocument();
     expect(screen.getByText("Region sale rate")).toBeInTheDocument();
+    expect(screen.getByText("4.2%")).toBeInTheDocument();
   });
 });

@@ -16,13 +16,15 @@ Use this checklist before calling the app release-ready.
 
 ## Configuration
 
-- Confirm [.env.example](./.env.example) matches the current Blizzard-first setup.
+- Confirm local [.env](./.env) contains the required Blizzard and optional TSM settings for the intended release environment.
 - Confirm [README.md](./README.md) setup steps match the launcher and manual run paths.
 - Confirm required env vars are documented:
   - `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_ID`
   - `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_SECRET`
   - `AZEROTHFLIPLOCAL_DEFAULT_LISTING_PROVIDER`
   - `AZEROTHFLIPLOCAL_DATABASE_URL`
+  - `AZEROTHFLIPLOCAL_TSM_API_KEY`
+  - `AZEROTHFLIPLOCAL_TSM_REGION_ID`
   - `VITE_API_BASE_URL`
 
 ## Backend Verification

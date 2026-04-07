@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.schemas.item import ItemDetail, ItemRefreshRequest, ItemSearchRequest, ItemSearchResult
 from app.schemas.listing import LiveListingLookupResponse
 from app.services import metadata_service
+from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 
 
 router = APIRouter(tags=["items"])
@@ -33,7 +34,12 @@ def refresh_metadata(payload: ItemRefreshRequest, db: Session = Depends(get_db))
 
 @router.post("/items/refresh-missing-metadata")
 def refresh_missing_metadata(db: Session = Depends(get_db)) -> dict[str, object]:
-    return metadata_service.refresh_all_missing_metadata(db)
+    del db
+    queued_count = queue_missing_metadata_sweep(limit=250)
+    return {
+        "queued_count": queued_count,
+        "warnings": [] if queued_count else ["No unresolved metadata items were queued."],
+    }
 
 
 @router.get("/items/{item_id}/live-listings", response_model=LiveListingLookupResponse)

@@ -5,6 +5,7 @@ import logging
 from app.core.config import get_settings
 from app.db.session import get_session_factory
 from app.schemas.scan import ScanRunRequest
+from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 from app.services.listing_service import mark_stale_snapshots
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
@@ -38,6 +39,9 @@ def run_refresh_cycle() -> None:
                 include_losers=False,
             ),
         )
+        queued = queue_missing_metadata_sweep(limit=200)
+        if queued:
+            logger.info("Queued scheduled metadata sweep for %s unresolved items.", queued)
     except Exception:  # pragma: no cover - scheduler safety
         logger.exception("Scheduled refresh cycle failed.")
     finally:

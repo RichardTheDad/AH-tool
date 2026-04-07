@@ -3,7 +3,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from app.db.models import AppSettings, Item, ListingSnapshot
-from app.services.scoring_service import MarketHistoryContext, calculate_profit_and_roi, derive_recommended_sell_price, score_opportunity
+from app.services.scoring_service import (
+    MarketHistoryContext,
+    TsmMarketContext,
+    calculate_profit_and_roi,
+    derive_recommended_sell_price,
+    score_opportunity,
+)
 from app.services.scan_service import select_best_sell_snapshot, select_cheapest_buy_snapshot
 
 
@@ -172,3 +178,23 @@ def test_recommended_sell_price_is_more_conservative_for_thin_spiky_markets() ->
 
     assert recommended < float(sell_snapshot.lowest_price or 0)
     assert reasons
+
+
+def test_tsm_slow_sale_rate_reduces_confidence_and_score() -> None:
+    item = Item(item_id=1, name="Test Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_500, quantity=8, listing_count=5)
+    sell = make_snapshot(realm="Zul'jin", lowest_price=19_000, average_price=18_700, quantity=8, listing_count=5)
+
+    normal = score_opportunity(item, buy, sell, settings)
+    slow = score_opportunity(
+        item,
+        buy,
+        sell,
+        settings,
+        tsm_market=TsmMarketContext(sale_rate=0.0025, sold_per_day=0.03),
+    )
+
+    assert slow.confidence_score < normal.confidence_score
+    assert slow.final_score < normal.final_score
+    assert "slow regional turnover" in slow.explanation.lower()

@@ -102,7 +102,7 @@ describe("Scanner page", () => {
       result_count: 0,
       results: [],
     });
-    vi.mocked(refreshMissingMetadata).mockResolvedValue({ refreshed_count: 0, warnings: [] });
+    vi.mocked(refreshMissingMetadata).mockResolvedValue({ queued_count: 0, warnings: [] });
     vi.mocked(getProviderStatus).mockResolvedValue(providerResponse);
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
     vi.mocked(getPresets).mockResolvedValue([]);

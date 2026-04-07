@@ -4,7 +4,7 @@ import logging
 import threading
 
 from app.db.session import get_session_factory
-from app.services.metadata_service import refresh_missing_metadata
+from app.services.metadata_service import get_missing_metadata_item_ids, refresh_missing_metadata
 from app.services.provider_service import get_provider_registry
 
 
@@ -60,3 +60,37 @@ def _background_refresh_worker(item_ids: list[int]) -> None:
         with _pending_lock:
             for item_id in item_ids:
                 _pending_item_ids.discard(item_id)
+
+
+def queue_missing_metadata_sweep(*, limit: int = 250) -> int:
+    provider = get_provider_registry().metadata_provider
+    available, message = provider.is_available()
+    if not available:
+        logger.info("Skipping metadata sweep queue: %s", message)
+        return 0
+
+    session = get_session_factory()()
+    try:
+        candidate_item_ids = get_missing_metadata_item_ids(session, limit=limit)
+    finally:
+        session.close()
+
+    unique_ids: list[int] = []
+    with _pending_lock:
+        for item_id in candidate_item_ids:
+            if item_id in _pending_item_ids:
+                continue
+            _pending_item_ids.add(item_id)
+            unique_ids.append(item_id)
+
+    if not unique_ids:
+        return 0
+
+    thread = threading.Thread(
+        target=_background_refresh_worker,
+        args=(unique_ids,),
+        name="azerothfliplocal-metadata-sweep",
+        daemon=True,
+    )
+    thread.start()
+    return len(unique_ids)

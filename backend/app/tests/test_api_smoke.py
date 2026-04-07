@@ -111,7 +111,7 @@ def test_items_endpoints_smoke(client) -> None:
 
     refresh_missing = client.post("/items/refresh-missing-metadata")
     assert refresh_missing.status_code == 200
-    assert "refreshed_count" in refresh_missing.json()
+    assert "queued_count" in refresh_missing.json()
 
 
 def test_duplicate_import_rows_are_skipped_gracefully(client) -> None:

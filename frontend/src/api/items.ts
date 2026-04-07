@@ -24,7 +24,7 @@ export function refreshMetadata(itemIds: number[]) {
 }
 
 export function refreshMissingMetadata() {
-  return apiRequest<{ refreshed_count: number; warnings: string[] }>("/items/refresh-missing-metadata", {
+  return apiRequest<{ queued_count: number; warnings: string[] }>("/items/refresh-missing-metadata", {
     method: "POST",
   });
 }

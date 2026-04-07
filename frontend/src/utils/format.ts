@@ -15,6 +15,22 @@ export function formatPercent(value: number | null | undefined) {
   return `${(value * 100).toFixed(1)}%`;
 }
 
+export function formatMarketPercent(value: number | null | undefined) {
+  if (value === null || value === undefined) return "--";
+  const percent = value * 100;
+  if (percent === 0) return "0.0%";
+  if (percent < 0.001) return "<0.001%";
+  if (percent < 0.1) return `${percent.toFixed(3)}%`;
+  return `${percent.toFixed(1)}%`;
+}
+
+export function formatMarketPerDay(value: number | null | undefined) {
+  if (value === null || value === undefined) return "--";
+  if (value === 0) return "0.000";
+  if (value < 0.001) return "<0.001";
+  return value.toFixed(3);
+}
+
 export function formatScore(value: number | null | undefined) {
   if (value === null || value === undefined) return "--";
   return `${value.toFixed(0)}/100`;

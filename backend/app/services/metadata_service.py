@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from collections.abc import Iterable
+from typing import Any
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -37,6 +38,14 @@ def item_is_noncommodity_trusted(item: Item) -> bool:
     if isinstance(metadata, dict) and metadata.get("non_commodity_verified") is True:
         return True
     return not item_has_missing_metadata(item)
+
+
+def get_cached_tsm_region_stats(item: Item) -> dict[str, float | None] | None:
+    metadata = item.metadata_json
+    if not isinstance(metadata, dict):
+        return None
+    stats = metadata.get("tsm_region_stats")
+    return stats if isinstance(stats, dict) else None
 
 
 def upsert_item(session: Session, payload: ItemRead) -> Item:
@@ -155,12 +164,54 @@ def refresh_missing_metadata(session: Session, item_ids: list[int]) -> dict[str,
 
 
 def refresh_all_missing_metadata(session: Session, *, limit: int = 250) -> dict[str, object]:
-    missing_item_ids = [
+    return refresh_missing_metadata(session, get_missing_metadata_item_ids(session, limit=limit))
+
+
+def get_missing_metadata_item_ids(session: Session, *, limit: int = 250) -> list[int]:
+    return [
         item.item_id
         for item in session.query(Item).order_by(Item.item_id.asc()).all()
         if item_has_missing_metadata(item)
     ][:limit]
-    return refresh_missing_metadata(session, missing_item_ids)
+
+
+def refresh_tsm_market_stats(
+    session: Session,
+    item_ids: list[int],
+    *,
+    force: bool = False,
+    max_age_hours: int = 24,
+) -> dict[str, Any]:
+    tsm_service = TsmMarketService(get_settings())
+    available, message = tsm_service.is_available()
+    if not available:
+        return {"refreshed_count": 0, "warnings": [message]}
+
+    refreshed_count = 0
+    warnings: list[str] = []
+    for item_id in _dedupe_item_ids(item_ids):
+        item = session.get(Item, item_id)
+        if item is None:
+            continue
+
+        metadata = dict(item.metadata_json) if isinstance(item.metadata_json, dict) else {}
+        if not force and tsm_service.is_market_stats_fresh(metadata, max_age_hours=max_age_hours):
+            continue
+
+        stats, stats_message = tsm_service.fetch_region_item_stats(item_id)
+        if stats is None:
+            warnings.append(stats_message)
+            continue
+
+        metadata["tsm_region_stats"] = stats
+        metadata["tsm_updated_at"] = datetime.now(timezone.utc).isoformat()
+        metadata["tsm_region_id"] = tsm_service._resolve_region_id()
+        item.metadata_json = metadata
+        refreshed_count += 1
+
+    if refreshed_count:
+        session.commit()
+    return {"refreshed_count": refreshed_count, "warnings": warnings}
 
 
 def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missing: bool = True) -> ItemDetail | None:
@@ -206,11 +257,27 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
     tsm_region_stats = None
     tsm_status = "unavailable"
     if tsm_available:
-        region_stats, region_message = tsm_service.fetch_region_item_stats(item_id)
-        tsm_message = region_message
-        if region_stats:
-            tsm_region_stats = TsmRegionStatsRead(**region_stats)
+        metadata = dict(item.metadata_json) if isinstance(item.metadata_json, dict) else {}
+        cached_region_stats = metadata.get("tsm_region_stats") if isinstance(metadata.get("tsm_region_stats"), dict) else None
+        if not tsm_service.is_market_stats_fresh(metadata):
+            refresh_summary = refresh_tsm_market_stats(session, [item_id])
+            refreshed_item = session.get(Item, item_id) or item
+            refreshed_metadata = dict(refreshed_item.metadata_json) if isinstance(refreshed_item.metadata_json, dict) else {}
+            cached_region_stats = (
+                refreshed_metadata.get("tsm_region_stats")
+                if isinstance(refreshed_metadata.get("tsm_region_stats"), dict)
+                else cached_region_stats
+            )
+            if refresh_summary["warnings"]:
+                tsm_message = refresh_summary["warnings"][0]
+            elif refresh_summary["refreshed_count"]:
+                tsm_message = "TSM region market stats loaded."
+
+        if cached_region_stats:
+            tsm_region_stats = TsmRegionStatsRead(**cached_region_stats)
             tsm_status = "available"
+            if not tsm_message:
+                tsm_message = "Cached TSM region market stats available."
         else:
             tsm_status = "error"
 

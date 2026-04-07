@@ -56,6 +56,12 @@ class MarketHistoryContext:
     freshness_gap_minutes: float
 
 
+@dataclass
+class TsmMarketContext:
+    sale_rate: float | None = None
+    sold_per_day: float | None = None
+
+
 def derive_recommended_sell_price(
     sell_snapshot: ListingSnapshot,
     history: MarketHistoryContext | None = None,
@@ -143,6 +149,7 @@ def score_opportunity(
     sell_snapshot: ListingSnapshot,
     settings: AppSettings,
     history: MarketHistoryContext | None = None,
+    tsm_market: TsmMarketContext | None = None,
 ) -> ScoreBreakdown:
     tuning = SCORING_PRESETS.get(settings.scoring_preset, SCORING_PRESETS["balanced"])
     buy_price = float(buy_snapshot.lowest_price or 0)
@@ -153,6 +160,8 @@ def score_opportunity(
     sell_depth = _market_depth_score(sell_snapshot, tuning, buy_side=False)
     buy_depth = _market_depth_score(buy_snapshot, tuning, buy_side=True)
     liquidity_score = round(clamp((sell_depth * 0.75) + (buy_depth * 0.25), 0, 100), 2)
+    tsm_slow_market = False
+    tsm_very_slow_market = False
 
     spread_ratio = (observed_sell_price / buy_price) if buy_price > 0 else 1
     sell_avg_ratio = (
@@ -202,7 +211,29 @@ def score_opportunity(
         if history.freshness_gap_minutes > 90:
             freshness_gap_flag = True
             volatility_score -= min(14, ((history.freshness_gap_minutes - 90) / 30) * 3)
+    if tsm_market is not None:
+        if tsm_market.sale_rate is not None:
+            if tsm_market.sale_rate < 0.005:
+                tsm_very_slow_market = True
+                liquidity_score -= 24
+                volatility_score -= 10
+            elif tsm_market.sale_rate < 0.02:
+                tsm_slow_market = True
+                liquidity_score -= 14
+                volatility_score -= 5
+            elif tsm_market.sale_rate > 0.12:
+                liquidity_score += 4
+        if tsm_market.sold_per_day is not None:
+            if tsm_market.sold_per_day < 0.05:
+                tsm_very_slow_market = True
+                liquidity_score -= 16
+            elif tsm_market.sold_per_day < 0.2:
+                tsm_slow_market = True
+                liquidity_score -= 8
+            elif tsm_market.sold_per_day > 3:
+                liquidity_score += 3
     volatility_score = round(clamp(volatility_score, 0, 100), 2)
+    liquidity_score = round(clamp(liquidity_score, 0, 100), 2)
 
     bait_risk = 8.0
     if spread_ratio > tuning["suspicious_spread"]:
@@ -225,6 +256,10 @@ def score_opportunity(
         bait_risk += 12
     if freshness_gap_flag:
         bait_risk += 8
+    if tsm_slow_market:
+        bait_risk += 6
+    if tsm_very_slow_market:
+        bait_risk += 12
 
     has_stale_data = bool(buy_snapshot.is_stale or sell_snapshot.is_stale)
     if has_stale_data:
@@ -254,6 +289,10 @@ def score_opportunity(
         final_score -= 6
     if limited_history:
         final_score -= 4
+    if tsm_slow_market:
+        final_score -= 8
+    if tsm_very_slow_market:
+        final_score -= 14
     final_score = round(clamp(final_score, 0, 100), 2)
 
     is_risky = confidence < 50 or bait_risk >= 65 or liquidity_score < 45
@@ -270,6 +309,8 @@ def score_opportunity(
         inconsistent_sell_history=inconsistent_sell_history,
         sell_history_spike=sell_history_spike,
         freshness_gap_flag=freshness_gap_flag,
+        tsm_slow_market=tsm_slow_market,
+        tsm_very_slow_market=tsm_very_slow_market,
         observed_sell_price=observed_sell_price,
         recommended_sell_price=recommended_sell_price,
         sell_price_reasons=sell_price_reasons,
@@ -304,6 +345,8 @@ def build_explanation(
     inconsistent_sell_history: bool = False,
     sell_history_spike: bool = False,
     freshness_gap_flag: bool = False,
+    tsm_slow_market: bool = False,
+    tsm_very_slow_market: bool = False,
     observed_sell_price: float | None = None,
     recommended_sell_price: float | None = None,
     sell_price_reasons: list[str] | None = None,
@@ -322,6 +365,10 @@ def build_explanation(
         return f"Cheapest on {buy_realm}, but recent sell-side pricing on {sell_realm} has been inconsistent.{sell_target_note}".strip()
     if freshness_gap_flag:
         return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but the market snapshots are not closely timed.{sell_target_note}".strip()
+    if tsm_very_slow_market:
+        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but TSM shows extremely slow regional turnover.{sell_target_note}".strip()
+    if tsm_slow_market:
+        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but TSM shows low regional turnover.{sell_target_note}".strip()
     if limited_history:
         return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but recent history is limited.{sell_target_note}".strip()
     if bait_risk >= 72:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatGold } from "./format";
+import { formatGold, formatMarketPerDay, formatMarketPercent } from "./format";
 
 describe("formatGold", () => {
   it("formats copper values into gold, silver, and copper", () => {
@@ -10,5 +10,18 @@ describe("formatGold", () => {
 
   it("preserves negative values", () => {
     expect(formatGold(-12345)).toBe("-1g 23s 45c");
+  });
+});
+
+describe("TSM market formatting", () => {
+  it("shows additional precision for tiny sale rates", () => {
+    expect(formatMarketPercent(0.042)).toBe("4.2%");
+    expect(formatMarketPercent(0.00004)).toBe("0.004%");
+    expect(formatMarketPercent(0.0000005)).toBe("<0.001%");
+  });
+
+  it("shows tiny sold-per-day values without rounding them to zero", () => {
+    expect(formatMarketPerDay(0.315)).toBe("0.315");
+    expect(formatMarketPerDay(0.0004)).toBe("<0.001");
   });
 });
