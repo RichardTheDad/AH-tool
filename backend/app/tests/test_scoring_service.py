@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from app.db.models import AppSettings, Item, ListingSnapshot
-from app.services.scoring_service import calculate_profit_and_roi, score_opportunity
+from app.services.scoring_service import MarketHistoryContext, calculate_profit_and_roi, derive_recommended_sell_price, score_opportunity
 from app.services.scan_service import select_best_sell_snapshot, select_cheapest_buy_snapshot
 
 
@@ -116,3 +116,59 @@ def test_suspicious_spread_penalty_pushes_down_confidence() -> None:
 
     assert suspicious.bait_risk_score > normal.bait_risk_score
     assert suspicious.final_score < normal.final_score
+
+
+def test_sell_price_far_above_recent_history_gets_penalized() -> None:
+    item = Item(item_id=1, name="Test Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_500, quantity=8, listing_count=5)
+    stable_sell = make_snapshot(realm="Stormrage", lowest_price=18_000, average_price=18_100, quantity=8, listing_count=5)
+    spiky_sell = make_snapshot(realm="Zul'jin", lowest_price=26_500, average_price=18_200, quantity=5, listing_count=4)
+
+    stable = score_opportunity(
+        item,
+        buy,
+        stable_sell,
+        settings,
+        history=MarketHistoryContext(
+            sell_recent_prices=[17_800, 18_000, 18_250],
+            buy_recent_prices=[10_100, 10_200, 10_000],
+            freshness_gap_minutes=10,
+        ),
+    )
+    spiky = score_opportunity(
+        item,
+        buy,
+        spiky_sell,
+        settings,
+        history=MarketHistoryContext(
+            sell_recent_prices=[17_900, 18_100, 18_250],
+            buy_recent_prices=[10_100, 10_200, 10_000],
+            freshness_gap_minutes=10,
+        ),
+    )
+
+    assert spiky.bait_risk_score > stable.bait_risk_score
+    assert spiky.final_score < stable.final_score
+    assert "recent history" in spiky.explanation.lower()
+
+
+def test_recommended_sell_price_is_more_conservative_for_thin_spiky_markets() -> None:
+    sell_snapshot = make_snapshot(
+        realm="Zul'jin",
+        lowest_price=40_000,
+        average_price=22_000,
+        quantity=1,
+        listing_count=1,
+    )
+    recommended, reasons = derive_recommended_sell_price(
+        sell_snapshot,
+        MarketHistoryContext(
+            sell_recent_prices=[20_500, 21_000, 22_000],
+            buy_recent_prices=[10_000, 10_100, 10_200],
+            freshness_gap_minutes=10,
+        ),
+    )
+
+    assert recommended < float(sell_snapshot.lowest_price or 0)
+    assert reasons

@@ -173,6 +173,8 @@ $frontendDir = Join-Path $rootDir "frontend"
 $backendDepsDir = Join-Path $backendDir ".deps"
 $backendTempDir = Join-Path $backendDir ".tmp"
 $backendRequirementsPath = Join-Path $backendDir "requirements.txt"
+$envPath = Join-Path $rootDir ".env"
+$envExamplePath = Join-Path $rootDir ".env.example"
 
 if (-not (Test-Path $backendDir)) {
     throw "Backend directory not found at $backendDir"
@@ -180,6 +182,11 @@ if (-not (Test-Path $backendDir)) {
 
 if (-not (Test-Path $frontendDir)) {
     throw "Frontend directory not found at $frontendDir"
+}
+
+if (-not (Test-Path $envPath) -and (Test-Path $envExamplePath)) {
+    Copy-Item -LiteralPath $envExamplePath -Destination $envPath
+    Write-Step "Created .env from .env.example. Review .env if you need to change providers or credentials."
 }
 
 $pythonExe = Resolve-PythonPath $PythonPath

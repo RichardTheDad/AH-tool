@@ -13,6 +13,7 @@ export function useScannerFilters() {
     allowStale: searchParams.get("allowStale") === "true",
     hideRisky: searchParams.get("hideRisky") !== "false",
     sortBy: (searchParams.get("sortBy") as ScannerFilters["sortBy"]) ?? "final_score",
+    sortDirection: (searchParams.get("sortDirection") as ScannerFilters["sortDirection"]) ?? "desc",
   };
 
   function updateFilters(next: Partial<ScannerFilters>) {
@@ -29,4 +30,3 @@ export function useScannerFilters() {
 
   return { filters, updateFilters };
 }
-

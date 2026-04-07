@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { getItem } from "../api/items";
+import { getItem, getLiveItemListings, refreshMetadata } from "../api/items";
 import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -10,10 +10,22 @@ import { formatGold, formatPercent, formatScore } from "../utils/format";
 export function ItemDetail() {
   const params = useParams();
   const itemId = Number(params.itemId);
+  const queryClient = useQueryClient();
   const itemQuery = useQuery({
     queryKey: ["items", itemId],
     queryFn: () => getItem(itemId),
     enabled: Number.isFinite(itemId),
+  });
+  const liveListingsQuery = useQuery({
+    queryKey: ["items", itemId, "live-listings"],
+    queryFn: () => getLiveItemListings(itemId),
+    enabled: false,
+  });
+  const refreshMetadataMutation = useMutation({
+    mutationFn: () => refreshMetadata([itemId]),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["items", itemId] });
+    },
   });
 
   if (itemQuery.isLoading) {
@@ -32,6 +44,28 @@ export function ItemDetail() {
         title={item.name}
         subtitle={`${item.class_name ?? "Unknown class"}${item.subclass_name ? ` | ${item.subclass_name}` : ""}`}
       >
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              item.metadata_status === "live"
+                ? "bg-sky-100 text-sky-700"
+                : item.metadata_status === "missing"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {item.metadata_status === "live" ? "Live metadata" : item.metadata_status === "missing" ? "Metadata missing" : "Cached metadata"}
+          </span>
+          <button
+            type="button"
+            onClick={() => refreshMetadataMutation.mutate()}
+            disabled={refreshMetadataMutation.isPending}
+            className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {refreshMetadataMutation.isPending ? "Refreshing..." : "Refresh live metadata"}
+          </button>
+        </div>
+        {item.metadata_message ? <p className="mb-4 text-sm text-slate-600">{item.metadata_message}</p> : null}
         <div className="grid gap-4 lg:grid-cols-4">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Quality</p>
@@ -75,8 +109,43 @@ export function ItemDetail() {
         </Card>
       ) : null}
 
-      <Card title="Latest listings" subtitle="Most recent snapshot per tracked realm.">
+      <Card title="Latest local listings" subtitle="Most recent cached snapshot per tracked realm.">
         <ItemListingsTable listings={item.latest_listings} />
+      </Card>
+
+      <Card title="Live Blizzard lookup" subtitle="On-demand live item listings across your tracked realms from the Blizzard Auction House API.">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => liveListingsQuery.refetch()}
+              disabled={liveListingsQuery.isFetching}
+              className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {liveListingsQuery.isFetching ? "Checking..." : "Check live Blizzard listings"}
+            </button>
+            {liveListingsQuery.data ? (
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                  liveListingsQuery.data.status === "available"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : liveListingsQuery.data.status === "error"
+                      ? "bg-rose-100 text-rose-700"
+                      : "bg-slate-100 text-slate-700"
+                }`}
+              >
+                {liveListingsQuery.data.status}
+              </span>
+            ) : null}
+          </div>
+          {liveListingsQuery.error ? <ErrorState message="Live Blizzard lookup failed." /> : null}
+          {liveListingsQuery.data ? <p className="text-sm text-slate-600">{liveListingsQuery.data.message}</p> : null}
+          {liveListingsQuery.data?.listings.length ? (
+            <ItemListingsTable listings={liveListingsQuery.data.listings} />
+          ) : (
+            <p className="text-sm text-slate-500">Run a live lookup to compare Blizzard&apos;s current per-item view against your local cached listings.</p>
+          )}
+        </div>
       </Card>
     </div>
   );

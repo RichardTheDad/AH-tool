@@ -36,6 +36,7 @@ class ItemSearchResult(ItemRead):
 
 
 class ItemDetail(ItemRead):
+    metadata_status: str = "cached"
+    metadata_message: str | None = None
     latest_listings: list[ListingSnapshotRead] = Field(default_factory=list)
     recent_scan: ScanResultRead | None = None
-

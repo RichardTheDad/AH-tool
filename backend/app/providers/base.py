@@ -34,6 +34,9 @@ class BaseProvider(ABC):
     def is_available(self) -> tuple[bool, str]:
         raise NotImplementedError
 
+    def recheck_status(self) -> tuple[bool, str]:
+        return self.is_available()
+
     def get_status(self) -> ProviderStatus:
         available, message = self.is_available()
         return ProviderStatus(
@@ -67,3 +70,6 @@ class ListingProvider(BaseProvider, ABC):
     @abstractmethod
     def fetch_listings(self, realms: list[str]) -> list[ListingImportRow]:
         raise NotImplementedError
+
+    def fetch_item_market(self, *, item_id: int, region: str, tracked_realms: list[str]) -> tuple[list[ListingImportRow], str]:
+        return [], "Live item market lookup is not supported by this provider."

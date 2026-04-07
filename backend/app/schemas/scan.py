@@ -49,6 +49,41 @@ class ScanLatestResponse(BaseModel):
     latest: ScanSessionRead | None = None
 
 
+class RealmScanReadiness(BaseModel):
+    realm: str
+    has_data: bool
+    fresh_item_count: int = 0
+    stale_item_count: int = 0
+    latest_item_count: int = 0
+    freshest_captured_at: datetime | None = None
+    latest_source_name: str | None = None
+
+
+class ScanReadinessRead(BaseModel):
+    status: str
+    ready_for_scan: bool
+    message: str
+    enabled_realm_count: int
+    realms_with_data: int
+    realms_with_fresh_data: int
+    unique_item_count: int
+    items_missing_metadata: int
+    stale_realm_count: int
+    missing_realms: list[str] = Field(default_factory=list)
+    stale_realms: list[str] = Field(default_factory=list)
+    oldest_snapshot_at: datetime | None = None
+    latest_snapshot_at: datetime | None = None
+    realms: list[RealmScanReadiness] = Field(default_factory=list)
+
+
+class ScanRuntimeStatusRead(BaseModel):
+    status: str
+    message: str
+    provider_name: str | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
 class ScanResultFilterState(BaseModel):
     min_profit: float | None = None
     min_roi: float | None = None
@@ -66,4 +101,3 @@ class ScanSessionSummary(BaseModel):
     result_count: int
 
     model_config = ConfigDict(from_attributes=True)
-

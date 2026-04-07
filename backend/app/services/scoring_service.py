@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from statistics import median
 
 from app.db.models import AppSettings, Item, ListingSnapshot
 
@@ -35,6 +36,7 @@ SCORING_PRESETS = {
 
 @dataclass
 class ScoreBreakdown:
+    recommended_sell_price: float
     estimated_profit: float
     roi: float
     confidence_score: float
@@ -45,6 +47,56 @@ class ScoreBreakdown:
     explanation: str
     has_stale_data: bool
     is_risky: bool
+
+
+@dataclass
+class MarketHistoryContext:
+    sell_recent_prices: list[float]
+    buy_recent_prices: list[float]
+    freshness_gap_minutes: float
+
+
+def derive_recommended_sell_price(
+    sell_snapshot: ListingSnapshot,
+    history: MarketHistoryContext | None = None,
+) -> tuple[float, list[str]]:
+    observed_price = float(sell_snapshot.lowest_price or 0)
+    if observed_price <= 0:
+        return 0.0, []
+
+    caps: list[float] = [observed_price]
+    reasons: list[str] = []
+    quantity = sell_snapshot.quantity or 0
+    listing_count = sell_snapshot.listing_count or 0
+    thin_market = quantity <= 2 or listing_count <= 1
+
+    average_price = float(sell_snapshot.average_price or 0)
+    if average_price > 0:
+        average_cap = average_price * (1.0 if thin_market else 1.03)
+        caps.append(average_cap)
+        if observed_price > average_cap:
+            reasons.append("sell target capped near local average")
+
+    if history is not None:
+        sell_history = [price for price in history.sell_recent_prices if price > 0]
+        if sell_history:
+            history_median = median(sell_history)
+            history_cap = history_median * (1.02 if thin_market else 1.08)
+            caps.append(history_cap)
+            if observed_price > history_cap:
+                reasons.append("sell target capped by recent history")
+
+    if thin_market:
+        thin_cap = observed_price * 0.95
+        caps.append(thin_cap)
+        reasons.append("thin sell market haircut applied")
+
+    recommended = round(max(min(caps), 0), 2)
+    normalized_reasons: list[str] = []
+    for reason in reasons:
+        if reason not in normalized_reasons:
+            normalized_reasons.append(reason)
+    return recommended, normalized_reasons
 
 
 def clamp(value: float, lower: float, upper: float) -> float:
@@ -90,19 +142,21 @@ def score_opportunity(
     buy_snapshot: ListingSnapshot,
     sell_snapshot: ListingSnapshot,
     settings: AppSettings,
+    history: MarketHistoryContext | None = None,
 ) -> ScoreBreakdown:
     tuning = SCORING_PRESETS.get(settings.scoring_preset, SCORING_PRESETS["balanced"])
     buy_price = float(buy_snapshot.lowest_price or 0)
-    sell_price = float(sell_snapshot.lowest_price or 0)
-    estimated_profit, roi = calculate_profit_and_roi(buy_price, sell_price, settings)
+    observed_sell_price = float(sell_snapshot.lowest_price or 0)
+    recommended_sell_price, sell_price_reasons = derive_recommended_sell_price(sell_snapshot, history)
+    estimated_profit, roi = calculate_profit_and_roi(buy_price, recommended_sell_price, settings)
 
     sell_depth = _market_depth_score(sell_snapshot, tuning, buy_side=False)
     buy_depth = _market_depth_score(buy_snapshot, tuning, buy_side=True)
     liquidity_score = round(clamp((sell_depth * 0.75) + (buy_depth * 0.25), 0, 100), 2)
 
-    spread_ratio = (sell_price / buy_price) if buy_price > 0 else 1
+    spread_ratio = (observed_sell_price / buy_price) if buy_price > 0 else 1
     sell_avg_ratio = (
-        (sell_price / float(sell_snapshot.average_price))
+        (observed_sell_price / float(sell_snapshot.average_price))
         if sell_snapshot.average_price and float(sell_snapshot.average_price) > 0
         else 1
     )
@@ -113,6 +167,10 @@ def score_opportunity(
     )
 
     volatility_score = 100.0
+    limited_history = False
+    inconsistent_sell_history = False
+    sell_history_spike = False
+    freshness_gap_flag = False
     if spread_ratio > tuning["suspicious_spread"]:
         volatility_score -= min(32, (spread_ratio - tuning["suspicious_spread"]) * 10)
     if spread_ratio > tuning["extreme_spread"] and _is_thin_market(sell_snapshot):
@@ -121,6 +179,29 @@ def score_opportunity(
         volatility_score -= min(35, (sell_avg_ratio - 1.45) * 40)
     if buy_avg_ratio > 2.1:
         volatility_score -= min(16, (buy_avg_ratio - 2.1) * 10)
+    if history is not None:
+        sell_history = [price for price in history.sell_recent_prices if price > 0]
+        buy_history = [price for price in history.buy_recent_prices if price > 0]
+        if len(sell_history) < 2:
+            limited_history = True
+            volatility_score -= 8
+        else:
+            sell_median = median(sell_history)
+            if sell_median > 0:
+                sell_vs_history = observed_sell_price / sell_median
+                if sell_vs_history > 1.35:
+                    sell_history_spike = True
+                    volatility_score -= min(26, (sell_vs_history - 1.35) * 26)
+                sell_range_ratio = max(sell_history) / max(min(sell_history), 1)
+                if sell_range_ratio > 1.7:
+                    inconsistent_sell_history = True
+                    volatility_score -= min(18, (sell_range_ratio - 1.7) * 12)
+        if len(buy_history) < 2:
+            limited_history = True
+            volatility_score -= 4
+        if history.freshness_gap_minutes > 90:
+            freshness_gap_flag = True
+            volatility_score -= min(14, ((history.freshness_gap_minutes - 90) / 30) * 3)
     volatility_score = round(clamp(volatility_score, 0, 100), 2)
 
     bait_risk = 8.0
@@ -136,6 +217,14 @@ def score_opportunity(
         bait_risk += tuning["bait_penalty"] * 0.95
     if (sell_snapshot.quantity or 0) <= 1 and (sell_snapshot.listing_count or 0) <= 1:
         bait_risk += tuning["bait_penalty"] * 0.55
+    if limited_history:
+        bait_risk += 6
+    if inconsistent_sell_history:
+        bait_risk += 8
+    if sell_history_spike:
+        bait_risk += 12
+    if freshness_gap_flag:
+        bait_risk += 8
 
     has_stale_data = bool(buy_snapshot.is_stale or sell_snapshot.is_stale)
     if has_stale_data:
@@ -157,6 +246,14 @@ def score_opportunity(
         final_score -= 12
     if liquidity_score < 40:
         final_score -= 10
+    if sell_history_spike:
+        final_score -= 18
+    if inconsistent_sell_history:
+        final_score -= 10
+    if freshness_gap_flag:
+        final_score -= 6
+    if limited_history:
+        final_score -= 4
     final_score = round(clamp(final_score, 0, 100), 2)
 
     is_risky = confidence < 50 or bait_risk >= 65 or liquidity_score < 45
@@ -169,9 +266,17 @@ def score_opportunity(
         has_stale_data,
         spread_ratio,
         sell_avg_ratio,
+        limited_history=limited_history,
+        inconsistent_sell_history=inconsistent_sell_history,
+        sell_history_spike=sell_history_spike,
+        freshness_gap_flag=freshness_gap_flag,
+        observed_sell_price=observed_sell_price,
+        recommended_sell_price=recommended_sell_price,
+        sell_price_reasons=sell_price_reasons,
     )
 
     return ScoreBreakdown(
+        recommended_sell_price=recommended_sell_price,
         estimated_profit=estimated_profit,
         roi=roi,
         confidence_score=confidence,
@@ -194,15 +299,37 @@ def build_explanation(
     has_stale_data: bool,
     spread_ratio: float,
     sell_avg_ratio: float,
+    *,
+    limited_history: bool = False,
+    inconsistent_sell_history: bool = False,
+    sell_history_spike: bool = False,
+    freshness_gap_flag: bool = False,
+    observed_sell_price: float | None = None,
+    recommended_sell_price: float | None = None,
+    sell_price_reasons: list[str] | None = None,
 ) -> str:
+    sell_target_note = ""
+    if observed_sell_price and recommended_sell_price and recommended_sell_price < observed_sell_price:
+        sell_target_note = f" Conservative sell target used instead of the raw lowest listing on {sell_realm}."
+    if sell_price_reasons:
+        sell_target_note = f"{sell_target_note} " + "; ".join(sell_price_reasons).capitalize() + "."
+        sell_target_note = sell_target_note.strip()
     if has_stale_data:
-        return f"High margin detected, but confidence reduced due to stale target data on {sell_realm}."
+        return f"High margin detected, but confidence reduced due to stale target data on {sell_realm}.{sell_target_note}".strip()
+    if sell_history_spike:
+        return f"Sell price looks far above recent history on {sell_realm}, so confidence is reduced.{sell_target_note}".strip()
+    if inconsistent_sell_history:
+        return f"Cheapest on {buy_realm}, but recent sell-side pricing on {sell_realm} has been inconsistent.{sell_target_note}".strip()
+    if freshness_gap_flag:
+        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but the market snapshots are not closely timed.{sell_target_note}".strip()
+    if limited_history:
+        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but recent history is limited.{sell_target_note}".strip()
     if bait_risk >= 72:
-        return f"High spread between {buy_realm} and {sell_realm}, but the sell-side market looks suspicious."
+        return f"High spread between {buy_realm} and {sell_realm}, but the sell-side market looks suspicious.{sell_target_note}".strip()
     if liquidity_score < 48:
-        return f"Good spread, but sell-side market is thin on {sell_realm}."
+        return f"Good spread, but sell-side market is thin on {sell_realm}.{sell_target_note}".strip()
     if sell_avg_ratio > 1.45 or spread_ratio > 3.8:
-        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but the spread needs caution."
+        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but the spread needs caution.{sell_target_note}".strip()
     if confidence >= 78:
-        return f"Strong current opportunity across tracked realms: cheapest on {buy_realm}, strongest sell on {sell_realm}, with acceptable liquidity."
-    return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, with acceptable liquidity."
+        return f"Strong current opportunity across tracked realms: cheapest on {buy_realm}, strongest sell on {sell_realm}, with acceptable liquidity.{sell_target_note}".strip()
+    return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, with acceptable liquidity.{sell_target_note}".strip()

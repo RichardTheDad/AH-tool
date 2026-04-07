@@ -20,6 +20,16 @@ class ListingSnapshotRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class LiveListingLookupRow(BaseModel):
+    realm: str
+    lowest_price: float | None = None
+    average_price: float | None = None
+    quantity: int | None = None
+    listing_count: int | None = None
+    captured_at: datetime
+    source_name: str = "blizzard_auctions_live"
+
+
 class ListingImportRow(BaseModel):
     item_id: int = Field(gt=0)
     realm: str = Field(min_length=1, max_length=120)
@@ -72,14 +82,32 @@ class ListingImportError(BaseModel):
     message: str
 
 
+class ListingImportCoverage(BaseModel):
+    realm_count: int = 0
+    unique_item_count: int = 0
+    oldest_captured_at: datetime | None = None
+    latest_captured_at: datetime | None = None
+    enabled_realms_covered: int = 0
+    missing_enabled_realms: list[str] = Field(default_factory=list)
+
+
 class ListingImportResponse(BaseModel):
     committed: bool
     provider_name: str = "file_import"
     accepted_count: int = 0
     inserted_count: int = 0
     skipped_duplicates: int = 0
+    metadata_refreshed_count: int = 0
     preview_rows: list[ListingImportPreviewRow] = Field(default_factory=list)
     errors: list[ListingImportError] = Field(default_factory=list)
     untracked_realms: list[str] = Field(default_factory=list)
+    coverage: ListingImportCoverage = Field(default_factory=ListingImportCoverage)
     summary: str | None = None
     warning: str | None = None
+
+
+class LiveListingLookupResponse(BaseModel):
+    provider_name: str = "blizzard_auctions"
+    status: str
+    message: str
+    listings: list[LiveListingLookupRow] = Field(default_factory=list)

@@ -1,10 +1,55 @@
 import { Link } from "react-router-dom";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
-import type { ScanResult } from "../../types/models";
+import type { ScanResult, ScannerFilters } from "../../types/models";
 import { formatGold, formatPercent, formatScore } from "../../utils/format";
 
-export function ScannerTable({ results }: { results: ScanResult[] }) {
+interface ScannerTableProps {
+  results: ScanResult[];
+  sortBy: ScannerFilters["sortBy"];
+  sortDirection: ScannerFilters["sortDirection"];
+  onSortChange: (next: { sortBy: ScannerFilters["sortBy"]; sortDirection: ScannerFilters["sortDirection"] }) => void;
+}
+
+function SortableHeader({
+  label,
+  column,
+  sortBy,
+  sortDirection,
+  onSortChange,
+  className,
+}: {
+  label: string;
+  column: ScannerFilters["sortBy"];
+  sortBy: ScannerFilters["sortBy"];
+  sortDirection: ScannerFilters["sortDirection"];
+  onSortChange: ScannerTableProps["onSortChange"];
+  className?: string;
+}) {
+  const active = sortBy === column;
+  const indicator = !active ? "" : sortDirection === "desc" ? " v" : " ^";
+
+  return (
+    <th className={className}>
+      <button
+        type="button"
+        onClick={() =>
+          onSortChange({
+            sortBy: column,
+            sortDirection: active && sortDirection === "desc" ? "asc" : "desc",
+          })
+        }
+        className="whitespace-nowrap text-left transition hover:text-ink"
+        aria-pressed={active}
+      >
+        {label}
+        {indicator}
+      </button>
+    </th>
+  );
+}
+
+export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: ScannerTableProps) {
   if (!results.length) {
     return <EmptyState title="No current opportunities" description="Try a looser preset, import fresher listings, or refresh from an available listing provider." />;
   }
@@ -17,12 +62,33 @@ export function ScannerTable({ results }: { results: ScanResult[] }) {
             <tr>
               <th className="px-3 py-3 min-w-[10rem]">Item</th>
               <th className="px-4 py-3 whitespace-nowrap">Buy realm</th>
-              <th className="px-4 py-3 whitespace-nowrap">Buy price</th>
+              <SortableHeader
+                label="Buy price"
+                column="cheapest_buy_price"
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortChange={onSortChange}
+                className="px-4 py-3 whitespace-nowrap"
+              />
               <th className="px-4 py-3 whitespace-nowrap">Sell realm</th>
               <th className="px-4 py-3 whitespace-nowrap">Sell price</th>
               <th className="px-4 py-3 whitespace-nowrap">Profit</th>
-              <th className="px-4 py-3 whitespace-nowrap">ROI</th>
-              <th className="px-4 py-3 whitespace-nowrap">Confidence</th>
+              <SortableHeader
+                label="ROI"
+                column="roi"
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortChange={onSortChange}
+                className="px-4 py-3 whitespace-nowrap"
+              />
+              <SortableHeader
+                label="Confidence"
+                column="confidence_score"
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortChange={onSortChange}
+                className="px-4 py-3 whitespace-nowrap"
+              />
               <th className="px-3 py-3 min-w-[13rem]">Explanation</th>
             </tr>
           </thead>
@@ -48,11 +114,16 @@ export function ScannerTable({ results }: { results: ScanResult[] }) {
                 <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-emerald-700">{formatGold(result.estimated_profit)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
-                  <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
-                    {formatScore(result.confidence_score)}
-                  </Badge>
+                  <span title={`Confidence ${formatScore(result.confidence_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}>
+                    <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
+                      {formatScore(result.confidence_score)}
+                    </Badge>
+                  </span>
                 </td>
-                <td className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-slate-600 [overflow-wrap:anywhere]">
+                <td
+                  className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-slate-600 [overflow-wrap:anywhere]"
+                  title={`Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
+                >
                   {result.explanation}
                 </td>
               </tr>

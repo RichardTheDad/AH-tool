@@ -71,6 +71,41 @@ export interface LatestScanResponse {
   latest: ScanSession | null;
 }
 
+export interface RealmScanReadiness {
+  realm: string;
+  has_data: boolean;
+  fresh_item_count: number;
+  stale_item_count: number;
+  latest_item_count: number;
+  freshest_captured_at?: string | null;
+  latest_source_name?: string | null;
+}
+
+export interface ScanReadiness {
+  status: "ready" | "caution" | "blocked";
+  ready_for_scan: boolean;
+  message: string;
+  enabled_realm_count: number;
+  realms_with_data: number;
+  realms_with_fresh_data: number;
+  unique_item_count: number;
+  items_missing_metadata: number;
+  stale_realm_count: number;
+  missing_realms: string[];
+  stale_realms: string[];
+  oldest_snapshot_at?: string | null;
+  latest_snapshot_at?: string | null;
+  realms: RealmScanReadiness[];
+}
+
+export interface ScanRuntimeStatus {
+  status: "idle" | "running";
+  message: string;
+  provider_name?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+}
+
 export interface AppSettings {
   id: number;
   ah_cut_percent: number;
@@ -106,8 +141,27 @@ export interface ItemSummary {
 }
 
 export interface ItemDetail extends ItemSummary {
+  metadata_status: "cached" | "live" | "missing";
+  metadata_message?: string | null;
   latest_listings: ListingSnapshot[];
   recent_scan?: ScanResult | null;
+}
+
+export interface LiveListingRow {
+  realm: string;
+  lowest_price: number | null;
+  average_price: number | null;
+  quantity: number | null;
+  listing_count: number | null;
+  captured_at: string;
+  source_name: string;
+}
+
+export interface LiveListingLookupResponse {
+  provider_name: string;
+  status: "available" | "unavailable" | "error";
+  message: string;
+  listings: LiveListingRow[];
 }
 
 export interface ListingImportPreviewRow {
@@ -132,9 +186,18 @@ export interface ListingImportResponse {
   accepted_count: number;
   inserted_count: number;
   skipped_duplicates: number;
+  metadata_refreshed_count: number;
   preview_rows: ListingImportPreviewRow[];
   errors: ListingImportError[];
   untracked_realms: string[];
+  coverage: {
+    realm_count: number;
+    unique_item_count: number;
+    oldest_captured_at?: string | null;
+    latest_captured_at?: string | null;
+    enabled_realms_covered: number;
+    missing_enabled_realms: string[];
+  };
   summary?: string | null;
   warning?: string | null;
 }
@@ -147,5 +210,6 @@ export interface ScannerFilters {
   category: string;
   allowStale: boolean;
   hideRisky: boolean;
-  sortBy: "final_score" | "estimated_profit" | "roi" | "confidence_score";
+  sortBy: "final_score" | "estimated_profit" | "cheapest_buy_price" | "roi" | "confidence_score";
+  sortDirection: "asc" | "desc";
 }

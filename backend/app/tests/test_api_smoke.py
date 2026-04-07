@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from sqlalchemy import text
+
+from app.db.session import get_engine
+
 
 def test_settings_presets_imports_and_providers_smoke(client) -> None:
     settings = client.get("/settings")
@@ -58,6 +62,8 @@ def test_settings_presets_imports_and_providers_smoke(client) -> None:
     assert preview_import.status_code == 200
     assert preview_import.json()["accepted_count"] == 1
     assert preview_import.json()["committed"] is False
+    assert preview_import.json()["coverage"]["realm_count"] == 1
+    assert preview_import.json()["coverage"]["unique_item_count"] == 1
 
     commit_import = client.post(
         "/imports/listings",
@@ -70,7 +76,15 @@ def test_settings_presets_imports_and_providers_smoke(client) -> None:
     providers = client.get("/providers/status")
     assert providers.status_code == 200
     names = {provider["name"]: provider for provider in providers.json()["providers"]}
-    assert set(names) == {"file_import", "saddlebag_public", "saddlebag_public_metadata"}
+    assert set(names) == {"blizzard_auctions", "blizzard_metadata", "file_import"}
+
+    readiness = client.get("/scans/readiness")
+    assert readiness.status_code == 200
+    assert "status" in readiness.json()
+
+    status = client.get("/scans/status")
+    assert status.status_code == 200
+    assert status.json()["status"] in {"idle", "running"}
 
 
 def test_items_endpoints_smoke(client) -> None:
@@ -89,3 +103,56 @@ def test_items_endpoints_smoke(client) -> None:
     detail = client.get("/items/873")
     assert detail.status_code == 200
     assert detail.json()["item_id"] == 873
+    assert detail.json()["metadata_status"] in {"cached", "missing", "live"}
+
+    live_listings = client.get("/items/873/live-listings")
+    assert live_listings.status_code == 200
+    assert live_listings.json()["status"] == "unavailable"
+
+    refresh_missing = client.post("/items/refresh-missing-metadata")
+    assert refresh_missing.status_code == 200
+    assert "refreshed_count" in refresh_missing.json()
+
+
+def test_duplicate_import_rows_are_skipped_gracefully(client) -> None:
+    client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
+    payload = b"item_id,realm,lowest_price,average_price,quantity,listing_count,captured_at\n873,Stormrage,15000,15500,2,2,2026-04-06T02:45:00+00:00\n"
+
+    first = client.post(
+        "/imports/listings",
+        data={"commit": "true"},
+        files={"file": ("listings.csv", payload, "text/csv")},
+    )
+    assert first.status_code == 200
+    assert first.json()["inserted_count"] == 1
+
+    second = client.post(
+        "/imports/listings",
+        data={"commit": "true"},
+        files={"file": ("listings.csv", payload, "text/csv")},
+    )
+    assert second.status_code == 200
+    assert second.json()["inserted_count"] == 0
+    assert second.json()["skipped_duplicates"] == 1
+
+
+def test_listing_snapshot_indexes_exist(client) -> None:
+    with get_engine().connect() as connection:
+        rows = connection.execute(text("PRAGMA index_list('listing_snapshots')")).mappings().all()
+
+    index_names = {row["name"] for row in rows}
+    assert {
+        "ix_listing_snapshots_item_realm_captured",
+        "ix_listing_snapshots_realm_item_captured",
+        "ix_listing_snapshots_source_realm_captured",
+        "ux_listing_snapshots_exact",
+    }.issubset(index_names)
+
+
+def test_sqlite_runtime_pragmas_favor_local_concurrency(client) -> None:
+    with get_engine().connect() as connection:
+        journal_mode = connection.execute(text("PRAGMA journal_mode")).scalar()
+        busy_timeout = connection.execute(text("PRAGMA busy_timeout")).scalar()
+
+    assert str(journal_mode).lower() == "wal"
+    assert int(busy_timeout) == 30000

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -37,6 +37,12 @@ class Item(Base):
 
 class ListingSnapshot(Base):
     __tablename__ = "listing_snapshots"
+    __table_args__ = (
+        Index("ix_listing_snapshots_item_realm_captured", "item_id", "realm", "captured_at"),
+        Index("ix_listing_snapshots_realm_item_captured", "realm", "item_id", "captured_at"),
+        Index("ix_listing_snapshots_source_realm_captured", "source_name", "realm", "captured_at"),
+        Index("ux_listing_snapshots_exact", "item_id", "realm", "source_name", "captured_at", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("items.item_id"), index=True)

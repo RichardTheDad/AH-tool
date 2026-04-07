@@ -10,9 +10,24 @@ vi.mock("../../api/realms", () => ({
   deleteRealm: vi.fn(),
 }));
 
+vi.mock("../../api/scans", () => ({
+  getScanStatus: vi.fn(),
+}));
+
 import { createRealm, deleteRealm, getRealms, updateRealm } from "../../api/realms";
+import { getScanStatus } from "../../api/scans";
 
 describe("Realms page", () => {
+  beforeEach(() => {
+    vi.mocked(getScanStatus).mockResolvedValue({
+      status: "idle",
+      message: "Scanner is idle.",
+      provider_name: "file_import",
+      started_at: null,
+      finished_at: null,
+    });
+  });
+
   it("blocks duplicate realm entries before submit", async () => {
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
     vi.mocked(createRealm).mockResolvedValue({
@@ -74,5 +89,22 @@ describe("Realms page", () => {
     renderWithProviders(<Realms />, "/realms");
 
     expect(await screen.findByText("Tracked realms could not be loaded.")).toBeInTheDocument();
+  });
+
+  it("locks realm editing while a scan is running", async () => {
+    vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
+    vi.mocked(getScanStatus).mockResolvedValue({
+      status: "running",
+      message: "A scan is currently running. Realm and metadata edits are temporarily locked.",
+      provider_name: "blizzard_auctions",
+      started_at: new Date().toISOString(),
+      finished_at: null,
+    });
+
+    renderWithProviders(<Realms />, "/realms");
+
+    expect(await screen.findByText(/temporarily locked/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add realm" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Disable" })).toBeDisabled();
   });
 });

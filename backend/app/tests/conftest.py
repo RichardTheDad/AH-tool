@@ -16,6 +16,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("AZEROTHFLIPLOCAL_DATABASE_URL", f"sqlite:///{db_path.as_posix()}")
     monkeypatch.setenv("AZEROTHFLIPLOCAL_DEFAULT_LISTING_PROVIDER", "file_import")
     monkeypatch.setenv("AZEROTHFLIPLOCAL_ENABLE_SCHEDULER", "false")
+    monkeypatch.setenv("AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_ID", "")
+    monkeypatch.setenv("AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_SECRET", "")
 
     clear_settings_cache()
     clear_db_caches()

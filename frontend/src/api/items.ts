@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { ItemDetail, ItemSummary } from "../types/models";
+import type { ItemDetail, ItemSummary, LiveListingLookupResponse } from "../types/models";
 
 export function searchItems(query: string, limit = 25) {
   return apiRequest<ItemSummary[]>("/items/search", {
@@ -12,6 +12,10 @@ export function getItem(itemId: number) {
   return apiRequest<ItemDetail>(`/items/${itemId}`);
 }
 
+export function getLiveItemListings(itemId: number) {
+  return apiRequest<LiveListingLookupResponse>(`/items/${itemId}/live-listings`);
+}
+
 export function refreshMetadata(itemIds: number[]) {
   return apiRequest<{ refreshed_count: number; warnings: string[] }>("/items/refresh-metadata", {
     method: "POST",
@@ -19,3 +23,8 @@ export function refreshMetadata(itemIds: number[]) {
   });
 }
 
+export function refreshMissingMetadata() {
+  return apiRequest<{ refreshed_count: number; warnings: string[] }>("/items/refresh-missing-metadata", {
+    method: "POST",
+  });
+}

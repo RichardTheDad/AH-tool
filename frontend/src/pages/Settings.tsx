@@ -43,7 +43,7 @@ export function Settings() {
   }
 
   return (
-    <Card title="Scanner settings" subtitle="Tune fees, refresh cadence, stale windows, and the scoring posture.">
+    <Card title="Scanner settings" subtitle="Tune fees, auto re-scan cadence, stale windows, and the scoring posture.">
       <form
         className="grid gap-4 lg:grid-cols-2"
         onSubmit={(event) => {
@@ -75,7 +75,7 @@ export function Settings() {
           />
         </label>
         <label className="block text-sm text-slate-700">
-          Refresh interval (minutes)
+          Auto re-scan interval (minutes)
           <input
             value={form.refresh_interval_minutes}
             onChange={(event) => setForm((current) => ({ ...current, refresh_interval_minutes: event.target.value }))}
@@ -119,4 +119,3 @@ export function Settings() {
     </Card>
   );
 }
-

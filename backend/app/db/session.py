@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Generator
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -12,14 +12,29 @@ from app.core.config import get_settings
 
 def _sqlite_connect_args(database_url: str) -> dict[str, object]:
     if database_url.startswith("sqlite"):
-        return {"check_same_thread": False}
+        return {
+            "check_same_thread": False,
+            "timeout": 30,
+        }
     return {}
+
+
+def _configure_sqlite_connection(dbapi_connection, _connection_record) -> None:
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA busy_timeout=30000")
+    cursor.close()
 
 
 @lru_cache(maxsize=4)
 def get_engine(database_url: str | None = None) -> Engine:
     url = database_url or get_settings().database_url
-    return create_engine(url, future=True, connect_args=_sqlite_connect_args(url))
+    engine = create_engine(url, future=True, connect_args=_sqlite_connect_args(url))
+    if url.startswith("sqlite"):
+        event.listen(engine, "connect", _configure_sqlite_connection)
+    return engine
 
 
 @lru_cache(maxsize=4)
@@ -44,4 +59,3 @@ def get_db() -> Generator[Session, None, None]:
 def clear_db_caches() -> None:
     get_engine.cache_clear()
     get_session_factory.cache_clear()
-

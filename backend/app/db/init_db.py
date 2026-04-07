@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -11,7 +12,58 @@ NON_PRODUCTION_SOURCES = {"seed", "mock"}
 
 
 def create_db_and_tables() -> None:
-    Base.metadata.create_all(get_engine())
+    engine = get_engine()
+    Base.metadata.create_all(engine)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                DELETE FROM listing_snapshots
+                WHERE id IN (
+                    SELECT duplicate_id
+                    FROM (
+                        SELECT snapshots.id AS duplicate_id
+                        FROM listing_snapshots AS snapshots
+                        JOIN (
+                            SELECT item_id, realm, source_name, captured_at, MIN(id) AS keep_id
+                            FROM listing_snapshots
+                            GROUP BY item_id, realm, source_name, captured_at
+                            HAVING COUNT(*) > 1
+                        ) AS duplicates
+                            ON snapshots.item_id = duplicates.item_id
+                            AND snapshots.realm = duplicates.realm
+                            AND snapshots.source_name = duplicates.source_name
+                            AND snapshots.captured_at = duplicates.captured_at
+                        WHERE snapshots.id <> duplicates.keep_id
+                    )
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_listing_snapshots_item_realm_captured "
+                "ON listing_snapshots(item_id, realm, captured_at)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_listing_snapshots_realm_item_captured "
+                "ON listing_snapshots(realm, item_id, captured_at)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_listing_snapshots_source_realm_captured "
+                "ON listing_snapshots(source_name, realm, captured_at)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ux_listing_snapshots_exact "
+                "ON listing_snapshots(item_id, realm, source_name, captured_at)"
+            )
+        )
 
 
 def ensure_defaults(session: Session) -> None:

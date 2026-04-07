@@ -15,6 +15,8 @@ export function Imports() {
     mutationFn: ({ file, commit }: { file: File; commit: boolean }) => importListings(file, commit),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
+      queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
+      queryClient.invalidateQueries({ queryKey: ["providers"] });
       setPreviewError(null);
     },
     onError: (error: Error) => setPreviewError(error.message),
@@ -61,6 +63,32 @@ export function Imports() {
             <p className="text-sm text-emerald-700">
               Imported {response.inserted_count} listing rows{response.skipped_duplicates ? ` and skipped ${response.skipped_duplicates} duplicates` : ""}.
             </p>
+          ) : null}
+          {response?.committed && response.metadata_refreshed_count ? (
+            <p className="text-sm text-sky-700">Pulled live Blizzard metadata for {response.metadata_refreshed_count} imported items.</p>
+          ) : null}
+          {response?.coverage ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <p className="font-semibold text-ink">{response.coverage.realm_count} realms / {response.coverage.unique_item_count} items</p>
+                <p className="mt-1 text-xs text-slate-500">Detected in this file</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                <p className="font-semibold text-ink">{response.coverage.enabled_realms_covered} tracked realms covered</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {response.coverage.missing_enabled_realms.length
+                    ? `Missing tracked realms: ${response.coverage.missing_enabled_realms.join(", ")}`
+                    : "All enabled tracked realms are present in this file."}
+                </p>
+              </div>
+              {response.coverage.oldest_captured_at ? (
+                <div className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700 sm:col-span-2">
+                  <p className="font-semibold text-ink">
+                    Snapshot window: {formatDateTime(response.coverage.oldest_captured_at)} to {formatDateTime(response.coverage.latest_captured_at)}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </Card>

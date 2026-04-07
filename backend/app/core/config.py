@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import unquote
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,8 +36,29 @@ class Settings(BaseSettings):
     enable_scheduler: bool = True
     log_level: str = "INFO"
     request_timeout_seconds: int = 8
-    saddlebag_metadata_url: str = ""
-    saddlebag_listing_url: str = ""
+    blizzard_client_id: str = ""
+    blizzard_client_secret: str = ""
+    blizzard_api_region: str = "us"
+    blizzard_locale: str = "en_US"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: object) -> str:
+        raw = str(value or "").strip()
+        if not raw.startswith("sqlite:///") or raw == "sqlite:///:memory:":
+            return raw
+
+        path_part = raw.removeprefix("sqlite:///")
+        if not path_part or path_part == ":memory:":
+            return raw
+
+        decoded_path = unquote(path_part)
+        db_path = Path(decoded_path)
+        if db_path.is_absolute():
+            return raw
+
+        normalized = (PROJECT_ROOT / db_path).resolve()
+        return f"sqlite:///{normalized.as_posix()}"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -78,6 +100,8 @@ class Settings(BaseSettings):
         raw = str(value or "").strip().lower()
         if not raw or raw in {"stored", "mock"}:
             return "file_import"
+        if raw in {"blizzard", "blizzard_ah", "blizzard_retail"}:
+            return "blizzard_auctions"
         return raw
 
 

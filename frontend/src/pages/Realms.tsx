@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { createRealm, deleteRealm, getRealms, updateRealm } from "../api/realms";
+import { getScanStatus } from "../api/scans";
 import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -12,6 +13,7 @@ const emptyForm = { realm_name: "", enabled: true };
 export function Realms() {
   const queryClient = useQueryClient();
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
+  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 2000 });
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -44,15 +46,16 @@ export function Realms() {
     },
   });
 
-  if (realmsQuery.isLoading) {
+  if (realmsQuery.isLoading || scanStatusQuery.isLoading) {
     return <LoadingState label="Loading tracked realms..." />;
   }
 
-  if (realmsQuery.error) {
+  if (realmsQuery.error || scanStatusQuery.error || !scanStatusQuery.data) {
     return <ErrorState message="Tracked realms could not be loaded." />;
   }
 
   const realms = realmsQuery.data ?? [];
+  const scanRunning = scanStatusQuery.data.status === "running";
   const realmOptions: RealmCatalogEntry[] = [...REALM_CATALOG];
 
   for (const realm of realms) {
@@ -119,19 +122,21 @@ export function Realms() {
             />
           </label>
           {message ? <p className="text-sm text-rose-700">{message}</p> : null}
+          {scanRunning ? <p className="text-sm text-sky-700">{scanStatusQuery.data.message}</p> : null}
           <div className="flex gap-2">
-            <button type="submit" className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">
+            <button type="submit" disabled={scanRunning} className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
               {editingId ? "Save realm" : "Add realm"}
             </button>
             {editingId ? (
               <button
                 type="button"
+                disabled={scanRunning}
                 onClick={() => {
                   setEditingId(null);
                   setForm(emptyForm);
                   setMessage(null);
                 }}
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -150,25 +155,28 @@ export function Realms() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
+                  disabled={scanRunning}
                   onClick={() => updateMutation.mutate({ id: realm.id, payload: { enabled: !realm.enabled } })}
-                  className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {realm.enabled ? "Disable" : "Enable"}
                 </button>
                 <button
                   type="button"
+                  disabled={scanRunning}
                   onClick={() => {
                     setEditingId(realm.id);
                     setForm({ realm_name: realm.realm_name, enabled: realm.enabled });
                   }}
-                  className="rounded-full border border-brass/40 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-brass/40 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
+                  disabled={scanRunning}
                   onClick={() => deleteMutation.mutate(realm.id)}
-                  className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700"
+                  className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Remove
                 </button>

@@ -20,7 +20,7 @@ export function filterScanResults(results: ScanResult[], filters: ScannerFilters
   return filtered.sort((a, b) => {
     const left = a[filters.sortBy];
     const right = b[filters.sortBy];
-    return Number(right) - Number(left);
+    const difference = Number(right) - Number(left);
+    return filters.sortDirection === "asc" ? -difference : difference;
   });
 }
-

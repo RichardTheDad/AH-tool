@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { LatestScanResponse, ScanSession } from "../types/models";
+import type { LatestScanResponse, ScanReadiness, ScanRuntimeStatus, ScanSession } from "../types/models";
 
 export interface RunScanPayload {
   provider_name?: string;
@@ -19,7 +19,14 @@ export function getLatestScan() {
   return apiRequest<LatestScanResponse>("/scans/latest");
 }
 
+export function getScanReadiness() {
+  return apiRequest<ScanReadiness>("/scans/readiness");
+}
+
+export function getScanStatus() {
+  return apiRequest<ScanRuntimeStatus>("/scans/status");
+}
+
 export function getScan(scanId: number) {
   return apiRequest<ScanSession>(`/scans/${scanId}`);
 }
-

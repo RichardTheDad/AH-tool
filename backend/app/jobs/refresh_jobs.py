@@ -8,7 +8,7 @@ from app.schemas.scan import ScanRunRequest
 from app.services.listing_service import mark_stale_snapshots
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
-from app.services.scan_service import run_scan
+from app.services.scan_service import get_scan_readiness, run_scan
 
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,11 @@ def run_refresh_cycle() -> None:
 
         provider_name = get_settings().default_listing_provider
         provider = get_provider_registry().get_listing_provider(None)
+        readiness = get_scan_readiness(session)
+        if not readiness.ready_for_scan and not provider.supports_live_fetch:
+            logger.info("Skipping scheduled scan: %s", readiness.message)
+            return
+
         run_scan(
             session,
             ScanRunRequest(

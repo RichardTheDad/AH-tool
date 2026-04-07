@@ -10,8 +10,22 @@ const statusCopy = {
   error: { label: "Error", tone: "danger" as const },
 };
 
+function workflowLabel(provider: ProviderStatus) {
+  if (provider.name === "file_import") {
+    return { label: "Import workflow", tone: "neutral" as const };
+  }
+  if (provider.supports_live_fetch) {
+    return { label: "Live fetch", tone: "success" as const };
+  }
+  if (provider.provider_type === "listing") {
+    return { label: "Bulk scan unavailable", tone: "neutral" as const };
+  }
+  return { label: "Cached or manual", tone: "neutral" as const };
+}
+
 export function ProviderStatusCard({ provider }: { provider: ProviderStatus }) {
   const status = statusCopy[provider.status];
+  const workflow = workflowLabel(provider);
 
   return (
     <Card className="h-full">
@@ -26,9 +40,7 @@ export function ProviderStatusCard({ provider }: { provider: ProviderStatus }) {
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
         <Badge tone="neutral">{provider.provider_type}</Badge>
-        <Badge tone={provider.supports_live_fetch ? "success" : "neutral"}>
-          {provider.supports_live_fetch ? "Live fetch" : "Manual or cached"}
-        </Badge>
+        <Badge tone={workflow.tone}>{workflow.label}</Badge>
         {provider.cache_records > 0 ? <Badge tone="neutral">{provider.cache_records} cached</Badge> : null}
         {provider.last_checked_at ? <Badge tone="neutral">Checked {formatDateTime(provider.last_checked_at)}</Badge> : null}
         {provider.last_error ? <Badge tone="danger">{provider.last_error}</Badge> : null}

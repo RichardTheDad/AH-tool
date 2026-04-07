@@ -14,34 +14,30 @@ The app does not ship with fake listings, demo scans, seeded market rows, or moc
 
 Supported workflows:
 
-- live item metadata from Saddlebag WoW endpoints when configured
+- live Blizzard Retail Auction House ingestion when Battle.net credentials are configured
+- live item metadata from Blizzard when Battle.net credentials are configured
 - cached item metadata when live metadata is unavailable
 - real CSV or JSON listing imports for scanner input
 - cached imported listings after restart
+- scanner readiness checks based on enabled-realm coverage and listing freshness
+- history-aware ranking that penalizes thin, stale, inconsistent, or spiky sell markets
 
-## Saddlebag Integration
-
-The provider layer is built around the public WoW endpoints from the Saddlebag OpenAPI spec:
-
-- `/api/wow/itemdata`
-- `/api/wow/itemnames`
-- `/api/wow/listings`
-- `/api/wow/v2/listings`
+## Blizzard Integration
 
 Current behavior:
 
-- `SaddlebagPublicMetadataProvider`
-  - uses the real WoW POST request shapes from the spec
+- `BlizzardAuctionListingProvider`
+  - uses Battle.net client credentials with the official Blizzard retail AH API
+  - resolves tracked realms to connected realms and ingests non-commodity auctions automatically
+  - can bootstrap the scanner even when no local listing cache exists yet
+- `BlizzardMetadataProvider`
+  - uses Blizzard item and item-media endpoints
   - normalizes live item metadata into the local cache
-- `SaddlebagPublicListingProvider`
-  - uses the real WoW POST request shape from the spec
-  - public listing endpoints are per-item realm lookups, not a bulk realm-scan feed
-  - the bulk scanner therefore remains import-first for truthful results
 - `FileImportListingProvider`
   - accepts real CSV and JSON listing snapshots
   - stores them as `source_name = "file_import"`
 
-When live listings are unavailable or unsuitable for bulk scans, the app stays usable with imported listing data. It does not fabricate listings to fill gaps.
+When live listings are unavailable, the app stays usable with imported listing data. It does not fabricate listings to fill gaps.
 
 ## Project Layout
 
@@ -122,11 +118,26 @@ Important values:
 - `AZEROTHFLIPLOCAL_DATABASE_URL`
 - `AZEROTHFLIPLOCAL_DEFAULT_LISTING_PROVIDER`
 - `AZEROTHFLIPLOCAL_ENABLE_SCHEDULER`
-- `AZEROTHFLIPLOCAL_SADDLEBAG_METADATA_URL`
-- `AZEROTHFLIPLOCAL_SADDLEBAG_LISTING_URL`
+- `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_ID`
+- `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_SECRET`
+- `AZEROTHFLIPLOCAL_BLIZZARD_API_REGION`
+- `AZEROTHFLIPLOCAL_BLIZZARD_LOCALE`
 - `VITE_API_BASE_URL`
 
-Set the Saddlebag URLs to the API origin that serves the WoW paths from the OpenAPI spec, not to a guessed custom endpoint path.
+## Recommended Daily-Driver Setup
+
+For the most hands-off local setup:
+
+1. create Blizzard Battle.net client credentials
+2. set `AZEROTHFLIPLOCAL_DEFAULT_LISTING_PROVIDER=blizzard_auctions`
+3. set `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_ID` and `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_SECRET`
+
+With that setup:
+
+- the scheduler can refresh retail non-commodity listings automatically from Blizzard
+- the scanner can bootstrap itself from live Blizzard data even when the local cache starts empty
+- item names, class data, quality, and icons can also be refreshed from Blizzard
+- imports remain available as a fallback if you want to supplement or replace local coverage manually
 
 ## Import Workflow
 
@@ -148,7 +159,54 @@ Behavior:
 - commit stores rows as `source_name = "file_import"`
 - duplicate rows are skipped with a clear summary
 - invalid rows are reported without crashing the import
+- successful commits can refresh missing item metadata from Blizzard when configured
+- preview and commit responses include coverage details for realms, items, and snapshot window
 - scans can run immediately after a successful commit
+
+## Scanner Trust Model
+
+The scanner keeps the original realm-list model:
+
+1. find the absolute cheapest buy realm for each item across enabled tracked realms
+2. hold that buy realm fixed
+3. choose the best sell realm from the remaining tracked realms
+
+Trust-oriented behavior:
+
+- rankings are based on the latest local snapshot per item per realm
+- stale snapshots are penalized
+- thin sell markets are penalized
+- suspicious spreads are penalized
+- recent sell-side history is checked so spiky one-snapshot markets get pushed down
+- same-realm buy and sell is rejected
+
+When metadata is missing:
+
+- if live metadata is configured, unresolved items are excluded from non-commodity scans until metadata is refreshed
+- if live metadata is not configured, the scanner can still run from imports, but it warns when items are being evaluated without verified metadata
+
+## Scanner Readiness
+
+The Dashboard and Scanner pages now surface whether the app is actually ready for a trustworthy run.
+
+Readiness considers:
+
+- enabled realms with listing data
+- enabled realms with fresh listing data
+- unique item coverage in the local cache
+- items still missing metadata
+- enabled realms with no local listing coverage yet
+
+The scheduler uses the same readiness check and skips automatic re-scans when there is not enough local data to produce a meaningful cross-realm comparison.
+
+## Item Detail
+
+The item detail page supports two truthful data paths:
+
+- latest local listings already stored in SQLite
+- on-demand live Blizzard lookup across your enabled tracked realms
+
+If live metadata is configured, you can also refresh missing item metadata directly from the item detail page.
 
 ## Provider States
 
@@ -164,6 +222,12 @@ Examples:
 - live metadata unavailable, but cached metadata still usable
 - live listings unavailable for bulk scans, import required
 - cached imported listings available after restart
+- transient provider failures do not permanently degrade status if later checks succeed
+
+For Blizzard listings specifically:
+
+- `available` means live retail AH refresh can run now
+- `cached only` means Blizzard snapshots are stored locally but live Blizzard refresh is not currently configured or reachable
 
 ## Tests
 

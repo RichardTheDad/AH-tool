@@ -14,3 +14,5 @@ class FileImportListingProvider(ListingProvider):
     def fetch_listings(self, realms: list[str]) -> list[ListingImportRow]:
         return []
 
+    def fetch_item_market(self, *, item_id: int, region: str, tracked_realms: list[str]) -> tuple[list[ListingImportRow], str]:
+        return [], "File imports do not provide live lookups. Import listings first to populate local data."

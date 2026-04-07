@@ -1,8 +1,13 @@
 import { Badge } from "../common/Badge";
-import type { ListingSnapshot } from "../../types/models";
+import type { ListingSnapshot, LiveListingRow } from "../../types/models";
 import { formatDateTime, formatGold } from "../../utils/format";
 
-export function ItemListingsTable({ listings }: { listings: ListingSnapshot[] }) {
+type ItemListingRow = Pick<ListingSnapshot, "realm" | "lowest_price" | "average_price" | "quantity" | "listing_count" | "captured_at"> & {
+  id?: number;
+  is_stale?: boolean;
+};
+
+export function ItemListingsTable({ listings }: { listings: Array<ListingSnapshot | LiveListingRow | ItemListingRow> }) {
   return (
     <div className="overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-card">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -17,18 +22,18 @@ export function ItemListingsTable({ listings }: { listings: ListingSnapshot[] })
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {listings.map((listing) => (
-            <tr key={listing.id}>
+          {listings.map((listing, index) => (
+            <tr key={"id" in listing && listing.id !== undefined ? listing.id : `${listing.realm}-${listing.captured_at}-${index}`}>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
                   <span>{listing.realm}</span>
-                  {listing.is_stale ? <Badge tone="warning">Stale</Badge> : null}
+                  {"is_stale" in listing && listing.is_stale ? <Badge tone="warning">Stale</Badge> : null}
                 </div>
               </td>
               <td className="px-4 py-3">{formatGold(listing.lowest_price)}</td>
               <td className="px-4 py-3">{formatGold(listing.average_price)}</td>
-              <td className="px-4 py-3">{listing.quantity ?? "—"}</td>
-              <td className="px-4 py-3">{listing.listing_count ?? "—"}</td>
+              <td className="px-4 py-3">{listing.quantity ?? "-"}</td>
+              <td className="px-4 py-3">{listing.listing_count ?? "-"}</td>
               <td className="px-4 py-3">{formatDateTime(listing.captured_at)}</td>
             </tr>
           ))}
@@ -37,4 +42,3 @@ export function ItemListingsTable({ listings }: { listings: ListingSnapshot[] })
     </div>
   );
 }
-

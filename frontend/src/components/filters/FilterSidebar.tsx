@@ -3,9 +3,14 @@ import type { ScannerFilters } from "../../types/models";
 interface FilterSidebarProps {
   filters: ScannerFilters;
   onChange: (next: Partial<ScannerFilters>) => void;
+  categoryOptions: string[];
 }
 
-export function FilterSidebar({ filters, onChange }: FilterSidebarProps) {
+const DEFAULT_CATEGORY_OPTIONS = ["Armor", "Weapon", "Recipe", "Consumable", "Trade Good", "Container", "Gem", "Glyph", "Miscellaneous"];
+
+export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSidebarProps) {
+  const categories = Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS, ...categoryOptions])).sort((left, right) => left.localeCompare(right));
+
   return (
     <aside className="space-y-3 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card xl:sticky xl:top-6 xl:self-start">
       <h2 className="font-display text-lg font-semibold text-ink">Filters</h2>
@@ -47,12 +52,18 @@ export function FilterSidebar({ filters, onChange }: FilterSidebarProps) {
       </label>
       <label className="block text-sm text-slate-700">
         Category
-        <input
+        <select
           value={filters.category}
           onChange={(event) => onChange({ category: event.target.value })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-          placeholder="Weapon"
-        />
+        >
+          <option value="">All categories</option>
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
       </label>
       <label className="block text-sm text-slate-700">
         Sort by
@@ -63,8 +74,20 @@ export function FilterSidebar({ filters, onChange }: FilterSidebarProps) {
         >
           <option value="final_score">Final score</option>
           <option value="estimated_profit">Profit</option>
+          <option value="cheapest_buy_price">Buy price</option>
           <option value="roi">ROI</option>
           <option value="confidence_score">Confidence</option>
+        </select>
+      </label>
+      <label className="block text-sm text-slate-700">
+        Sort direction
+        <select
+          value={filters.sortDirection}
+          onChange={(event) => onChange({ sortDirection: event.target.value as ScannerFilters["sortDirection"] })}
+          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+        >
+          <option value="desc">Highest to lowest</option>
+          <option value="asc">Lowest to highest</option>
         </select>
       </label>
       <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
