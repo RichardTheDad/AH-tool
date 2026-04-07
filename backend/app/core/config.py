@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     blizzard_client_secret: str = ""
     blizzard_api_region: str = "us"
     blizzard_locale: str = "en_US"
+    tsm_api_key: str = ""
+    tsm_region_id: int | None = None
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -103,6 +105,13 @@ class Settings(BaseSettings):
         if raw in {"blizzard", "blizzard_ah", "blizzard_retail"}:
             return "blizzard_auctions"
         return raw
+
+    @field_validator("tsm_region_id", mode="before")
+    @classmethod
+    def normalize_tsm_region_id(cls, value: object) -> int | None:
+        if value is None or value == "":
+            return None
+        return int(value)
 
 
 @lru_cache(maxsize=1)

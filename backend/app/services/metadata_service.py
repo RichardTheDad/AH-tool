@@ -7,12 +7,14 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db.models import Item, ScanResult
-from app.schemas.item import ItemDetail, ItemRead, ItemSearchResult
+from app.core.config import get_settings
+from app.schemas.item import ItemDetail, ItemRead, ItemSearchResult, TsmRegionStatsRead
 from app.schemas.listing import LiveListingLookupResponse, LiveListingLookupRow, ListingSnapshotRead
 from app.schemas.scan import ScanResultRead
 from app.services.listing_service import get_latest_snapshots_for_item
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
+from app.services.tsm_service import TsmMarketService
 
 
 def _build_search_filter(query: str):
@@ -199,12 +201,27 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
         .order_by(ScanResult.generated_at.desc())
         .first()
     )
+    tsm_service = TsmMarketService(get_settings())
+    tsm_available, tsm_message = tsm_service.is_available()
+    tsm_region_stats = None
+    tsm_status = "unavailable"
+    if tsm_available:
+        region_stats, region_message = tsm_service.fetch_region_item_stats(item_id)
+        tsm_message = region_message
+        if region_stats:
+            tsm_region_stats = TsmRegionStatsRead(**region_stats)
+            tsm_status = "available"
+        else:
+            tsm_status = "error"
 
     return ItemDetail(
         **ItemRead.model_validate(item).model_dump(),
         metadata_status=metadata_status,
         metadata_message=metadata_message,
         latest_listings=[ListingSnapshotRead.model_validate(listing) for listing in listings],
+        tsm_status=tsm_status,
+        tsm_message=tsm_message,
+        tsm_region_stats=tsm_region_stats,
         recent_scan=scan_result_to_schema(recent_scan) if recent_scan else None,
     )
 
@@ -247,7 +264,7 @@ def get_live_item_listings(session: Session, item_id: int) -> LiveListingLookupR
     )
 
 
-def scan_result_to_schema(result: ScanResult) -> ScanResultRead:
+def scan_result_to_schema(result: ScanResult, *, sell_history_prices: list[float] | None = None) -> ScanResultRead:
     return ScanResultRead(
         id=result.id,
         item_id=result.item_id,
@@ -267,6 +284,7 @@ def scan_result_to_schema(result: ScanResult) -> ScanResultRead:
         bait_risk_score=result.bait_risk_score,
         final_score=result.final_score,
         explanation=result.explanation,
+        sell_history_prices=sell_history_prices or [],
         generated_at=result.generated_at,
         has_stale_data=result.has_stale_data,
         is_risky=result.is_risky,

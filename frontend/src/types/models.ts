@@ -53,6 +53,7 @@ export interface ScanResult {
   bait_risk_score: number;
   final_score: number;
   explanation: string;
+  sell_history_prices: number[];
   generated_at: string;
   has_stale_data: boolean;
   is_risky: boolean;
@@ -140,10 +141,32 @@ export interface ItemSummary {
   is_commodity: boolean;
 }
 
+export interface ItemHistoryPoint {
+  captured_at: string;
+  lowest_price: number | null;
+  average_price: number | null;
+}
+
+export interface ItemRealmHistory {
+  realm: string;
+  points: ItemHistoryPoint[];
+}
+
+export interface TsmRegionStats {
+  db_region_market_avg: number | null;
+  db_region_historical: number | null;
+  db_region_sale_avg: number | null;
+  db_region_sale_rate: number | null;
+  db_region_sold_per_day: number | null;
+}
+
 export interface ItemDetail extends ItemSummary {
   metadata_status: "cached" | "live" | "missing";
   metadata_message?: string | null;
   latest_listings: ListingSnapshot[];
+  tsm_status: "available" | "unavailable" | "error";
+  tsm_message?: string | null;
+  tsm_region_stats?: TsmRegionStats | null;
   recent_scan?: ScanResult | null;
 }
 

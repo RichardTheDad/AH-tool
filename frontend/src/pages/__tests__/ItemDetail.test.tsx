@@ -26,6 +26,15 @@ describe("ItemDetail page", () => {
       metadata_status: "cached",
       metadata_message: "Metadata cached locally.",
       latest_listings: [],
+      tsm_status: "available",
+      tsm_message: "TSM region market stats loaded.",
+      tsm_region_stats: {
+        db_region_market_avg: 950000,
+        db_region_historical: 870000,
+        db_region_sale_avg: 910000,
+        db_region_sale_rate: 0.042,
+        db_region_sold_per_day: 0.315,
+      },
       recent_scan: null,
     });
     vi.mocked(getLiveItemListings).mockResolvedValue({
@@ -67,5 +76,7 @@ describe("ItemDetail page", () => {
     expect(screen.getByText("Cached metadata")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh live metadata" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check live Blizzard listings" })).toBeInTheDocument();
+    expect(screen.getByText("TSM market stats")).toBeInTheDocument();
+    expect(screen.getByText("Region sale rate")).toBeInTheDocument();
   });
 });

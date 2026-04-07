@@ -24,6 +24,7 @@ class ScanResultRead(BaseModel):
     bait_risk_score: float
     final_score: float
     explanation: str
+    sell_history_prices: list[float] = Field(default_factory=list)
     generated_at: datetime
     has_stale_data: bool
     is_risky: bool

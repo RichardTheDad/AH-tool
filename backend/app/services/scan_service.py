@@ -62,6 +62,23 @@ def _load_items_by_id(session: Session, item_ids: set[int]) -> dict[int, Item]:
     return items
 
 
+def _extract_sell_history_prices(history_by_item: dict[int, dict[str, list]] | None, item_id: int, realm: str) -> list[float]:
+    if not history_by_item:
+        return []
+    realm_history = history_by_item.get(item_id, {}).get(realm, [])
+    return [float(snapshot.lowest_price or 0) for snapshot in realm_history if snapshot.lowest_price]
+
+
+def _serialize_scan_results(results: list[ScanResult], history_by_item: dict[int, dict[str, list]] | None = None) -> list:
+    return [
+        scan_result_to_schema(
+            result,
+            sell_history_prices=_extract_sell_history_prices(history_by_item, result.item_id, result.best_sell_realm),
+        )
+        for result in results
+    ]
+
+
 def select_best_sell_snapshot(item, buy_snapshot, snapshots, settings, include_losers: bool, history_by_realm: dict[str, list] | None = None):
     candidates = [snapshot for snapshot in snapshots if snapshot.realm != buy_snapshot.realm]
     if not candidates:
@@ -346,7 +363,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
             warning_text=scan_session.warning_text,
             generated_at=scan_session.generated_at,
             result_count=len(results),
-            results=[scan_result_to_schema(result) for result in results],
+            results=_serialize_scan_results(results, history_by_item),
         )
         mark_scan_finished(response.provider_name, result_count=response.result_count, warning_text=response.warning_text)
         return response
@@ -360,13 +377,19 @@ def get_scan_session(session: Session, scan_id: int) -> ScanSessionRead | None:
     if scan_session is None:
         return None
     ordered_results = sorted(scan_session.results, key=lambda result: (result.final_score, result.estimated_profit), reverse=True)
+    history_by_item = get_recent_snapshot_history_for_items(
+        session,
+        list({result.item_id for result in ordered_results}),
+        sorted({result.best_sell_realm for result in ordered_results}),
+        limit_per_realm=3,
+    )
     return ScanSessionRead(
         id=scan_session.id,
         provider_name=scan_session.provider_name,
         warning_text=scan_session.warning_text,
         generated_at=scan_session.generated_at,
         result_count=len(ordered_results),
-        results=[scan_result_to_schema(result) for result in ordered_results],
+        results=_serialize_scan_results(ordered_results, history_by_item),
     )
 
 

@@ -2,7 +2,7 @@ export function formatGold(value: number | null | undefined) {
   if (value === null || value === undefined) return "--";
 
   const sign = value < 0 ? "-" : "";
-  const totalCopper = Math.round(Math.abs(value) * 10000);
+  const totalCopper = Math.round(Math.abs(value));
   const gold = Math.floor(totalCopper / 10000);
   const silver = Math.floor((totalCopper % 10000) / 100);
   const copper = totalCopper % 100;

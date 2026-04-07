@@ -16,6 +16,7 @@ Supported workflows:
 
 - live Blizzard Retail Auction House ingestion when Battle.net credentials are configured
 - live item metadata from Blizzard when Battle.net credentials are configured
+- live TSM region market stats on item detail pages when a TSM API key is configured
 - cached item metadata when live metadata is unavailable
 - real CSV or JSON listing imports for scanner input
 - cached imported listings after restart
@@ -122,6 +123,8 @@ Important values:
 - `AZEROTHFLIPLOCAL_BLIZZARD_CLIENT_SECRET`
 - `AZEROTHFLIPLOCAL_BLIZZARD_API_REGION`
 - `AZEROTHFLIPLOCAL_BLIZZARD_LOCALE`
+- `AZEROTHFLIPLOCAL_TSM_API_KEY`
+- `AZEROTHFLIPLOCAL_TSM_REGION_ID`
 - `VITE_API_BASE_URL`
 
 ## Recommended Daily-Driver Setup
@@ -207,6 +210,16 @@ The item detail page supports two truthful data paths:
 - on-demand live Blizzard lookup across your enabled tracked realms
 
 If live metadata is configured, you can also refresh missing item metadata directly from the item detail page.
+
+If TSM is configured, the item detail page can also show:
+
+- `DBRegionMarketAvg`
+- `DBRegionHistorical`
+- `DBRegionSaleAvg`
+- `DBRegionSaleRate`
+- `DBRegionSoldPerDay`
+
+These are TSM region market metrics, not actual completed-sale transactions from the Blizzard Auction House.
 
 ## Provider States
 

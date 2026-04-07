@@ -109,6 +109,53 @@ export function ItemDetail() {
         </Card>
       ) : null}
 
+      <Card title="TSM market stats" subtitle="Region-wide TSM AuctionDB enrichment. These are market metrics, not actual completed-sale transactions.">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              item.tsm_status === "available"
+                ? "bg-emerald-100 text-emerald-700"
+                : item.tsm_status === "error"
+                  ? "bg-rose-100 text-rose-700"
+                  : "bg-slate-100 text-slate-700"
+            }`}
+          >
+            {item.tsm_status === "available" ? "TSM available" : item.tsm_status === "error" ? "TSM error" : "TSM unavailable"}
+          </span>
+        </div>
+        {item.tsm_message ? <p className="mb-4 text-sm text-slate-600">{item.tsm_message}</p> : null}
+        {item.tsm_region_stats ? (
+          <div className="grid gap-4 lg:grid-cols-5">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region market avg</p>
+              <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_market_avg)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region historical</p>
+              <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_historical)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sale avg</p>
+              <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_sale_avg)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sale rate</p>
+              <p className="mt-1 font-semibold text-ink">{formatPercent(item.tsm_region_stats.db_region_sale_rate)}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sold / day</p>
+              <p className="mt-1 font-semibold text-ink">
+                {item.tsm_region_stats.db_region_sold_per_day === null || item.tsm_region_stats.db_region_sold_per_day === undefined
+                  ? "--"
+                  : item.tsm_region_stats.db_region_sold_per_day.toFixed(3)}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">Add a TSM API key to surface region sale-rate and market-value context for this item.</p>
+        )}
+      </Card>
+
       <Card title="Latest local listings" subtitle="Most recent cached snapshot per tracked realm.">
         <ItemListingsTable listings={item.latest_listings} />
       </Card>
