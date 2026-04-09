@@ -177,8 +177,14 @@ def persist_listing_rows(session: Session, rows: list[ListingImportRow], source_
     session.commit()
 
     for chunk in _chunked(payloads, 1000):
-        session.execute(insert(ListingSnapshot).prefix_with("OR IGNORE"), chunk)
-        inserted_in_chunk = int(session.execute(text("SELECT changes()")).scalar_one() or 0)
+        # Count inserted rows precisely even when duplicates are ignored.
+        result = session.execute(
+            insert(ListingSnapshot)
+            .prefix_with("OR IGNORE")
+            .returning(ListingSnapshot.id),
+            chunk,
+        )
+        inserted_in_chunk = len(result.scalars().all())
         session.commit()
         inserted += inserted_in_chunk
         skipped_duplicates += len(chunk) - inserted_in_chunk

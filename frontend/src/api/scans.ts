@@ -15,8 +15,9 @@ export function runScan(payload: RunScanPayload) {
   });
 }
 
-export function getLatestScan() {
-  return apiRequest<LatestScanResponse>("/scans/latest");
+export function getLatestScan(limit?: number) {
+  const query = typeof limit === "number" ? `?limit=${Math.max(1, Math.floor(limit))}` : "";
+  return apiRequest<LatestScanResponse>(`/scans/latest${query}`);
 }
 
 export function getScanHistory() {
@@ -31,6 +32,7 @@ export function getScanStatus() {
   return apiRequest<ScanRuntimeStatus>("/scans/status");
 }
 
-export function getScan(scanId: number) {
-  return apiRequest<ScanSession>(`/scans/${scanId}`);
+export function getScan(scanId: number, limit?: number) {
+  const query = typeof limit === "number" ? `?limit=${Math.max(1, Math.floor(limit))}` : "";
+  return apiRequest<ScanSession>(`/scans/${scanId}${query}`);
 }

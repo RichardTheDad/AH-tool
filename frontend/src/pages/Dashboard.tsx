@@ -13,7 +13,7 @@ import { formatDateTime } from "../utils/format";
 export function Dashboard() {
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
-  const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: getLatestScan });
+  const scanQuery = useQuery({ queryKey: ["scans", "latest", "dashboard", 5], queryFn: () => getLatestScan(5) });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
 
   if (providersQuery.isLoading || realmsQuery.isLoading || scanQuery.isLoading || readinessQuery.isLoading) {

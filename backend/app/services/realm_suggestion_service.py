@@ -73,9 +73,11 @@ def _load_items(session: Session, item_ids: set[int]) -> dict[int, Item]:
     return {item.item_id: item for item in items}
 
 
-def _select_realm_batch(realms: list[str], prior_run_count: int, *, batch_size: int = DISCOVERY_BATCH_SIZE) -> tuple[list[str], int]:
+def _select_realm_batch(realms: list[str], prior_run_count: int, *, batch_size: int | None = None) -> tuple[list[str], int]:
     if not realms:
         return [], 0
+    if batch_size is None:
+        batch_size = DISCOVERY_BATCH_SIZE
     batch_size = max(1, min(batch_size, len(realms)))
     start = (prior_run_count * batch_size) % len(realms)
     if start + batch_size <= len(realms):
@@ -158,6 +160,7 @@ def _build_current_recommendations(
     tsm_ledger_service = TsmLedgerService(app_settings)
 
     cheapest_source_counts: dict[str, int] = defaultdict(int)
+    preferred_target_counts_by_source: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     pairs_by_realm: dict[str, list[SuggestedPair]] = defaultdict(list)
 
     for item_id, realm_map in latest_by_item_realm.items():
@@ -173,10 +176,13 @@ def _build_current_recommendations(
         if not source_snapshots:
             continue
 
+        strongest_target_snapshot = max(target_snapshots, key=lambda snapshot: snapshot.lowest_price)
+
         cheapest_snapshot = min(source_snapshots, key=lambda snapshot: snapshot.lowest_price)
         cheapest_source_counts[cheapest_snapshot.realm] += 1
 
         for buy_snapshot in source_snapshots:
+            preferred_target_counts_by_source[buy_snapshot.realm][strongest_target_snapshot.realm] += 1
             sell_snapshot, score = select_best_sell_snapshot(
                 item,
                 buy_snapshot,
@@ -213,14 +219,31 @@ def _build_current_recommendations(
         average_sellability = _round(sum(pair.score.sellability_score for pair in pairs) / opportunity_count)
         median_buy_price = _round(median([pair.buy_price for pair in pairs])) if pairs else None
         target_counts: dict[str, int] = defaultdict(int)
+        target_sell_totals: dict[str, float] = defaultdict(float)
         target_score_totals: dict[str, float] = defaultdict(float)
         for pair in pairs:
             target_counts[pair.target_realm] += 1
+            target_sell_totals[pair.target_realm] += pair.score.recommended_sell_price
             target_score_totals[pair.target_realm] += pair.score.final_score
-        best_target_realm = max(
-            target_counts,
-            key=lambda realm_name: (target_counts[realm_name], target_score_totals[realm_name]),
-        ) if target_counts else None
+        preferred_targets = preferred_target_counts_by_source.get(realm, {})
+        if preferred_targets:
+            best_target_realm = max(
+                preferred_targets,
+                key=lambda realm_name: (
+                    preferred_targets[realm_name],
+                    target_sell_totals.get(realm_name, 0),
+                    target_score_totals.get(realm_name, 0),
+                ),
+            )
+        else:
+            best_target_realm = max(
+                target_counts,
+                key=lambda realm_name: (
+                    target_counts[realm_name],
+                    target_sell_totals[realm_name],
+                    target_score_totals[realm_name],
+                ),
+            ) if target_counts else None
         consistency_score = _round(
             min(
                 100,

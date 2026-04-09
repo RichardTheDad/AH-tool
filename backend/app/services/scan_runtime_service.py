@@ -38,6 +38,18 @@ def mark_scan_started(provider_name: str | None) -> None:
         _state.finished_at = None
 
 
+def try_mark_scan_started(provider_name: str | None) -> bool:
+    with _lock:
+        if _state.status == "running":
+            return False
+        _state.status = "running"
+        _state.message = "A scan is currently running. Realm and metadata edits are temporarily locked."
+        _state.provider_name = provider_name or "stored"
+        _state.started_at = datetime.now(timezone.utc)
+        _state.finished_at = None
+        return True
+
+
 def mark_scan_stage(message: str) -> None:
     with _lock:
         if _state.status == "running":

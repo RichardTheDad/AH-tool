@@ -9,6 +9,7 @@ import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
+import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
 import { useScannerFilters } from "../hooks/useScannerFilters";
 import type { ScanPreset } from "../types/models";
 import { filterScanResults } from "../utils/filters";
@@ -84,17 +85,17 @@ export function Scanner() {
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const { filters, updateFilters } = useScannerFilters();
 
-  const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: getLatestScan });
+  const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan() });
   const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
-  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 2000 });
+  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 4000 });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
   const previousScanId = (scanHistoryQuery.data?.scans ?? [])[1]?.id;
   const previousScanQuery = useQuery({
-    queryKey: ["scans", previousScanId],
-    queryFn: () => getScan(previousScanId as number),
+    queryKey: ["scans", previousScanId, "summary", 200],
+    queryFn: () => getScan(previousScanId as number, 200),
     enabled: typeof previousScanId === "number",
   });
 
@@ -146,8 +147,7 @@ export function Scanner() {
     scanStatusQuery.isLoading ||
     providersQuery.isLoading ||
     presetsQuery.isLoading ||
-    realmsQuery.isLoading ||
-    previousScanQuery.isLoading
+    realmsQuery.isLoading
   ) {
     return <LoadingState label="Loading scanner..." />;
   }
@@ -180,6 +180,7 @@ export function Scanner() {
   const previousScan = previousScanQuery.data ?? null;
   const recentScans = scanHistoryQuery.data?.scans ?? [];
   const results = filterScanResults(latest?.results ?? [], filters);
+  const useVirtualizedResults = results.length > 300;
   const hiddenByFilters = Math.max((latest?.results.length ?? 0) - results.length, 0);
   const categoryOptions = Array.from(
     new Set((latest?.results ?? []).map((result) => result.item_class_name).filter((value): value is string => !!value)),
@@ -347,12 +348,21 @@ export function Scanner() {
         {showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : latest ? (
-          <ScannerTable
-            results={results}
-            sortBy={filters.sortBy}
-            sortDirection={filters.sortDirection}
-            onSortChange={handleFilterChange}
-          />
+          useVirtualizedResults ? (
+            <VirtualizedScannerList
+              results={results}
+              sortBy={filters.sortBy}
+              sortDirection={filters.sortDirection}
+              onSortChange={handleFilterChange}
+            />
+          ) : (
+            <ScannerTable
+              results={results}
+              sortBy={filters.sortBy}
+              sortDirection={filters.sortDirection}
+              onSortChange={handleFilterChange}
+            />
+          )
         ) : (
           <EmptyState title="Scanner is empty" description="Run the live Blizzard provider to pull fresh listings, or import listing snapshots as a fallback." />
         )}

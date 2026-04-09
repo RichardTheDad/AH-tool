@@ -431,6 +431,18 @@ def score_opportunity(
         + (sellability_score * 0.28)
         - (tuning["stale_penalty"] if has_stale_data else 0)
     )
+    if persistent_margin:
+        confidence += 2
+    if repeatable_market:
+        confidence += 1
+    if sell_history_spike:
+        confidence -= 4
+    if inconsistent_sell_history:
+        confidence -= 2
+    if limited_history:
+        confidence -= 2
+    if freshness_gap_flag:
+        confidence -= 2
     confidence = round(clamp(confidence, 0, 100), 2)
 
     profit_component = clamp((estimated_profit / max(buy_price, 1)) * 32, -35, 100)

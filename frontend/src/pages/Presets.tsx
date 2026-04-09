@@ -35,6 +35,7 @@ export function Presets() {
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(baseForm);
+  const [message, setMessage] = useState<string | null>(null);
   const presets = presetsQuery.data ?? [];
 
   const createMutation = useMutation({
@@ -42,7 +43,9 @@ export function Presets() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presets"] });
       setForm(baseForm);
+      setMessage(null);
     },
+    onError: (error: Error) => setMessage(error.message),
   });
 
   const updateMutation = useMutation({
@@ -51,12 +54,18 @@ export function Presets() {
       queryClient.invalidateQueries({ queryKey: ["presets"] });
       setEditingId(null);
       setForm(baseForm);
+      setMessage(null);
     },
+    onError: (error: Error) => setMessage(error.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: deletePreset,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["presets"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["presets"] });
+      setMessage(null);
+    },
+    onError: (error: Error) => setMessage(error.message),
   });
 
   if (presetsQuery.isLoading) {
@@ -133,6 +142,7 @@ export function Presets() {
               </button>
             ) : null}
           </div>
+          {message ? <p className="text-sm text-rose-700">{message}</p> : null}
         </form>
       </Card>
 
@@ -172,8 +182,9 @@ export function Presets() {
                   </button>
                   <button
                     type="button"
+                    disabled={deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate(preset.id)}
-                    className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700"
+                    className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Delete
                   </button>

@@ -149,51 +149,59 @@ def ensure_defaults(session: Session) -> None:
 
 
 def purge_app_runtime_data(session: Session) -> None:
-    session.execute(text("DELETE FROM realm_suggestion_recommendations"))
-    session.execute(text("DELETE FROM realm_suggestion_runs"))
-    session.execute(text("DELETE FROM scan_results"))
-    session.execute(text("DELETE FROM scan_sessions"))
-    session.execute(text("DELETE FROM listing_snapshots"))
-    session.execute(
-        text(
-            """
-            DELETE FROM items
-            WHERE item_id NOT IN (
-                SELECT DISTINCT item_id FROM listing_snapshots
+    try:
+        session.execute(text("DELETE FROM realm_suggestion_recommendations"))
+        session.execute(text("DELETE FROM realm_suggestion_runs"))
+        session.execute(text("DELETE FROM scan_results"))
+        session.execute(text("DELETE FROM scan_sessions"))
+        session.execute(text("DELETE FROM listing_snapshots"))
+        session.execute(
+            text(
+                """
+                DELETE FROM items
+                WHERE item_id NOT IN (
+                    SELECT DISTINCT item_id FROM listing_snapshots
+                )
+                """
             )
-            """
         )
-    )
-    session.commit()
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
 
 
 def purge_expired_app_data(session: Session, *, retention_days: int = APP_DATA_RETENTION_DAYS) -> None:
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
 
-    expired_realm_suggestion_runs = session.query(RealmSuggestionRun).filter(RealmSuggestionRun.generated_at < cutoff).all()
-    for suggestion_run in expired_realm_suggestion_runs:
-        session.delete(suggestion_run)
-    session.flush()
+    try:
+        expired_realm_suggestion_runs = session.query(RealmSuggestionRun).filter(RealmSuggestionRun.generated_at < cutoff).all()
+        for suggestion_run in expired_realm_suggestion_runs:
+            session.delete(suggestion_run)
+        session.flush()
 
-    expired_sessions = session.query(ScanSession).filter(ScanSession.generated_at < cutoff).all()
-    for scan_session in expired_sessions:
-        session.delete(scan_session)
-    session.flush()
+        expired_sessions = session.query(ScanSession).filter(ScanSession.generated_at < cutoff).all()
+        for scan_session in expired_sessions:
+            session.delete(scan_session)
+        session.flush()
 
-    session.query(ListingSnapshot).filter(ListingSnapshot.captured_at < cutoff).delete(synchronize_session=False)
-    session.flush()
+        session.query(ListingSnapshot).filter(ListingSnapshot.captured_at < cutoff).delete(synchronize_session=False)
+        session.flush()
 
-    session.execute(
-        text(
-            """
-            DELETE FROM items
-            WHERE item_id NOT IN (
-                SELECT DISTINCT item_id FROM listing_snapshots
+        session.execute(
+            text(
+                """
+                DELETE FROM items
+                WHERE item_id NOT IN (
+                    SELECT DISTINCT item_id FROM listing_snapshots
+                )
+                """
             )
-            """
         )
-    )
-    session.commit()
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
 
 
 def _is_legacy_nonproduction_item(item: Item) -> bool:

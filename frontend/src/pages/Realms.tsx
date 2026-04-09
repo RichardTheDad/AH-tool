@@ -43,7 +43,9 @@ export function Realms() {
     mutationFn: deleteRealm,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["realms"] });
+      setMessage(null);
     },
+    onError: (error: Error) => setMessage(error.message),
   });
 
   if (realmsQuery.isLoading || scanStatusQuery.isLoading) {
@@ -174,7 +176,7 @@ export function Realms() {
                 </button>
                 <button
                   type="button"
-                  disabled={scanRunning}
+                  disabled={scanRunning || deleteMutation.isPending}
                   onClick={() => deleteMutation.mutate(realm.id)}
                   className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >

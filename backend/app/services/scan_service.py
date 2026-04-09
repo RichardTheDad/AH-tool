@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timezone
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -15,7 +16,7 @@ from app.services.metadata_service import (
     refresh_tsm_market_stats,
     scan_result_to_schema,
 )
-from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_stage, mark_scan_started
+from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_stage, try_mark_scan_started
 from app.services.listing_service import (
     get_latest_snapshots_for_realms,
     get_recent_snapshot_history_for_items,
@@ -28,6 +29,10 @@ from app.services.realm_service import get_enabled_realm_names
 from app.services.scoring_service import MarketHistoryContext, TsmMarketContext, score_opportunity
 from app.services.tsm_ledger_service import TsmLedgerService
 from app.services.tsm_service import TsmMarketService
+
+
+class ScanAlreadyRunningError(RuntimeError):
+    pass
 
 
 def select_cheapest_buy_snapshot(snapshots):
@@ -321,7 +326,8 @@ def get_scan_readiness(session: Session) -> ScanReadinessRead:
 
 
 def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
-    mark_scan_started(payload.provider_name)
+    if not try_mark_scan_started(payload.provider_name):
+        raise ScanAlreadyRunningError("A scan is already running.")
     try:
         mark_scan_stage("Resolving enabled realms and scanner readiness.")
         realms = get_enabled_realm_names(session)
@@ -520,11 +526,26 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         raise
 
 
-def get_scan_session(session: Session, scan_id: int) -> ScanSessionRead | None:
+def get_scan_session(session: Session, scan_id: int, *, limit: int | None = None) -> ScanSessionRead | None:
     scan_session = session.get(ScanSession, scan_id)
     if scan_session is None:
         return None
-    ordered_results = sorted(scan_session.results, key=lambda result: (result.final_score, result.estimated_profit), reverse=True)
+
+    query = (
+        session.query(ScanResult)
+        .filter(ScanResult.scan_session_id == scan_session.id)
+        .order_by(ScanResult.final_score.desc(), ScanResult.estimated_profit.desc())
+    )
+    if limit is not None:
+        query = query.limit(max(1, min(limit, 2000)))
+    ordered_results = query.all()
+
+    total_result_count = int(
+        session.query(func.count(ScanResult.id))
+        .filter(ScanResult.scan_session_id == scan_session.id)
+        .scalar()
+        or 0
+    )
     history_by_item = get_recent_snapshot_history_for_items(
         session,
         list({result.item_id for result in ordered_results}),
@@ -538,26 +559,38 @@ def get_scan_session(session: Session, scan_id: int) -> ScanSessionRead | None:
         provider_name=scan_session.provider_name,
         warning_text=scan_session.warning_text,
         generated_at=scan_session.generated_at,
-        result_count=len(ordered_results),
+        result_count=total_result_count,
         results=_serialize_scan_results(ordered_results, history_by_item, history_by_item, tsm_ledger_service, enabled_realms),
     )
 
 
-def get_latest_scan(session: Session) -> ScanSessionRead | None:
+def get_latest_scan(session: Session, *, limit: int | None = None) -> ScanSessionRead | None:
     latest = session.query(ScanSession).order_by(ScanSession.generated_at.desc()).first()
     if latest is None:
         return None
-    return get_scan_session(session, latest.id)
+    return get_scan_session(session, latest.id, limit=limit)
 
 
 def get_scan_history(session: Session, *, limit: int = 8) -> list[ScanSessionSummary]:
-    scans = session.query(ScanSession).order_by(ScanSession.generated_at.desc()).limit(limit).all()
+    rows = (
+        session.query(
+            ScanSession.id,
+            ScanSession.generated_at,
+            ScanSession.provider_name,
+            func.count(ScanResult.id).label("result_count"),
+        )
+        .outerjoin(ScanResult, ScanResult.scan_session_id == ScanSession.id)
+        .group_by(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
+        .order_by(ScanSession.generated_at.desc())
+        .limit(limit)
+        .all()
+    )
     return [
         ScanSessionSummary(
-            id=scan.id,
-            generated_at=scan.generated_at,
-            provider_name=scan.provider_name,
-            result_count=len(scan.results),
+            id=row.id,
+            generated_at=row.generated_at,
+            provider_name=row.provider_name,
+            result_count=int(row.result_count or 0),
         )
-        for scan in scans
+        for row in rows
     ]

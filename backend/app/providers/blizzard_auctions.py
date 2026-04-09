@@ -283,6 +283,9 @@ class BlizzardAuctionListingProvider(ListingProvider):
         token = self._get_access_token(client)
         url = path_or_url if absolute else f"{self._api_base_url()}{path_or_url}"
         response = client.get(url, params=params, headers={"Authorization": f"Bearer {token}"})
+        if response.status_code == 401:
+            token = self._get_access_token(client, force_refresh=True)
+            response = client.get(url, params=params, headers={"Authorization": f"Bearer {token}"})
         response.raise_for_status()
         return response.json(), response.headers
 
