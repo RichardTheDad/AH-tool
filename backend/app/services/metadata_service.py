@@ -9,12 +9,21 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Item, ScanResult
 from app.core.config import get_settings
-from app.schemas.item import ItemDetail, ItemRead, ItemSearchResult, TsmRegionStatsRead
+from app.schemas.item import (
+    ItemDetail,
+    ItemHistoryPointRead,
+    ItemRead,
+    ItemRealmHistoryRead,
+    ItemSearchResult,
+    TsmRealmStatsRead,
+    TsmRegionStatsRead,
+)
 from app.schemas.listing import LiveListingLookupResponse, LiveListingLookupRow, ListingSnapshotRead
 from app.schemas.scan import ScanResultRead
-from app.services.listing_service import get_latest_snapshots_for_item
+from app.services.listing_service import get_latest_snapshots_for_item, get_recent_snapshot_history_for_item
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
+from app.services.tsm_ledger_service import TsmLedgerService
 from app.services.tsm_service import TsmMarketService
 
 
@@ -246,6 +255,24 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
 
     realms = get_enabled_realm_names(session)
     listings = get_latest_snapshots_for_item(session, item_id, realms)
+    auction_history_map = get_recent_snapshot_history_for_item(session, item_id, realms, limit_per_realm=30)
+    auction_history = [
+        ItemRealmHistoryRead(
+            realm=realm,
+            points=[
+                ItemHistoryPointRead(
+                    captured_at=snapshot.captured_at,
+                    lowest_price=snapshot.lowest_price,
+                    average_price=snapshot.average_price,
+                    quantity=snapshot.quantity,
+                    listing_count=snapshot.listing_count,
+                )
+                for snapshot in reversed(history)
+            ],
+        )
+        for realm, history in sorted(auction_history_map.items(), key=lambda entry: entry[0].lower())
+        if history
+    ]
     recent_scan = (
         session.query(ScanResult)
         .filter(ScanResult.item_id == item_id)
@@ -253,9 +280,14 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
         .first()
     )
     tsm_service = TsmMarketService(get_settings())
+    tsm_ledger_service = TsmLedgerService(get_settings())
     tsm_available, tsm_message = tsm_service.is_available()
+    tsm_ledger_available, tsm_ledger_message = tsm_ledger_service.is_available()
     tsm_region_stats = None
+    tsm_realm_stats: list[TsmRealmStatsRead] = []
     tsm_status = "unavailable"
+    tsm_ledger_status = "unavailable"
+    tsm_ledger_summary = None
     if tsm_available:
         metadata = dict(item.metadata_json) if isinstance(item.metadata_json, dict) else {}
         cached_region_stats = metadata.get("tsm_region_stats") if isinstance(metadata.get("tsm_region_stats"), dict) else None
@@ -281,14 +313,35 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
         else:
             tsm_status = "error"
 
+        for realm in realms:
+            realm_stats, _realm_message = tsm_service.fetch_realm_item_stats(item_id, realm)
+            if realm_stats is None:
+                continue
+            tsm_realm_stats.append(TsmRealmStatsRead(**realm_stats))
+
+    if tsm_ledger_available:
+        ledger_summary_raw, ledger_message = tsm_ledger_service.fetch_item_ledger(item_id, realms)
+        if ledger_summary_raw:
+            tsm_ledger_summary = ledger_summary_raw
+            tsm_ledger_status = "available"
+            tsm_ledger_message = ledger_message
+        else:
+            tsm_ledger_status = "error"
+            tsm_ledger_message = ledger_message
+
     return ItemDetail(
         **ItemRead.model_validate(item).model_dump(),
         metadata_status=metadata_status,
         metadata_message=metadata_message,
         latest_listings=[ListingSnapshotRead.model_validate(listing) for listing in listings],
+        auction_history=auction_history,
         tsm_status=tsm_status,
         tsm_message=tsm_message,
         tsm_region_stats=tsm_region_stats,
+        tsm_realm_stats=tsm_realm_stats,
+        tsm_ledger_status=tsm_ledger_status,
+        tsm_ledger_message=tsm_ledger_message,
+        tsm_ledger_summary=tsm_ledger_summary,
         recent_scan=scan_result_to_schema(recent_scan) if recent_scan else None,
     )
 
@@ -331,7 +384,16 @@ def get_live_item_listings(session: Session, item_id: int) -> LiveListingLookupR
     )
 
 
-def scan_result_to_schema(result: ScanResult, *, sell_history_prices: list[float] | None = None) -> ScanResultRead:
+def scan_result_to_schema(
+    result: ScanResult,
+    *,
+    sell_history_prices: list[float] | None = None,
+    observed_sell_price: float | None = None,
+    personal_sale_count: int = 0,
+    personal_cancel_count: int = 0,
+    personal_expired_count: int = 0,
+) -> ScanResultRead:
+    has_missing_metadata = item_has_missing_metadata(result.item) if result.item else True
     return ScanResultRead(
         id=result.id,
         item_id=result.item_id,
@@ -343,18 +405,25 @@ def scan_result_to_schema(result: ScanResult, *, sell_history_prices: list[float
         cheapest_buy_price=result.cheapest_buy_price,
         best_sell_realm=result.best_sell_realm,
         best_sell_price=result.best_sell_price,
+        observed_sell_price=observed_sell_price,
         estimated_profit=result.estimated_profit,
         roi=result.roi,
         confidence_score=result.confidence_score,
+        sellability_score=getattr(result, "sellability_score", 0),
         liquidity_score=result.liquidity_score,
         volatility_score=result.volatility_score,
         bait_risk_score=result.bait_risk_score,
         final_score=result.final_score,
+        turnover_label=getattr(result, "turnover_label", "slow"),
         explanation=result.explanation,
         sell_history_prices=sell_history_prices or [],
         generated_at=result.generated_at,
         has_stale_data=result.has_stale_data,
         is_risky=result.is_risky,
+        has_missing_metadata=has_missing_metadata,
+        personal_sale_count=personal_sale_count,
+        personal_cancel_count=personal_cancel_count,
+        personal_expired_count=personal_expired_count,
     )
 
 

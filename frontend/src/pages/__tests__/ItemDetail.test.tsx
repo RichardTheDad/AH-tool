@@ -26,6 +26,27 @@ describe("ItemDetail page", () => {
       metadata_status: "cached",
       metadata_message: "Metadata cached locally.",
       latest_listings: [],
+      auction_history: [
+        {
+          realm: "Stormrage",
+          points: [
+            {
+              captured_at: new Date(Date.now() - 86_400_000).toISOString(),
+              lowest_price: 900000,
+              average_price: 940000,
+              quantity: 2,
+              listing_count: 2,
+            },
+            {
+              captured_at: new Date().toISOString(),
+              lowest_price: 950000,
+              average_price: 960000,
+              quantity: 3,
+              listing_count: 3,
+            },
+          ],
+        },
+      ],
       tsm_status: "available",
       tsm_message: "TSM region market stats loaded.",
       tsm_region_stats: {
@@ -34,6 +55,42 @@ describe("ItemDetail page", () => {
         db_region_sale_avg: 910000,
         db_region_sale_rate: 0.042,
         db_region_sold_per_day: 0.315,
+      },
+      tsm_realm_stats: [
+        {
+          realm: "Stormrage",
+          min_buyout: 920000,
+          num_auctions: 3,
+          market_value_recent: 940000,
+          historical: 880000,
+        },
+      ],
+      tsm_ledger_status: "available",
+      tsm_ledger_message: "Local TSM ledger history loaded.",
+      tsm_ledger_summary: {
+        auction_sale_count: 2,
+        auction_units_sold: 3,
+        auction_avg_unit_sale_price: 137500,
+        last_auction_sale_at: new Date().toISOString(),
+        auction_buy_count: 1,
+        auction_units_bought: 1,
+        auction_avg_unit_buy_price: 95000,
+        last_auction_buy_at: new Date().toISOString(),
+        cancel_count: 1,
+        expired_count: 0,
+        last_cancel_at: new Date().toISOString(),
+        last_expired_at: null,
+        recent_sales: [
+          {
+            realm: "Stormrage",
+            quantity: 2,
+            price: 150000,
+            other_player: "Buyerone",
+            player: "Divineares",
+            time: new Date().toISOString(),
+            source: "Auction",
+          },
+        ],
       },
       recent_scan: null,
     });
@@ -76,8 +133,14 @@ describe("ItemDetail page", () => {
     expect(screen.getByText("Cached metadata")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh live metadata" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check live Blizzard listings" })).toBeInTheDocument();
-    expect(screen.getByText("TSM market stats")).toBeInTheDocument();
+    expect(screen.getByText("Auction history")).toBeInTheDocument();
+    expect(screen.getByText("TSM market context")).toBeInTheDocument();
     expect(screen.getByText("Region sale rate")).toBeInTheDocument();
     expect(screen.getByText("4.2%")).toBeInTheDocument();
+    expect(screen.getByText("Tracked realm AuctionDB context")).toBeInTheDocument();
+    expect(screen.getByText("TSM recent")).toBeInTheDocument();
+    expect(screen.getByText("Personal TSM ledger")).toBeInTheDocument();
+    expect(screen.getByText("Avg unit sold")).toBeInTheDocument();
+    expect(screen.getByText("Recent personal auction sales")).toBeInTheDocument();
   });
 });

@@ -16,18 +16,25 @@ class ScanResultRead(BaseModel):
     cheapest_buy_price: float
     best_sell_realm: str
     best_sell_price: float
+    observed_sell_price: float | None = None
     estimated_profit: float
     roi: float
     confidence_score: float
+    sellability_score: float = 0
     liquidity_score: float
     volatility_score: float
     bait_risk_score: float
     final_score: float
+    turnover_label: str = "slow"
     explanation: str
     sell_history_prices: list[float] = Field(default_factory=list)
     generated_at: datetime
     has_stale_data: bool
     is_risky: bool
+    has_missing_metadata: bool = False
+    personal_sale_count: int = 0
+    personal_cancel_count: int = 0
+    personal_expired_count: int = 0
 
 
 class ScanSessionRead(BaseModel):
@@ -102,3 +109,7 @@ class ScanSessionSummary(BaseModel):
     result_count: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ScanHistoryResponse(BaseModel):
+    scans: list[ScanSessionSummary] = Field(default_factory=list)

@@ -7,6 +7,7 @@ from typing import Any
 import httpx
 
 from app.core.config import Settings
+from app.services.tsm_apphelper_service import TsmAppHelperService
 
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,23 @@ class TsmMarketService:
         self.settings = settings
         self._access_token: str | None = None
         self._access_token_expires_at: datetime | None = None
+        self._apphelper_service = TsmAppHelperService(settings)
 
     def is_available(self) -> tuple[bool, str]:
+        local_available, local_message = self._apphelper_service.is_available()
+        api_available, api_message = self._api_is_available()
+        if local_available and api_available:
+            return True, "TSM API is configured and local AppHelper AuctionDB data is available."
+        if local_available:
+            return True, local_message
+        if api_available:
+            return True, api_message
+        return False, api_message
+
+    def fetch_realm_item_stats(self, item_id: int, realm: str) -> tuple[dict[str, float | None] | None, str]:
+        return self._apphelper_service.fetch_realm_item_stats(item_id, realm)
+
+    def _api_is_available(self) -> tuple[bool, str]:
         if not self.settings.tsm_api_key:
             return False, "No TSM API key is configured."
         region_id = self._resolve_region_id()
@@ -33,13 +49,19 @@ class TsmMarketService:
         return True, f"Configured for TSM region market stats (region {region_id})."
 
     def fetch_region_item_stats(self, item_id: int) -> tuple[dict[str, float | None] | None, str]:
-        available, message = self.is_available()
-        if not available:
-            return None, message
+        local_stats, local_message = self._apphelper_service.fetch_region_item_stats(item_id)
+        api_available, api_message = self._api_is_available()
+
+        if not api_available:
+            if local_stats:
+                return local_stats, local_message
+            return None, api_message
 
         region_id = self._resolve_region_id()
         assert region_id is not None
 
+        api_stats: dict[str, float | None] | None = None
+        api_warning: str | None = None
         try:
             with httpx.Client(timeout=self.settings.request_timeout_seconds) as client:
                 token = self._get_access_token(client)
@@ -49,13 +71,21 @@ class TsmMarketService:
                 )
                 response.raise_for_status()
                 payload = response.json()
-            normalized = self._normalize_region_stats(payload)
-            if not normalized:
-                return None, "TSM returned no recognized region stats for this item."
-            return normalized, "TSM region market stats loaded."
+            api_stats = self._normalize_region_stats(payload)
+            if not api_stats:
+                api_warning = "TSM returned no recognized region stats for this item."
         except Exception as exc:  # pragma: no cover - network failure path
             logger.warning("TSM market stats lookup failed for item %s: %s", item_id, exc)
-            return None, f"TSM market stats lookup failed: {exc}"
+            api_warning = f"TSM market stats lookup failed: {exc}"
+
+        merged = self._merge_stats(local_stats, api_stats)
+        if merged:
+            if api_stats and local_stats:
+                return merged, "TSM region market stats loaded from the API and supplemented with local AppHelper data."
+            if api_stats:
+                return merged, "TSM region market stats loaded from the TSM API."
+            return merged, local_message
+        return None, api_warning or local_message or "TSM returned no recognized region stats for this item."
 
     def is_market_stats_fresh(self, item_metadata: dict[str, Any] | None, *, max_age_hours: int = 24) -> bool:
         if not isinstance(item_metadata, dict):
@@ -153,6 +183,17 @@ class TsmMarketService:
         if not any(value is not None for value in stats.values()):
             return None
         return stats
+
+    def _merge_stats(
+        self,
+        local_stats: dict[str, float | None] | None,
+        api_stats: dict[str, float | None] | None,
+    ) -> dict[str, float | None] | None:
+        merged = dict(local_stats or {})
+        for key, value in (api_stats or {}).items():
+            if value is not None:
+                merged[key] = value
+        return merged or None
 
     def _flatten(self, payload: Any, prefix: str = "") -> dict[str, float]:
         values: dict[str, float] = {}

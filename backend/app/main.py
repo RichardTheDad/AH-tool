@@ -5,12 +5,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, imports, items, presets, providers, realms, scans, settings
+from app.api import health, imports, items, presets, providers, realm_suggestions, realms, scans, settings
 from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.init_db import create_db_and_tables, initialize_app_data
 from app.db.session import get_session_factory
 from app.jobs.scheduler import manager as scheduler_manager
+from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 
 
 @asynccontextmanager
@@ -22,6 +23,8 @@ async def lifespan(_: FastAPI):
         initialize_app_data(session)
     finally:
         session.close()
+
+    queue_missing_metadata_sweep(limit=250)
 
     if get_settings().enable_scheduler:
         scheduler_manager.start()
@@ -45,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(providers.router)
     app.include_router(realms.router)
+    app.include_router(realm_suggestions.router)
     app.include_router(items.router)
     app.include_router(imports.router)
     app.include_router(scans.router)

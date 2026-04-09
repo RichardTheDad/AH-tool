@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     blizzard_locale: str = "en_US"
     tsm_api_key: str = ""
     tsm_region_id: int | None = None
+    tsm_apphelper_path: str = ""
+    tsm_savedvariables_path: str = ""
 
     @field_validator("database_url", mode="before")
     @classmethod

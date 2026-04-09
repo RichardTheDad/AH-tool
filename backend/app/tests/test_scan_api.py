@@ -42,6 +42,7 @@ def test_scan_selects_best_buy_and_sell_realms(client) -> None:
     staff = next(result for result in payload["results"] if result["item_id"] == 873)
     assert staff["cheapest_buy_realm"] == "Area 52"
     assert staff["best_sell_realm"] == "Zul'jin"
+    assert staff["observed_sell_price"] == 23900.0
     assert staff["estimated_profit"] > 0
     assert staff["sell_history_prices"] == [23900.0]
 
@@ -249,3 +250,17 @@ def test_health_and_realms_smoke_flow(client) -> None:
 
     duplicate = client.post("/realms", json={"realm_name": "Mal'Ganis", "region": "us", "enabled": True})
     assert duplicate.status_code == 400
+
+
+def test_scan_history_returns_recent_summaries(client) -> None:
+    seed_listing_import_data(client)
+
+    response = client.post("/scans/run", json={"provider_name": "file_import", "refresh_live": False, "include_losers": False})
+    assert response.status_code == 200
+
+    history = client.get("/scans/history")
+    assert history.status_code == 200
+    payload = history.json()
+    assert payload["scans"]
+    assert payload["scans"][0]["provider_name"] == "file_import"
+    assert payload["scans"][0]["result_count"] >= 0

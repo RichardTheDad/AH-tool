@@ -26,6 +26,9 @@ Use this checklist before calling the app release-ready.
   - `AZEROTHFLIPLOCAL_TSM_API_KEY`
   - `AZEROTHFLIPLOCAL_TSM_REGION_ID`
   - `VITE_API_BASE_URL`
+- Confirm optional local TSM discovery paths are still truthful if documented:
+  - `AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH`
+  - `AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH`
 
 ## Backend Verification
 
@@ -42,7 +45,8 @@ Use this checklist before calling the app release-ready.
 
 - Run frontend tests and confirm they pass.
 - Run a production build and confirm it succeeds.
-- Verify scanner filters, presets, sorting, export, and empty states render correctly.
+- Verify scanner filters, presets, sorting, export, scan diff, and empty states render correctly.
+- Verify Suggested Realms refreshes, shows freshness and recent appearance counts, and can track a suggested realm directly.
 - Verify scan-in-progress locking disables risky actions on Scanner and Realms pages.
 
 ## Manual Release QA
@@ -52,7 +56,9 @@ Use this checklist before calling the app release-ready.
 - Run a live Blizzard scan.
 - Confirm scan results persist after restart.
 - Confirm item detail loads and metadata refresh works.
-- Confirm `Refresh missing metadata` works from the Scanner page.
+- Confirm missing metadata begins resolving automatically after startup and after scans.
+- Confirm item detail `Auction history` renders local listing trend and depth data once enough scans exist.
+- Confirm Suggested Realms rotates source-realm batches and does not interfere with normal scanner behavior.
 - Confirm CSV export downloads the filtered scanner results.
 - Confirm provider failures are readable and non-fatal.
 - Confirm import fallback still works when Blizzard credentials are missing or disabled.
@@ -60,7 +66,7 @@ Use this checklist before calling the app release-ready.
 ## Trust Checks
 
 - Spot-check that sell targets look conservative for thin/spiky markets.
-- Spot-check that confidence explanations are believable for top-ranked results.
+- Spot-check that confidence and sellability explanations are believable for top-ranked results.
 - Confirm same-realm buy/sell is never emitted.
 - Confirm commodities stay excluded by default.
 

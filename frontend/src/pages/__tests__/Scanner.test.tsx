@@ -4,6 +4,7 @@ import { renderWithProviders } from "../../test/test-utils";
 
 vi.mock("../../api/scans", () => ({
   getLatestScan: vi.fn(),
+  getScanHistory: vi.fn(),
   getScanReadiness: vi.fn(),
   getScanStatus: vi.fn(),
   runScan: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("../../api/presets", () => ({
   getPresets: vi.fn(),
 }));
 
-import { getLatestScan, getScanReadiness, getScanStatus, runScan } from "../../api/scans";
+import { getLatestScan, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../../api/scans";
 import { refreshMissingMetadata } from "../../api/items";
 import { getProviderStatus } from "../../api/providers";
 import { getRealms } from "../../api/realms";
@@ -106,6 +107,7 @@ describe("Scanner page", () => {
     vi.mocked(getProviderStatus).mockResolvedValue(providerResponse);
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
     vi.mocked(getPresets).mockResolvedValue([]);
+    vi.mocked(getScanHistory).mockResolvedValue({ scans: [] });
     vi.mocked(getScanReadiness).mockResolvedValue(readinessResponse);
     vi.mocked(getScanStatus).mockResolvedValue(scanStatusResponse);
   });
@@ -135,18 +137,25 @@ describe("Scanner page", () => {
             cheapest_buy_price: 12900,
             best_sell_realm: "Zul'jin",
             best_sell_price: 23900,
+            observed_sell_price: 24500,
             estimated_profit: 9805,
             roi: 0.76,
             confidence_score: 92,
+            sellability_score: 88,
             liquidity_score: 88,
             volatility_score: 86,
             bait_risk_score: 18,
             final_score: 90,
+            turnover_label: "steady",
             explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
             sell_history_prices: [23900, 23000, 22000],
             generated_at: new Date().toISOString(),
             has_stale_data: false,
             is_risky: false,
+            has_missing_metadata: false,
+            personal_sale_count: 3,
+            personal_cancel_count: 0,
+            personal_expired_count: 0,
           },
         ],
       },
@@ -201,18 +210,25 @@ describe("Scanner page", () => {
             cheapest_buy_price: 12900,
             best_sell_realm: "Zul'jin",
             best_sell_price: 23900,
+            observed_sell_price: 24500,
             estimated_profit: 9805,
             roi: 0.76,
             confidence_score: 92,
+            sellability_score: 88,
             liquidity_score: 88,
             volatility_score: 86,
             bait_risk_score: 18,
             final_score: 90,
+            turnover_label: "steady",
             explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
             sell_history_prices: [23900, 23000, 22000],
             generated_at: new Date().toISOString(),
             has_stale_data: false,
             is_risky: false,
+            has_missing_metadata: false,
+            personal_sale_count: 0,
+            personal_cancel_count: 0,
+            personal_expired_count: 0,
           },
         ],
       },
@@ -240,6 +256,91 @@ describe("Scanner page", () => {
     expect(button).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("highlights Aggressive Peek when it is selected", async () => {
+    vi.mocked(getLatestScan).mockResolvedValue({
+      latest: {
+        id: 1,
+        provider_name: "file_import",
+        generated_at: new Date().toISOString(),
+        result_count: 1,
+        results: [
+          {
+            id: 10,
+            item_id: 873,
+            item_name: "Staff of Jordan",
+            item_class_name: "Weapon",
+            cheapest_buy_realm: "Area 52",
+            cheapest_buy_price: 12900,
+            best_sell_realm: "Zul'jin",
+            best_sell_price: 23900,
+            observed_sell_price: 24500,
+            estimated_profit: 9805,
+            roi: 0.76,
+            confidence_score: 92,
+            sellability_score: 70,
+            liquidity_score: 88,
+            volatility_score: 86,
+            bait_risk_score: 18,
+            final_score: 90,
+            turnover_label: "steady",
+            explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
+            sell_history_prices: [23900, 23000, 22000],
+            generated_at: new Date().toISOString(),
+            has_stale_data: false,
+            is_risky: false,
+            has_missing_metadata: false,
+            personal_sale_count: 0,
+            personal_cancel_count: 0,
+            personal_expired_count: 0,
+          },
+        ],
+      },
+    });
+    vi.mocked(getPresets).mockResolvedValue([
+      {
+        id: 1,
+        name: "Safe Floor",
+        min_profit: 5000,
+        min_roi: 0.2,
+        max_buy_price: null,
+        min_confidence: 70,
+        allow_stale: false,
+        hide_risky: true,
+        category_filter: null,
+      },
+      {
+        id: 2,
+        name: "Balanced Board",
+        min_profit: 2500,
+        min_roi: 0.12,
+        max_buy_price: null,
+        min_confidence: 55,
+        allow_stale: false,
+        hide_risky: true,
+        category_filter: null,
+      },
+      {
+        id: 3,
+        name: "Aggressive Peek",
+        min_profit: 1000,
+        min_roi: 0.08,
+        max_buy_price: null,
+        min_confidence: 35,
+        allow_stale: false,
+        hide_risky: false,
+        category_filter: null,
+      },
+    ]);
+
+    renderWithProviders(<Scanner />, "/scanner");
+
+    const button = await screen.findByRole("button", { name: "Aggressive Peek" });
+    fireEvent.click(button);
+
+    expect(await screen.findByText("Applied preset: Aggressive Peek")).toBeInTheDocument();
+    expect(button).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("supports category dropdown and clickable header sorting", async () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
@@ -257,18 +358,25 @@ describe("Scanner page", () => {
             cheapest_buy_price: 12900,
             best_sell_realm: "Zul'jin",
             best_sell_price: 23900,
+            observed_sell_price: 24500,
             estimated_profit: 9805,
             roi: 0.76,
             confidence_score: 92,
+            sellability_score: 88,
             liquidity_score: 88,
             volatility_score: 86,
             bait_risk_score: 18,
             final_score: 90,
+            turnover_label: "steady",
             explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
             sell_history_prices: [23900, 23000, 22000],
             generated_at: new Date().toISOString(),
             has_stale_data: false,
             is_risky: false,
+            has_missing_metadata: false,
+            personal_sale_count: 0,
+            personal_cancel_count: 0,
+            personal_expired_count: 0,
           },
           {
             id: 11,
@@ -279,18 +387,25 @@ describe("Scanner page", () => {
             cheapest_buy_price: 7200,
             best_sell_realm: "Zul'jin",
             best_sell_price: 12900,
+            observed_sell_price: 13000,
             estimated_profit: 5055,
             roi: 0.702,
             confidence_score: 98,
+            sellability_score: 91,
             liquidity_score: 88,
             volatility_score: 86,
             bait_risk_score: 18,
             final_score: 95,
+            turnover_label: "fast",
             explanation: "Cheapest on Stormrage, strongest sell on Zul'jin, with acceptable liquidity.",
             sell_history_prices: [12900, 12000],
             generated_at: new Date().toISOString(),
             has_stale_data: false,
             is_risky: false,
+            has_missing_metadata: false,
+            personal_sale_count: 0,
+            personal_cancel_count: 0,
+            personal_expired_count: 0,
           },
         ],
       },
@@ -307,5 +422,9 @@ describe("Scanner page", () => {
 
     fireEvent.click(buyPriceHeader);
     expect(buyPriceHeader).toHaveTextContent("Buy price ^");
+
+    const sellabilityHeader = screen.getByRole("button", { name: /Sellability/i });
+    fireEvent.click(sellabilityHeader);
+    expect(sellabilityHeader).toHaveTextContent("Sellability v");
   });
 });

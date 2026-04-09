@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
 import { getLatestScan, getScanReadiness } from "../api/scans";
@@ -6,7 +7,6 @@ import { Card } from "../components/common/Card";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
-import { ProviderStatusCard } from "../components/providers/ProviderStatusCard";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { formatDateTime } from "../utils/format";
 
@@ -31,48 +31,62 @@ export function Dashboard() {
   const staleCount = latest?.results.filter((result) => result.has_stale_data).length ?? 0;
   const liveProviders = providers.filter((provider) => provider.supports_live_fetch);
   const liveProviderCount = liveProviders.filter((provider) => provider.available).length;
+  const primaryListingProvider = providers.find((provider) => provider.name === "blizzard_auctions");
+  const nextStep = !realms.length
+    ? "Add tracked realms so the app can build coverage."
+    : readiness.realms_with_data < 2
+      ? "Run a live Blizzard scan to build enough realm coverage for cross-realm comparisons."
+      : readiness.items_missing_metadata > 0
+        ? "Let the automatic metadata sweeper keep filling missing item details while you keep scanning."
+        : latest
+          ? "Open Scanner to review the latest ranked opportunities and sort by sellability or confidence."
+          : "Run a live scan to populate the first ranked board.";
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-4">
-        <Card title="Tracked realms">
-          <p className="text-3xl font-semibold text-ink">{realms.length}</p>
-          <p className="mt-2 text-sm text-slate-600">{realms.filter((realm) => realm.enabled).length} enabled for scanning</p>
-        </Card>
-        <Card title="Latest scan">
-          <p className="text-3xl font-semibold text-ink">{latest?.result_count ?? 0}</p>
-          <p className="mt-2 text-sm text-slate-600">{latest ? formatDateTime(latest.generated_at) : "No scan has been run yet"}</p>
-        </Card>
-        <Card title="Scanner readiness">
-          <p className="text-3xl font-semibold text-ink">{readiness.realms_with_fresh_data}/{readiness.enabled_realm_count}</p>
-          <p className={`mt-2 text-sm ${readiness.status === "blocked" ? "text-rose-700" : readiness.status === "caution" ? "text-amber-700" : "text-emerald-700"}`}>
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
+        <Card title="Today's state" subtitle="A quick read on whether the board is ready to trust.">
+          <p className={`text-sm font-semibold ${readiness.status === "blocked" ? "text-rose-700" : readiness.status === "caution" ? "text-amber-700" : "text-emerald-700"}`}>
             {readiness.message}
           </p>
+          <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
+            <span className="rounded-full bg-slate-100 px-3 py-1">{realms.filter((realm) => realm.enabled).length} enabled realms</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_fresh_data}/{readiness.enabled_realm_count} fresh realms</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.unique_item_count} items in coverage</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1">{latest?.result_count ?? 0} ranked results</span>
+          </div>
+          <p className="mt-4 text-sm text-slate-600">
+            Next step: <span className="font-medium text-ink">{nextStep}</span>
+          </p>
+        </Card>
+        <Card title="Live readiness">
+          <p className="text-3xl font-semibold text-ink">{liveProviderCount}/{liveProviders.length || 1}</p>
+          <p className="mt-2 text-sm text-slate-600">{liveProviders.length ? "live-capable providers usable" : "no live providers configured"}</p>
+          {primaryListingProvider ? (
+            <p className={`mt-3 text-sm ${primaryListingProvider.available ? "text-emerald-700" : "text-amber-700"}`}>
+              Blizzard live scan {primaryListingProvider.available ? "is ready" : "needs attention"}
+            </p>
+          ) : null}
         </Card>
         <Card title="Data gaps">
           <p className="text-3xl font-semibold text-ink">{readiness.items_missing_metadata + readiness.missing_realms.length}</p>
           <p className="mt-2 text-sm text-slate-600">
-            {readiness.items_missing_metadata} items missing metadata, {readiness.missing_realms.length} enabled realms without listings
+            {readiness.items_missing_metadata} metadata gaps, {readiness.missing_realms.length} realms without listings
           </p>
+          <p className="mt-3 text-sm text-slate-500">{staleCount} stale results in the latest board</p>
+          {readiness.latest_snapshot_at ? <p className="mt-2 text-xs text-slate-500">Latest listing {formatDateTime(readiness.latest_snapshot_at)}</p> : null}
         </Card>
       </div>
 
-      <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
-        <div className="flex flex-wrap gap-2 text-sm text-slate-600">
-          <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.unique_item_count} items in current local cache</span>
-          <span className="rounded-full bg-slate-100 px-3 py-1">{staleCount} stale results in latest scan</span>
-          <span className="rounded-full bg-slate-100 px-3 py-1">
-            {liveProviders.length ? `${liveProviderCount}/${liveProviders.length} live-capable providers usable now` : "No live-capable providers configured"}
-          </span>
-          {readiness.latest_snapshot_at ? <span className="rounded-full bg-slate-100 px-3 py-1">Latest listing {formatDateTime(readiness.latest_snapshot_at)}</span> : null}
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {providers.map((provider) => (
-          <ProviderStatusCard key={provider.name} provider={provider} />
-        ))}
-      </div>
+      <Card title="Where to work" subtitle="Dashboard stays light; operational detail lives on Scanner.">
+        <p className="text-sm text-slate-600">
+          Use the{" "}
+          <Link to="/scanner" className="font-semibold text-ink underline-offset-4 hover:underline">
+            Scanner
+          </Link>{" "}
+          page for provider detail, live scan progress, sellability sorting, recent scan history, and operational controls.
+        </p>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
         <Card title="Latest scan snapshot" subtitle="Top current opportunities across your enabled realm list.">

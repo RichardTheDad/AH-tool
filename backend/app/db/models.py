@@ -86,10 +86,12 @@ class ScanResult(Base):
     estimated_profit: Mapped[float] = mapped_column(Float)
     roi: Mapped[float] = mapped_column(Float)
     confidence_score: Mapped[float] = mapped_column(Float)
+    sellability_score: Mapped[float] = mapped_column(Float, default=0)
     liquidity_score: Mapped[float] = mapped_column(Float)
     volatility_score: Mapped[float] = mapped_column(Float)
     bait_risk_score: Mapped[float] = mapped_column(Float)
     final_score: Mapped[float] = mapped_column(Float)
+    turnover_label: Mapped[str] = mapped_column(String(24), default="slow")
     explanation: Mapped[str] = mapped_column(Text)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     has_stale_data: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -111,6 +113,48 @@ class ScanPreset(Base):
     allow_stale: Mapped[bool] = mapped_column(Boolean, default=False)
     hide_risky: Mapped[bool] = mapped_column(Boolean, default=True)
     category_filter: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+class RealmSuggestionRun(Base):
+    __tablename__ = "realm_suggestion_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, default=utcnow)
+    target_set_key: Mapped[str | None] = mapped_column(String(255), index=True, nullable=True)
+    target_realms_json: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    source_realms_json: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    batch_start: Mapped[int] = mapped_column(Integer, default=0)
+    batch_size: Mapped[int] = mapped_column(Integer, default=0)
+    source_realm_count: Mapped[int] = mapped_column(Integer, default=0)
+    warning_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    recommendations: Mapped[list["RealmSuggestionRecommendation"]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+        order_by=lambda: RealmSuggestionRecommendation.consistency_score.desc(),
+    )
+
+
+class RealmSuggestionRecommendation(Base):
+    __tablename__ = "realm_suggestion_recommendations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_id: Mapped[int] = mapped_column(ForeignKey("realm_suggestion_runs.id"), index=True)
+    realm: Mapped[str] = mapped_column(String(120), index=True)
+    opportunity_count: Mapped[int] = mapped_column(Integer, default=0)
+    cheapest_source_count: Mapped[int] = mapped_column(Integer, default=0)
+    average_profit: Mapped[float] = mapped_column(Float, default=0)
+    average_roi: Mapped[float] = mapped_column(Float, default=0)
+    average_confidence: Mapped[float] = mapped_column(Float, default=0)
+    average_sellability: Mapped[float] = mapped_column(Float, default=0)
+    consistency_score: Mapped[float] = mapped_column(Float, default=0)
+    median_buy_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    best_target_realm: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    latest_captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    explanation: Mapped[str] = mapped_column(Text, default="")
+    top_items_json: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+
+    run: Mapped[RealmSuggestionRun] = relationship(back_populates="recommendations")
 
 
 class AppSettings(Base):

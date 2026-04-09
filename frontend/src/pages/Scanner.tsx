@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { refreshMissingMetadata } from "../api/items";
 import { getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
-import { getLatestScan, getScanReadiness, getScanStatus, runScan } from "../api/scans";
+import { getLatestScan, getScan, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../api/scans";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -82,40 +81,38 @@ function exportResultsAsCsv(rows: ReturnType<typeof filterScanResults>) {
 export function Scanner() {
   const queryClient = useQueryClient();
   const [selectedProvider, setSelectedProvider] = useState("");
+  const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const { filters, updateFilters } = useScannerFilters();
 
   const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: getLatestScan });
+  const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
   const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 2000 });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
+  const previousScanId = (scanHistoryQuery.data?.scans ?? [])[1]?.id;
+  const previousScanQuery = useQuery({
+    queryKey: ["scans", previousScanId],
+    queryFn: () => getScan(previousScanId as number),
+    enabled: typeof previousScanId === "number",
+  });
 
   const scanMutation = useMutation({
     mutationFn: runScan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
+      queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
       queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
       queryClient.invalidateQueries({ queryKey: ["scans", "status"] });
       window.setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
+        queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
         queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
         queryClient.invalidateQueries({ queryKey: ["scans", "status"] });
       }, 2500);
     },
   });
-  const refreshMissingMetadataMutation = useMutation({
-    mutationFn: refreshMissingMetadata,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
-      window.setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
-        queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
-      }, 3000);
-    },
-  });
-
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
   const scannerProviders = [...providers]
     .filter((provider) => provider.name === "file_import" || provider.status === "available" || provider.status === "cached_only")
@@ -142,20 +139,55 @@ export function Scanner() {
     }
   }, [activeProvider, scannerProviders]);
 
-  if (scanQuery.isLoading || readinessQuery.isLoading || scanStatusQuery.isLoading || providersQuery.isLoading || presetsQuery.isLoading || realmsQuery.isLoading) {
+  if (
+    scanQuery.isLoading ||
+    scanHistoryQuery.isLoading ||
+    readinessQuery.isLoading ||
+    scanStatusQuery.isLoading ||
+    providersQuery.isLoading ||
+    presetsQuery.isLoading ||
+    realmsQuery.isLoading ||
+    previousScanQuery.isLoading
+  ) {
     return <LoadingState label="Loading scanner..." />;
   }
 
-  if (scanQuery.error || readinessQuery.error || scanStatusQuery.error || providersQuery.error || presetsQuery.error || realmsQuery.error || !readiness || !scanStatus) {
+  if (
+    scanQuery.error ||
+    scanHistoryQuery.error ||
+    readinessQuery.error ||
+    scanStatusQuery.error ||
+    providersQuery.error ||
+    presetsQuery.error ||
+    realmsQuery.error ||
+    previousScanQuery.error ||
+    !readiness ||
+    !scanStatus
+  ) {
     return <ErrorState message="Scanner data could not be loaded." />;
   }
 
+  function handleFilterChange(next: Parameters<typeof updateFilters>[0]) {
+    const changedKeys = Object.keys(next);
+    const sortOnlyChange = changedKeys.every((key) => key === "sortBy" || key === "sortDirection");
+    if (!sortOnlyChange) {
+      setSelectedPresetId(null);
+    }
+    updateFilters(next);
+  }
+
   const latest = scanQuery.data?.latest ?? null;
+  const previousScan = previousScanQuery.data ?? null;
+  const recentScans = scanHistoryQuery.data?.scans ?? [];
   const results = filterScanResults(latest?.results ?? [], filters);
+  const hiddenByFilters = Math.max((latest?.results.length ?? 0) - results.length, 0);
   const categoryOptions = Array.from(
     new Set((latest?.results ?? []).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
-  const activePreset = (presetsQuery.data ?? []).find((preset) => matchesPreset(filters, preset)) ?? null;
+  const inferredPreset = (presetsQuery.data ?? []).find((preset) => matchesPreset(filters, preset)) ?? null;
+  const activePreset =
+    (presetsQuery.data ?? []).find((preset) => preset.id === selectedPresetId) ??
+    (selectedPresetId === null ? inferredPreset : null);
   const latestWarningText = latest?.warning_text?.toLowerCase() ?? "";
   const showGuidedEmptyState =
     (!latest || latest.result_count === 0) &&
@@ -183,9 +215,35 @@ export function Scanner() {
           description: "Run the live Blizzard provider to pull fresh listings, or import listing snapshots as a fallback.",
         };
 
+  const diffSummary = (() => {
+    if (!latest || !previousScan) {
+      return null;
+    }
+    const previousByItem = new Map(previousScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
+    const currentByItem = new Map(latest.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
+    const newItems = latest.results.filter((result) => !previousByItem.has(result.item_id)).slice(0, 4);
+    const droppedItems = previousScan.results.filter((result) => !currentByItem.has(result.item_id)).slice(0, 4);
+    const movers = latest.results
+      .map((result, index) => {
+        const previous = previousByItem.get(result.item_id);
+        if (!previous) {
+          return null;
+        }
+        return {
+          result,
+          change: previous.rank - (index + 1),
+        };
+      })
+      .filter((entry): entry is { result: (typeof latest.results)[number]; change: number } => entry !== null && entry.change !== 0)
+      .sort((left, right) => Math.abs(right.change) - Math.abs(left.change))
+      .slice(0, 4);
+
+    return { newItems, droppedItems, movers };
+  })();
+
   return (
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
-      <FilterSidebar filters={filters} onChange={updateFilters} categoryOptions={categoryOptions} />
+      <FilterSidebar filters={filters} onChange={handleFilterChange} categoryOptions={categoryOptions} />
 
       <div className="space-y-4">
         <div className="flex flex-col gap-3 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card lg:flex-row lg:items-center lg:justify-between">
@@ -197,6 +255,9 @@ export function Scanner() {
               {readiness.message}
             </p>
             {scanRunning ? <p className="mt-2 text-sm text-sky-700">{scanStatus.message}</p> : null}
+            {!scanRunning && scanStatus.finished_at ? (
+              <p className="mt-2 text-sm text-slate-500">Last scan update: {formatDateTime(scanStatus.finished_at)}</p>
+            ) : null}
             {activeProvider ? (
               <p className={`mt-2 text-sm ${activeProvider.status === "error" ? "text-rose-700" : activeProvider.status === "cached_only" ? "text-amber-700" : "text-slate-600"}`}>
                 {activeProvider.message}
@@ -206,8 +267,11 @@ export function Scanner() {
               <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms with data</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_fresh_data} realms with fresh listings</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.unique_item_count} items in local coverage</span>
+              <span className="rounded-full bg-slate-100 px-3 py-1">{recentScans.length} recent scans saved</span>
               {readiness.items_missing_metadata ? (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">{readiness.items_missing_metadata} items missing metadata</span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">
+                  {readiness.items_missing_metadata} items missing metadata; automatic sweep active
+                </span>
               ) : null}
             </div>
           </div>
@@ -241,14 +305,6 @@ export function Scanner() {
             </button>
             <button
               type="button"
-              onClick={() => refreshMissingMetadataMutation.mutate()}
-              disabled={!readiness.items_missing_metadata || refreshMissingMetadataMutation.isPending || scanRunning}
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {refreshMissingMetadataMutation.isPending ? "Queueing metadata sweep..." : "Queue metadata sweep"}
-            </button>
-            <button
-              type="button"
               onClick={() => exportResultsAsCsv(results)}
               disabled={!results.length}
               className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -264,7 +320,10 @@ export function Scanner() {
               key={preset.id}
               type="button"
               aria-pressed={activePreset?.id === preset.id}
-              onClick={() => updateFilters(applyPresetToFilterState(preset))}
+              onClick={() => {
+                setSelectedPresetId(preset.id);
+                updateFilters(applyPresetToFilterState(preset));
+              }}
               className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
                 activePreset?.id === preset.id
                   ? "border-ink bg-ink text-white"
@@ -279,6 +338,12 @@ export function Scanner() {
           ) : null}
         </div>
 
+        {latest && hiddenByFilters > 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            {hiddenByFilters} results are currently hidden by your filters or preset. Loosen profit, confidence, or risky-item settings if you want to inspect why they fell out.
+          </div>
+        ) : null}
+
         {showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : latest ? (
@@ -286,11 +351,63 @@ export function Scanner() {
             results={results}
             sortBy={filters.sortBy}
             sortDirection={filters.sortDirection}
-            onSortChange={updateFilters}
+            onSortChange={handleFilterChange}
           />
         ) : (
           <EmptyState title="Scanner is empty" description="Run the live Blizzard provider to pull fresh listings, or import listing snapshots as a fallback." />
         )}
+
+        {diffSummary ? (
+          <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
+            <h3 className="font-display text-lg font-semibold text-ink">Since last scan</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Comparing {formatDateTime(latest!.generated_at)} to {formatDateTime(previousScan!.generated_at)}.
+            </p>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">New opportunities</p>
+                <div className="mt-2 space-y-2 text-sm text-slate-700">
+                  {diffSummary.newItems.length ? diffSummary.newItems.map((item) => (
+                    <div key={`new-${item.id}`}>{item.item_name}</div>
+                  )) : <div>No new ranked items.</div>}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Biggest movers</p>
+                <div className="mt-2 space-y-2 text-sm text-slate-700">
+                  {diffSummary.movers.length ? diffSummary.movers.map(({ result, change }) => (
+                    <div key={`move-${result.id}`}>
+                      {result.item_name} {change > 0 ? `up ${change}` : `down ${Math.abs(change)}`}
+                    </div>
+                  )) : <div>No rank movement yet.</div>}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Dropped off</p>
+                <div className="mt-2 space-y-2 text-sm text-slate-700">
+                  {diffSummary.droppedItems.length ? diffSummary.droppedItems.map((item) => (
+                    <div key={`drop-${item.id}`}>{item.item_name}</div>
+                  )) : <div>No items dropped off.</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {recentScans.length ? (
+          <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
+            <h3 className="font-display text-lg font-semibold text-ink">Recent scans</h3>
+            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+              {recentScans.map((scan) => (
+                <div key={scan.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+                  <div className="font-semibold text-ink">{scan.provider_name}</div>
+                  <div className="mt-1">{formatDateTime(scan.generated_at)}</div>
+                  <div className="mt-1 text-slate-500">{scan.result_count} ranked results</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

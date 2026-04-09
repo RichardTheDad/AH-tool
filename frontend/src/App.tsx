@@ -7,6 +7,7 @@ import { Presets } from "./pages/Presets";
 import { Realms } from "./pages/Realms";
 import { Scanner } from "./pages/Scanner";
 import { Settings } from "./pages/Settings";
+import { SuggestedRealms } from "./pages/SuggestedRealms";
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/scanner" element={<Scanner />} />
+        <Route path="/suggested-realms" element={<SuggestedRealms />} />
         <Route path="/realms" element={<Realms />} />
         <Route path="/imports" element={<Imports />} />
         <Route path="/presets" element={<Presets />} />
@@ -23,4 +25,3 @@ export default function App() {
     </AppShell>
   );
 }
-

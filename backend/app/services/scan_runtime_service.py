@@ -38,13 +38,17 @@ def mark_scan_started(provider_name: str | None) -> None:
         _state.finished_at = None
 
 
+def mark_scan_stage(message: str) -> None:
+    with _lock:
+        if _state.status == "running":
+            _state.message = message
+
+
 def mark_scan_finished(provider_name: str | None, *, result_count: int, warning_text: str | None = None) -> None:
     with _lock:
         _state.status = "idle"
-        _state.message = (
-            warning_text
-            or f"Last scan finished with {result_count} ranked result{'s' if result_count != 1 else ''}."
-        )
+        result_message = f"Last scan finished with {result_count} ranked result{'s' if result_count != 1 else ''}."
+        _state.message = f"{result_message} Warning: {warning_text}" if warning_text else result_message
         _state.provider_name = provider_name or "stored"
         _state.finished_at = datetime.now(timezone.utc)
 

@@ -17,11 +17,14 @@ Supported workflows:
 - live Blizzard Retail Auction House ingestion when Battle.net credentials are configured
 - live item metadata from Blizzard when Battle.net credentials are configured
 - live TSM region market stats on item detail pages when a TSM API key is configured
+- local TSM AuctionDB and personal ledger discovery across detected WoW account folders
 - cached item metadata when live metadata is unavailable
 - real CSV or JSON listing imports for scanner input
 - cached imported listings after restart
 - scanner readiness checks based on enabled-realm coverage and listing freshness
 - history-aware ranking that penalizes thin, stale, inconsistent, or spiky sell markets
+- automatic app-data retention that prunes listing and scan history older than 30 days
+- suggested source-realm discovery across rotating Blizzard US batches
 
 ## Blizzard Integration
 
@@ -90,6 +93,8 @@ AZEROTHFLIPLOCAL_BLIZZARD_API_REGION=us
 AZEROTHFLIPLOCAL_BLIZZARD_LOCALE=en_US
 AZEROTHFLIPLOCAL_TSM_API_KEY=
 AZEROTHFLIPLOCAL_TSM_REGION_ID=1
+AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH=
+AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH=
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
@@ -143,12 +148,18 @@ Important values:
 - `AZEROTHFLIPLOCAL_BLIZZARD_LOCALE`
 - `AZEROTHFLIPLOCAL_TSM_API_KEY`
 - `AZEROTHFLIPLOCAL_TSM_REGION_ID`
+- `AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH`
+- `AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH`
 - `VITE_API_BASE_URL`
 
 Notes:
 
 - `.env` is the only runtime config file the app reads.
 - `.env` contains real secrets and should stay local.
+- `AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH` is optional. If blank, the app will try to auto-detect `TradeSkillMaster_AppHelper\\AppData.lua` from a standard retail WoW install on Windows.
+- `AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH` is optional. If blank, the app will try to auto-detect `TradeSkillMaster.lua` from compatible retail WoW account folders on Windows.
+- local TSM SavedVariables and AppHelper data are auto-discovered across compatible WoW account folders when paths are left blank
+- Local TSM AppHelper AuctionDB data can enrich the app even when the TSM web API is unavailable.
 
 ## Recommended Daily-Driver Setup
 
@@ -200,10 +211,12 @@ The scanner keeps the original realm-list model:
 Trust-oriented behavior:
 
 - rankings are based on the latest local snapshot per item per realm
+- rankings now include a dedicated sellability signal built from TSM turnover, local scan persistence, and personal TSM ledger history when available
 - stale snapshots are penalized
 - thin sell markets are penalized
 - suspicious spreads are penalized
 - recent sell-side history is checked so spiky one-snapshot markets get pushed down
+- observed sell listings are compared with conservative recommended sell targets before profit is ranked
 - same-realm buy and sell is rejected
 
 When metadata is missing:
@@ -224,6 +237,28 @@ Readiness considers:
 - enabled realms with no local listing coverage yet
 
 The scheduler uses the same readiness check and skips automatic re-scans when there is not enough local data to produce a meaningful cross-realm comparison.
+Metadata cleanup also runs automatically on startup, during scans, and on scheduled cycles so unresolved items get chipped away without manual intervention.
+
+## Suggested Realms
+
+The `Suggested Realms` page is separate from Scanner and does not change scanner core behavior.
+
+It:
+
+- inspects a rotating Blizzard US source-realm batch
+- compares those source realms against your enabled tracked realms as sell targets
+- reuses the same sellability and confidence model used by Scanner
+- stores compact suggestion summaries instead of broad raw discovery snapshots
+- shows freshness and how often a realm appeared across recent discovery runs
+
+This feature should be read as recent source-realm guidance, not as a permanent all-time truth table.
+
+From the page itself you can:
+
+- refresh the next rotating discovery batch
+- see how fresh the latest suggestion data is
+- see how many of the recent discovery runs each realm appeared in
+- track a suggested realm directly without changing the scanner core model
 
 ## Item Detail
 
@@ -241,8 +276,12 @@ If TSM is configured, the item detail page can also show:
 - `DBRegionSaleAvg`
 - `DBRegionSaleRate`
 - `DBRegionSoldPerDay`
+- tracked-realm AuctionDB signals from your local `TradeSkillMaster_AppHelper\\AppData.lua`, including recent market value, historical value, min buyout, and auction count when available
+- personal TSM ledger context from detected `TradeSkillMaster.lua` files, including prior sales, buys, cancels, expirations, and realized sale pricing when available
 
 These are TSM region market metrics, not actual completed-sale transactions from the Blizzard Auction House.
+
+The item detail page also includes `Auction history`, a local time-series built from this app's stored listing snapshots. It shows observed listing prices and market depth over time for each tracked realm. This is historical listing data, not completed-sale history.
 
 ## Provider States
 

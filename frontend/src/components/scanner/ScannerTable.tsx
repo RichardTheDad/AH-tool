@@ -4,6 +4,25 @@ import { EmptyState } from "../common/EmptyState";
 import type { ScanResult, ScannerFilters } from "../../types/models";
 import { formatGold, formatPercent, formatScore } from "../../utils/format";
 
+function summarizeBaitRisk(score: number) {
+  if (score >= 70) return "high bait risk";
+  if (score >= 45) return "watch bait risk";
+  return "low bait risk";
+}
+
+function summarizeLiquidity(score: number) {
+  if (score >= 75) return "healthy depth";
+  if (score >= 55) return "usable depth";
+  return "thin depth";
+}
+
+function summarizeMoverLikelihood(result: ScanResult) {
+  if (result.sellability_score >= 80 && result.confidence_score >= 75 && !result.is_risky) return "likely mover";
+  if (result.sellability_score >= 65 && result.confidence_score >= 60) return "tradable";
+  if (result.sellability_score >= 45) return "speculative";
+  return "slow seller";
+}
+
 interface ScannerTableProps {
   results: ScanResult[];
   sortBy: ScannerFilters["sortBy"];
@@ -71,7 +90,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: S
                 className="px-4 py-3 whitespace-nowrap"
               />
               <th className="px-4 py-3 whitespace-nowrap">Sell realm</th>
-              <th className="px-4 py-3 whitespace-nowrap">Sell price</th>
+              <th className="px-4 py-3 whitespace-nowrap">Target sell</th>
               <th className="px-4 py-3 whitespace-nowrap">Profit</th>
               <SortableHeader
                 label="ROI"
@@ -84,6 +103,14 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: S
               <SortableHeader
                 label="Confidence"
                 column="confidence_score"
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortChange={onSortChange}
+                className="px-4 py-3 whitespace-nowrap"
+              />
+              <SortableHeader
+                label="Sellability"
+                column="sellability_score"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
@@ -103,6 +130,25 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: S
                     <div className="flex flex-wrap gap-2">
                       {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
                       {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}
+                      {result.personal_sale_count > 0 ? <Badge tone="success">Sold before</Badge> : null}
+                      {result.personal_expired_count > result.personal_sale_count && result.personal_expired_count > 0 ? (
+                        <Badge tone="warning">Expire history</Badge>
+                      ) : null}
+                      {result.personal_cancel_count > result.personal_sale_count && result.personal_cancel_count > 0 ? (
+                        <Badge tone="warning">Cancel history</Badge>
+                      ) : null}
+                      {result.has_missing_metadata ? <Badge tone="warning">Metadata gap</Badge> : null}
+                      <Badge
+                        tone={
+                          summarizeMoverLikelihood(result) === "likely mover"
+                            ? "success"
+                            : summarizeMoverLikelihood(result) === "tradable"
+                              ? "neutral"
+                              : "warning"
+                        }
+                      >
+                        {summarizeMoverLikelihood(result)}
+                      </Badge>
                       {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
                     </div>
                   </div>
@@ -110,21 +156,60 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: S
                 <td className="px-3 py-3 align-top whitespace-nowrap">{result.cheapest_buy_realm}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{formatGold(result.cheapest_buy_price)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{result.best_sell_realm}</td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">{formatGold(result.best_sell_price)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap">
+                  <div className="space-y-1">
+                    <div
+                      title={
+                        result.observed_sell_price != null && result.observed_sell_price !== result.best_sell_price
+                          ? `Observed lowest ${formatGold(result.observed_sell_price)} | Recommended sell target ${formatGold(result.best_sell_price)}`
+                          : undefined
+                      }
+                    >
+                      {formatGold(result.best_sell_price)}
+                    </div>
+                    {result.observed_sell_price != null ? (
+                      <div className="text-[11px] text-slate-500">Observed {formatGold(result.observed_sell_price)}</div>
+                    ) : null}
+                  </div>
+                </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-emerald-700">{formatGold(result.estimated_profit)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
-                  <span title={`Confidence ${formatScore(result.confidence_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}>
+                  <span
+                    title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)} | Personal sales ${result.personal_sale_count} | Cancels ${result.personal_cancel_count} | Expired ${result.personal_expired_count}`}
+                  >
                     <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
                       {formatScore(result.confidence_score)}
                     </Badge>
                   </span>
                 </td>
+                <td className="px-3 py-3 align-top whitespace-nowrap">
+                  <span title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}`}>
+                    <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
+                      {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
+                    </Badge>
+                  </span>
+                </td>
                 <td
                   className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-slate-600 [overflow-wrap:anywhere]"
-                  title={`Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
+                  title={`Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)} | Personal sales ${result.personal_sale_count} | Cancels ${result.personal_cancel_count} | Expired ${result.personal_expired_count}`}
                 >
-                  {result.explanation}
+                  <div className="space-y-2">
+                    <p>{result.explanation}</p>
+                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                      <span>{result.turnover_label} turnover</span>
+                      <span>{summarizeLiquidity(result.liquidity_score)}</span>
+                      <span>{summarizeBaitRisk(result.bait_risk_score)}</span>
+                      <span>{result.personal_sale_count > 0 ? `${result.personal_sale_count} prior sales` : "no prior sales"}</span>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
+                      <div>Recommended sell target: {formatGold(result.best_sell_price)}</div>
+                      <div>Observed current listing: {result.observed_sell_price != null ? formatGold(result.observed_sell_price) : "--"}</div>
+                      <div>
+                        Risk readout: {result.is_risky ? "flagged risky" : "within current safety thresholds"}; liquidity {formatScore(result.liquidity_score)}, bait risk {formatScore(result.bait_risk_score)}
+                      </div>
+                    </div>
+                  </div>
                 </td>
               </tr>
             ))}

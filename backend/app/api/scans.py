@@ -4,9 +4,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.scan import ScanLatestResponse, ScanReadinessRead, ScanRunRequest, ScanRuntimeStatusRead, ScanSessionRead
+from app.schemas.scan import (
+    ScanHistoryResponse,
+    ScanLatestResponse,
+    ScanReadinessRead,
+    ScanRunRequest,
+    ScanRuntimeStatusRead,
+    ScanSessionRead,
+)
 from app.services.scan_runtime_service import get_scan_runtime_state
-from app.services.scan_service import get_latest_scan, get_scan_readiness, get_scan_session, run_scan
+from app.services.scan_service import get_latest_scan, get_scan_history, get_scan_readiness, get_scan_session, run_scan
 
 
 router = APIRouter(tags=["scans"])
@@ -20,6 +27,11 @@ def run_scan_route(payload: ScanRunRequest, db: Session = Depends(get_db)) -> Sc
 @router.get("/scans/latest", response_model=ScanLatestResponse)
 def latest_scan(db: Session = Depends(get_db)) -> ScanLatestResponse:
     return ScanLatestResponse(latest=get_latest_scan(db))
+
+
+@router.get("/scans/history", response_model=ScanHistoryResponse)
+def scan_history(db: Session = Depends(get_db)) -> ScanHistoryResponse:
+    return ScanHistoryResponse(scans=get_scan_history(db))
 
 
 @router.get("/scans/readiness", response_model=ScanReadinessRead)

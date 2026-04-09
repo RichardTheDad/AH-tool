@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from itertools import islice
 
-from sqlalchemy import and_, func, insert
+from sqlalchemy import and_, func, insert, text
 from sqlalchemy.orm import Session
 
 from app.db.models import AppSettings, Item, ListingSnapshot
@@ -26,7 +26,7 @@ def _chunked(values: list[dict], size: int):
 
 def ensure_item_record(session: Session, item_id: int, *, source_name: str) -> Item:
     item = session.get(Item, item_id)
-    non_commodity_verified = source_name == "blizzard_auctions"
+    non_commodity_verified = source_name in {"blizzard_auctions", "blizzard_realm_discovery"}
     if item is None:
         item = Item(
             item_id=item_id,
@@ -66,7 +66,7 @@ def ensure_item_records(session: Session, item_ids: list[int], *, source_name: s
         for item in session.query(Item).filter(Item.item_id.in_(chunk)).all():
             existing_items[item.item_id] = item
 
-    non_commodity_verified = source_name == "blizzard_auctions"
+    non_commodity_verified = source_name in {"blizzard_auctions", "blizzard_realm_discovery"}
     missing_items: list[Item] = []
     for item_id in unique_item_ids:
         item = existing_items.get(item_id)
@@ -109,14 +109,18 @@ def snapshot_is_stale(snapshot: ListingSnapshot, settings: AppSettings) -> bool:
 
 def mark_stale_snapshots(session: Session) -> int:
     app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=app_settings.stale_after_minutes)
     updated = 0
-
-    for snapshot in session.query(ListingSnapshot).all():
-        should_be_stale = snapshot_is_stale(snapshot, app_settings)
-        if snapshot.is_stale != should_be_stale:
-            snapshot.is_stale = should_be_stale
-            updated += 1
-
+    updated += (
+        session.query(ListingSnapshot)
+        .filter(ListingSnapshot.captured_at < cutoff, ListingSnapshot.is_stale.is_(False))
+        .update({ListingSnapshot.is_stale: True}, synchronize_session=False)
+    )
+    updated += (
+        session.query(ListingSnapshot)
+        .filter(ListingSnapshot.captured_at >= cutoff, ListingSnapshot.is_stale.is_(True))
+        .update({ListingSnapshot.is_stale: False}, synchronize_session=False)
+    )
     session.commit()
     return updated
 
@@ -173,48 +177,9 @@ def persist_listing_rows(session: Session, rows: list[ListingImportRow], source_
     session.commit()
 
     for chunk in _chunked(payloads, 1000):
-        chunk_keys = [
-            _snapshot_key(
-                ListingImportRow(
-                    item_id=payload["item_id"],
-                    realm=payload["realm"],
-                    lowest_price=payload["lowest_price"],
-                    average_price=payload["average_price"],
-                    quantity=payload["quantity"],
-                    listing_count=payload["listing_count"],
-                    captured_at=payload["captured_at"],
-                ),
-                source_name,
-            )
-            for payload in chunk
-        ]
-        existing_count_before = 0
-        for item_id, realm_key, captured_iso, source_key in chunk_keys:
-            existing_count_before += (
-                session.query(ListingSnapshot)
-                .filter(
-                    ListingSnapshot.item_id == item_id,
-                    func.lower(ListingSnapshot.realm) == realm_key,
-                    ListingSnapshot.source_name == source_key,
-                    ListingSnapshot.captured_at == datetime.fromisoformat(captured_iso),
-                )
-                .count()
-            )
         session.execute(insert(ListingSnapshot).prefix_with("OR IGNORE"), chunk)
+        inserted_in_chunk = int(session.execute(text("SELECT changes()")).scalar_one() or 0)
         session.commit()
-        existing_count_after = 0
-        for item_id, realm_key, captured_iso, source_key in chunk_keys:
-            existing_count_after += (
-                session.query(ListingSnapshot)
-                .filter(
-                    ListingSnapshot.item_id == item_id,
-                    func.lower(ListingSnapshot.realm) == realm_key,
-                    ListingSnapshot.source_name == source_key,
-                    ListingSnapshot.captured_at == datetime.fromisoformat(captured_iso),
-                )
-                .count()
-            )
-        inserted_in_chunk = max(existing_count_after - existing_count_before, 0)
         inserted += inserted_in_chunk
         skipped_duplicates += len(chunk) - inserted_in_chunk
 
@@ -225,6 +190,7 @@ def get_latest_snapshots_for_realms(
     session: Session,
     realms: list[str],
     item_id: int | None = None,
+    source_name: str | None = None,
 ) -> list[ListingSnapshot]:
     if not realms:
         return []
@@ -236,9 +202,10 @@ def get_latest_snapshots_for_realms(
             func.max(ListingSnapshot.captured_at).label("captured_at"),
         )
         .filter(ListingSnapshot.realm.in_(realms))
-        .group_by(ListingSnapshot.item_id, ListingSnapshot.realm)
-        .subquery()
     )
+    if source_name is not None:
+        latest_subquery = latest_subquery.filter(ListingSnapshot.source_name == source_name)
+    latest_subquery = latest_subquery.group_by(ListingSnapshot.item_id, ListingSnapshot.realm).subquery()
 
     query = (
         session.query(ListingSnapshot)
@@ -255,6 +222,8 @@ def get_latest_snapshots_for_realms(
 
     if item_id is not None:
         query = query.filter(ListingSnapshot.item_id == item_id)
+    if source_name is not None:
+        query = query.filter(ListingSnapshot.source_name == source_name)
 
     return query.all()
 

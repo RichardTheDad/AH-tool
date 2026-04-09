@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
-from app.db.models import AppSettings, Item, ListingSnapshot, ScanPreset, ScanSession, TrackedRealm
+from app.db.models import (
+    AppSettings,
+    Item,
+    ListingSnapshot,
+    RealmSuggestionRecommendation,
+    RealmSuggestionRun,
+    ScanPreset,
+    ScanSession,
+    TrackedRealm,
+)
 from app.db.session import get_engine
 
 
 NON_PRODUCTION_SOURCES = {"seed", "mock"}
+APP_DATA_RETENTION_DAYS = 30
 
 
 def create_db_and_tables() -> None:
@@ -64,6 +76,61 @@ def create_db_and_tables() -> None:
                 "ON listing_snapshots(item_id, realm, source_name, captured_at)"
             )
         )
+        existing_scan_result_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('scan_results')")).fetchall()
+        }
+        existing_realm_suggestion_run_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('realm_suggestion_runs')")).fetchall()
+        }
+        if "sellability_score" not in existing_scan_result_columns:
+            connection.execute(text("ALTER TABLE scan_results ADD COLUMN sellability_score FLOAT DEFAULT 0"))
+        if "turnover_label" not in existing_scan_result_columns:
+            connection.execute(text("ALTER TABLE scan_results ADD COLUMN turnover_label VARCHAR(24) DEFAULT 'slow'"))
+        if "source_realms_json" not in existing_realm_suggestion_run_columns:
+            connection.execute(text("ALTER TABLE realm_suggestion_runs ADD COLUMN source_realms_json JSON"))
+        if "target_set_key" not in existing_realm_suggestion_run_columns:
+            connection.execute(text("ALTER TABLE realm_suggestion_runs ADD COLUMN target_set_key VARCHAR(255)"))
+            connection.execute(
+                text(
+                    """
+                    UPDATE realm_suggestion_runs
+                    SET target_set_key = CASE
+                        WHEN target_realms_json IS NULL OR target_realms_json = '[]' THEN NULL
+                        ELSE lower(
+                            replace(
+                                replace(
+                                    replace(
+                                        replace(target_realms_json, '["', ''),
+                                        '"]',
+                                        ''
+                                    ),
+                                    '", "',
+                                    '|'
+                                ),
+                                '","',
+                                '|'
+                            )
+                        )
+                    END
+                    """
+                )
+            )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_realm_suggestion_runs_target_set_key "
+                "ON realm_suggestion_runs(target_set_key)"
+            )
+        )
+        existing_realm_suggestion_recommendation_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('realm_suggestion_recommendations')")).fetchall()
+        }
+        if "median_buy_price" not in existing_realm_suggestion_recommendation_columns:
+            connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN median_buy_price FLOAT"))
+        if "best_target_realm" not in existing_realm_suggestion_recommendation_columns:
+            connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN best_target_realm VARCHAR(120)"))
 
 
 def ensure_defaults(session: Session) -> None:
@@ -78,6 +145,54 @@ def ensure_defaults(session: Session) -> None:
                 ScanPreset(name="Aggressive Peek", min_profit=1000, min_roi=0.08, min_confidence=35, hide_risky=False),
             ]
         )
+    session.commit()
+
+
+def purge_app_runtime_data(session: Session) -> None:
+    session.execute(text("DELETE FROM realm_suggestion_recommendations"))
+    session.execute(text("DELETE FROM realm_suggestion_runs"))
+    session.execute(text("DELETE FROM scan_results"))
+    session.execute(text("DELETE FROM scan_sessions"))
+    session.execute(text("DELETE FROM listing_snapshots"))
+    session.execute(
+        text(
+            """
+            DELETE FROM items
+            WHERE item_id NOT IN (
+                SELECT DISTINCT item_id FROM listing_snapshots
+            )
+            """
+        )
+    )
+    session.commit()
+
+
+def purge_expired_app_data(session: Session, *, retention_days: int = APP_DATA_RETENTION_DAYS) -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+
+    expired_realm_suggestion_runs = session.query(RealmSuggestionRun).filter(RealmSuggestionRun.generated_at < cutoff).all()
+    for suggestion_run in expired_realm_suggestion_runs:
+        session.delete(suggestion_run)
+    session.flush()
+
+    expired_sessions = session.query(ScanSession).filter(ScanSession.generated_at < cutoff).all()
+    for scan_session in expired_sessions:
+        session.delete(scan_session)
+    session.flush()
+
+    session.query(ListingSnapshot).filter(ListingSnapshot.captured_at < cutoff).delete(synchronize_session=False)
+    session.flush()
+
+    session.execute(
+        text(
+            """
+            DELETE FROM items
+            WHERE item_id NOT IN (
+                SELECT DISTINCT item_id FROM listing_snapshots
+            )
+            """
+        )
+    )
     session.commit()
 
 
@@ -141,4 +256,5 @@ def purge_legacy_nonproduction_data(session: Session) -> None:
 
 def initialize_app_data(session: Session) -> None:
     purge_legacy_nonproduction_data(session)
+    purge_expired_app_data(session)
     ensure_defaults(session)

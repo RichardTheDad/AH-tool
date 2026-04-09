@@ -4,8 +4,9 @@ from datetime import timezone
 
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import AppSettings, Item, ScanResult, ScanSession
-from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead
+from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead, ScanSessionSummary
 from app.services.metadata_backfill_service import queue_missing_metadata_refresh, queue_missing_metadata_sweep
 from app.services.metadata_service import (
     get_cached_tsm_region_stats,
@@ -14,7 +15,7 @@ from app.services.metadata_service import (
     refresh_tsm_market_stats,
     scan_result_to_schema,
 )
-from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_started
+from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_stage, mark_scan_started
 from app.services.listing_service import (
     get_latest_snapshots_for_realms,
     get_recent_snapshot_history_for_items,
@@ -25,6 +26,8 @@ from app.services.listing_service import (
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
 from app.services.scoring_service import MarketHistoryContext, TsmMarketContext, score_opportunity
+from app.services.tsm_ledger_service import TsmLedgerService
+from app.services.tsm_service import TsmMarketService
 
 
 def select_cheapest_buy_snapshot(snapshots):
@@ -71,31 +74,99 @@ def _extract_sell_history_prices(history_by_item: dict[int, dict[str, list]] | N
     return [float(snapshot.lowest_price or 0) for snapshot in realm_history if snapshot.lowest_price]
 
 
-def _serialize_scan_results(results: list[ScanResult], history_by_item: dict[int, dict[str, list]] | None = None) -> list:
-    return [
-        scan_result_to_schema(
-            result,
-            sell_history_prices=_extract_sell_history_prices(history_by_item, result.item_id, result.best_sell_realm),
+def _serialize_scan_results(
+    results: list[ScanResult],
+    history_by_item: dict[int, dict[str, list]] | None = None,
+    latest_by_item: dict[int, dict[str, list]] | None = None,
+    tsm_ledger_service: TsmLedgerService | None = None,
+    enabled_realms: list[str] | None = None,
+) -> list:
+    ledger_summaries: dict[int, dict[str, object]] = {}
+    if tsm_ledger_service is not None and results:
+        ledger_summaries, _ledger_message = tsm_ledger_service.fetch_item_ledgers(
+            [result.item_id for result in results],
+            enabled_realms or [],
         )
-        for result in results
-    ]
+
+    serialized = []
+    for result in results:
+        observed_sell_price = None
+        if latest_by_item:
+            latest_sell_snapshots = latest_by_item.get(result.item_id, {}).get(result.best_sell_realm, [])
+            if latest_sell_snapshots:
+                observed_sell_price = float(latest_sell_snapshots[0].lowest_price or 0)
+        ledger_summary = ledger_summaries.get(result.item_id, {})
+        serialized.append(
+            scan_result_to_schema(
+                result,
+                sell_history_prices=_extract_sell_history_prices(history_by_item, result.item_id, result.best_sell_realm),
+                observed_sell_price=observed_sell_price,
+                personal_sale_count=int(ledger_summary.get("auction_sale_count") or 0),
+                personal_cancel_count=int(ledger_summary.get("cancel_count") or 0),
+                personal_expired_count=int(ledger_summary.get("expired_count") or 0),
+            )
+        )
+    return serialized
 
 
-def _derive_tsm_market_context(item: Item | None) -> TsmMarketContext | None:
+def _derive_tsm_market_context(
+    item: Item | None,
+    sell_realm: str | None = None,
+    tsm_service: TsmMarketService | None = None,
+    tsm_ledger_service: TsmLedgerService | None = None,
+    enabled_realms: list[str] | None = None,
+) -> TsmMarketContext | None:
     if item is None:
         return None
     stats = get_cached_tsm_region_stats(item)
-    if not stats:
-        return None
+    sale_rate = stats.get("db_region_sale_rate") if stats else None
+    sold_per_day = stats.get("db_region_sold_per_day") if stats else None
 
-    sale_rate = stats.get("db_region_sale_rate")
-    sold_per_day = stats.get("db_region_sold_per_day")
-    if sale_rate is None and sold_per_day is None:
+    realm_historical = None
+    realm_market_value_recent = None
+    if sell_realm and tsm_service is not None:
+        realm_stats, _realm_message = tsm_service.fetch_realm_item_stats(item.item_id, sell_realm)
+        if realm_stats:
+            realm_historical = realm_stats.get("historical")
+            realm_market_value_recent = realm_stats.get("market_value_recent")
+
+    personal_sale_count = 0
+    personal_buy_count = 0
+    personal_cancel_count = 0
+    personal_expired_count = 0
+    personal_avg_sale_price = None
+    if tsm_ledger_service is not None:
+        ledger_summary, _ledger_message = tsm_ledger_service.fetch_item_ledger(item.item_id, enabled_realms or [])
+        if ledger_summary:
+            personal_sale_count = int(ledger_summary.get("auction_sale_count") or 0)
+            personal_buy_count = int(ledger_summary.get("auction_buy_count") or 0)
+            personal_cancel_count = int(ledger_summary.get("cancel_count") or 0)
+            personal_expired_count = int(ledger_summary.get("expired_count") or 0)
+            personal_avg_sale_price = ledger_summary.get("auction_avg_unit_sale_price")
+
+    if (
+        sale_rate is None
+        and sold_per_day is None
+        and realm_historical is None
+        and realm_market_value_recent is None
+        and personal_sale_count == 0
+        and personal_buy_count == 0
+        and personal_cancel_count == 0
+        and personal_expired_count == 0
+        and personal_avg_sale_price is None
+    ):
         return None
 
     return TsmMarketContext(
         sale_rate=float(sale_rate) if sale_rate is not None else None,
         sold_per_day=float(sold_per_day) if sold_per_day is not None else None,
+        realm_historical=float(realm_historical) if realm_historical is not None else None,
+        realm_market_value_recent=float(realm_market_value_recent) if realm_market_value_recent is not None else None,
+        personal_sale_count=personal_sale_count,
+        personal_buy_count=personal_buy_count,
+        personal_cancel_count=personal_cancel_count,
+        personal_expired_count=personal_expired_count,
+        personal_avg_sale_price=float(personal_avg_sale_price) if personal_avg_sale_price is not None else None,
     )
 
 
@@ -106,7 +177,9 @@ def select_best_sell_snapshot(
     settings,
     include_losers: bool,
     history_by_realm: dict[str, list] | None = None,
-    tsm_market: TsmMarketContext | None = None,
+    tsm_service: TsmMarketService | None = None,
+    tsm_ledger_service: TsmLedgerService | None = None,
+    enabled_realms: list[str] | None = None,
 ):
     candidates = [snapshot for snapshot in snapshots if snapshot.realm != buy_snapshot.realm]
     if not candidates:
@@ -121,7 +194,7 @@ def select_best_sell_snapshot(
             candidate,
             settings,
             history=_build_history_context(buy_snapshot, candidate, history_by_realm),
-            tsm_market=tsm_market,
+            tsm_market=_derive_tsm_market_context(item, candidate.realm, tsm_service, tsm_ledger_service, enabled_realms),
         )
         if not include_losers and score.estimated_profit <= 0:
             continue
@@ -250,6 +323,7 @@ def get_scan_readiness(session: Session) -> ScanReadinessRead:
 def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
     mark_scan_started(payload.provider_name)
     try:
+        mark_scan_stage("Resolving enabled realms and scanner readiness.")
         realms = get_enabled_realm_names(session)
         if not realms:
             scan_session = ScanSession(provider_name=payload.provider_name or "stored", warning_text="No enabled realms configured.")
@@ -269,12 +343,14 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
 
         warning_parts: list[str] = []
         if payload.refresh_live:
+            mark_scan_stage("Refreshing live listings from the selected provider.")
             inserted, warning = refresh_from_provider(session, realms, payload.provider_name)
             if warning:
                 warning_parts.append(warning)
             elif inserted == 0:
                 warning_parts.append("Provider refresh returned no rows; using cached listings.")
 
+        mark_scan_stage("Loading the latest cached listings across tracked realms.")
         mark_stale_snapshots(session)
         app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
         latest_snapshots = get_latest_snapshots_for_realms(session, realms)
@@ -307,9 +383,12 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 candidate_item_ids.append(item_id)
 
         if candidate_item_ids:
+            mark_scan_stage("Refreshing TSM market enrichment for likely flip candidates.")
             tsm_summary = refresh_tsm_market_stats(session, candidate_item_ids[:120])
             if tsm_summary["warnings"] and tsm_summary["refreshed_count"] == 0:
                 warning_parts.append(tsm_summary["warnings"][0])
+        tsm_service = TsmMarketService(get_settings())
+        tsm_ledger_service = TsmLedgerService(get_settings())
 
         scan_session = ScanSession(
             provider_name=payload.provider_name or "stored",
@@ -318,6 +397,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         session.add(scan_session)
         session.flush()
 
+        mark_scan_stage("Scoring cross-realm opportunities.")
         results: list[ScanResult] = []
         skipped_missing_metadata = 0
         included_unverified_metadata = 0
@@ -348,7 +428,9 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 app_settings,
                 payload.include_losers,
                 history_by_realm=history_by_item.get(item_id),
-                tsm_market=_derive_tsm_market_context(item),
+                tsm_service=tsm_service,
+                tsm_ledger_service=tsm_ledger_service,
+                enabled_realms=realms,
             )
 
             if best_candidate is None or best_score is None:
@@ -364,10 +446,12 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 estimated_profit=best_score.estimated_profit,
                 roi=best_score.roi,
                 confidence_score=best_score.confidence_score,
+                sellability_score=best_score.sellability_score,
                 liquidity_score=best_score.liquidity_score,
                 volatility_score=best_score.volatility_score,
                 bait_risk_score=best_score.bait_risk_score,
                 final_score=best_score.final_score,
+                turnover_label=best_score.turnover_label,
                 explanation=best_score.explanation,
                 has_stale_data=best_score.has_stale_data,
                 is_risky=best_score.is_risky,
@@ -408,9 +492,18 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         if warning_parts:
             scan_session.warning_text = " ".join(warning_parts)
 
+        mark_scan_stage("Saving ranked results and queueing follow-up metadata work.")
         session.add_all(results)
         session.commit()
         session.refresh(scan_session)
+
+        latest_by_item = {
+            item_id: {
+                realm: snapshots
+                for realm, snapshots in realm_history.items()
+            }
+            for item_id, realm_history in history_by_item.items()
+        }
 
         response = ScanSessionRead(
             id=scan_session.id,
@@ -418,7 +511,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
             warning_text=scan_session.warning_text,
             generated_at=scan_session.generated_at,
             result_count=len(results),
-            results=_serialize_scan_results(results, history_by_item),
+            results=_serialize_scan_results(results, history_by_item, latest_by_item, tsm_ledger_service, realms),
         )
         mark_scan_finished(response.provider_name, result_count=response.result_count, warning_text=response.warning_text)
         return response
@@ -438,13 +531,15 @@ def get_scan_session(session: Session, scan_id: int) -> ScanSessionRead | None:
         sorted({result.best_sell_realm for result in ordered_results}),
         limit_per_realm=3,
     )
+    enabled_realms = get_enabled_realm_names(session)
+    tsm_ledger_service = TsmLedgerService(get_settings())
     return ScanSessionRead(
         id=scan_session.id,
         provider_name=scan_session.provider_name,
         warning_text=scan_session.warning_text,
         generated_at=scan_session.generated_at,
         result_count=len(ordered_results),
-        results=_serialize_scan_results(ordered_results, history_by_item),
+        results=_serialize_scan_results(ordered_results, history_by_item, history_by_item, tsm_ledger_service, enabled_realms),
     )
 
 
@@ -453,3 +548,16 @@ def get_latest_scan(session: Session) -> ScanSessionRead | None:
     if latest is None:
         return None
     return get_scan_session(session, latest.id)
+
+
+def get_scan_history(session: Session, *, limit: int = 8) -> list[ScanSessionSummary]:
+    scans = session.query(ScanSession).order_by(ScanSession.generated_at.desc()).limit(limit).all()
+    return [
+        ScanSessionSummary(
+            id=scan.id,
+            generated_at=scan.generated_at,
+            provider_name=scan.provider_name,
+            result_count=len(scan.results),
+        )
+        for scan in scans
+    ]

@@ -29,6 +29,7 @@ class BlizzardAuctionListingProvider(ListingProvider):
         self._access_token: str | None = None
         self._access_token_expires_at: datetime | None = None
         self._realm_cache: dict[str, int] = {}
+        self._realm_name_cache: list[str] = []
         self._realm_cache_checked_at: datetime | None = None
 
     def is_available(self) -> tuple[bool, str]:
@@ -137,6 +138,21 @@ class BlizzardAuctionListingProvider(ListingProvider):
             self.mark_failure(f"Blizzard live item lookup failed: {exc}")
             return [], self.last_error or "Blizzard live item lookup failed."
 
+    def list_available_realms(self) -> list[str]:
+        available, message = self.is_available()
+        if not available:
+            self.mark_failure(message)
+            return []
+
+        try:
+            with httpx.Client(timeout=self.settings.request_timeout_seconds) as client:
+                self._load_realm_cache(client)
+            self.mark_success()
+            return list(self._realm_name_cache)
+        except Exception as exc:  # pragma: no cover - network failure path
+            self.mark_failure(f"Blizzard realm discovery failed: {exc}")
+            return []
+
     def _resolve_realms(self, client: httpx.Client, realms: list[str]) -> tuple[dict[str, int], list[str]]:
         cache = self._load_realm_cache(client, target_realms={realm.casefold() for realm in realms})
         resolved: dict[str, int] = {}
@@ -157,7 +173,9 @@ class BlizzardAuctionListingProvider(ListingProvider):
             self._realm_cache and self._realm_cache_checked_at and (now - self._realm_cache_checked_at) < timedelta(hours=24)
         )
         if cache_is_fresh:
-            if not target_realms or all(realm_name in self._realm_cache for realm_name in target_realms):
+            if (not target_realms and self._realm_name_cache) or (
+                target_realms and all(realm_name in self._realm_cache for realm_name in target_realms)
+            ):
                 return self._realm_cache
 
         payload, _headers = self._api_get(
@@ -171,6 +189,7 @@ class BlizzardAuctionListingProvider(ListingProvider):
 
         connected_realm_refs = payload.get("connected_realms", []) if isinstance(payload, dict) else []
         cache: dict[str, int] = dict(self._realm_cache)
+        realm_names: set[str] = set(self._realm_name_cache)
         pending_targets = {realm_name for realm_name in (target_realms or set()) if realm_name not in cache}
         for entry in connected_realm_refs:
             href = entry.get("href") if isinstance(entry, dict) else None
@@ -183,11 +202,13 @@ class BlizzardAuctionListingProvider(ListingProvider):
             for realm_name in self._extract_realm_names(detail_payload):
                 normalized_name = realm_name.casefold()
                 cache[normalized_name] = connected_realm_id
+                realm_names.add(realm_name)
                 pending_targets.discard(normalized_name)
             if target_realms and not pending_targets:
                 break
 
         self._realm_cache = cache
+        self._realm_name_cache = sorted(realm_names)
         self._realm_cache_checked_at = now
         return cache
 

@@ -26,8 +26,11 @@ export function Imports() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-      <Card title="Listing imports" subtitle="Upload real CSV or JSON listing snapshots for scanner-ready local data.">
+      <Card title="Fallback imports" subtitle="Use this when you want to supplement or replace live Blizzard coverage with your own real CSV or JSON snapshots.">
         <div className="space-y-4">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            Live Blizzard scanning is the primary workflow. Imports stay available as a fallback when you want to backfill missing realms, recover from provider issues, or compare against your own captured snapshots.
+          </div>
           <label className="block text-sm text-slate-700">
             Listing file
             <input
@@ -93,7 +96,7 @@ export function Imports() {
         </div>
       </Card>
 
-      <Card title="Preview" subtitle="Validated rows land here before you commit them into the SQLite cache.">
+      <Card title="Preview" subtitle="Validated fallback rows land here before you commit them into the local SQLite cache.">
         {response?.errors?.length ? (
           <div className="space-y-2">
             {response.errors.map((error) => (

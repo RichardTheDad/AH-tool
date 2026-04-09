@@ -4,6 +4,7 @@ import { NavLink } from "react-router-dom";
 const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/scanner", label: "Scanner" },
+  { to: "/suggested-realms", label: "Suggested Realms" },
   { to: "/realms", label: "Realms" },
   { to: "/imports", label: "Imports" },
   { to: "/presets", label: "Presets" },
