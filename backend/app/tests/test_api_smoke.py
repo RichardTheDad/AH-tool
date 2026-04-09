@@ -114,6 +114,23 @@ def test_items_endpoints_smoke(client) -> None:
     assert "queued_count" in refresh_missing.json()
 
 
+def test_tuning_preset_cooldown_and_audit_history(client) -> None:
+    first_apply = client.post("/settings/apply-tuning-preset", json={"preset_id": "safe_calibration"})
+    assert first_apply.status_code == 200
+    assert first_apply.json()["scoring_preset"] == "safe"
+
+    second_apply = client.post("/settings/apply-tuning-preset", json={"preset_id": "balanced_default"})
+    assert second_apply.status_code == 429
+    assert "cooldown" in second_apply.json()["detail"].lower()
+
+    audit = client.get("/settings/tuning-audit")
+    assert audit.status_code == 200
+    entries = audit.json()["entries"]
+    assert len(entries) >= 2
+    assert entries[0]["blocked"] is True
+    assert entries[1]["blocked"] is False
+
+
 def test_duplicate_import_rows_are_skipped_gracefully(client) -> None:
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
     payload = b"item_id,realm,lowest_price,average_price,quantity,listing_count,captured_at\n873,Stormrage,15000,15500,2,2,2026-04-06T02:45:00+00:00\n"

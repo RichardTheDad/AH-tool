@@ -92,6 +92,7 @@ class ScanResult(Base):
     bait_risk_score: Mapped[float] = mapped_column(Float)
     final_score: Mapped[float] = mapped_column(Float)
     turnover_label: Mapped[str] = mapped_column(String(24), default="slow")
+    score_provenance_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     explanation: Mapped[str] = mapped_column(Text)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     has_stale_data: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -167,3 +168,49 @@ class AppSettings(Base):
     stale_after_minutes: Mapped[int] = mapped_column(Integer, default=120)
     scoring_preset: Mapped[str] = mapped_column(String(32), default="balanced")
     non_commodity_only: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class TuningActionAudit(Base):
+    __tablename__ = "tuning_action_audit"
+    __table_args__ = (
+        Index("ix_tuning_action_audit_applied", "applied_at"),
+        Index("ix_tuning_action_audit_action", "action_id", "applied_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    action_id: Mapped[str] = mapped_column(String(64), index=True)
+    action_label: Mapped[str] = mapped_column(String(160))
+    source: Mapped[str] = mapped_column(String(64), default="scanner_suggestion")
+    applied_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    previous_settings_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    resulting_settings_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ScoreCalibrationEvent(Base):
+    __tablename__ = "score_calibration_events"
+    __table_args__ = (
+        Index("ix_score_calibration_events_generated", "generated_at"),
+        Index("ix_score_calibration_events_due", "evaluation_due_at", "evaluated_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    scan_result_id: Mapped[int | None] = mapped_column(ForeignKey("scan_results.id"), nullable=True, index=True)
+    scan_session_id: Mapped[int | None] = mapped_column(ForeignKey("scan_sessions.id"), nullable=True, index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.item_id"), index=True)
+    buy_realm: Mapped[str] = mapped_column(String(120))
+    sell_realm: Mapped[str] = mapped_column(String(120), index=True)
+    predicted_confidence: Mapped[float] = mapped_column(Float)
+    predicted_sellability: Mapped[float] = mapped_column(Float)
+    predicted_profit: Mapped[float] = mapped_column(Float)
+    predicted_buy_price: Mapped[float] = mapped_column(Float)
+    predicted_sell_price: Mapped[float] = mapped_column(Float)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    evaluation_due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    evaluation_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    horizon_outcomes_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    realized_outcome: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    realized_sell_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    outcome_reason: Mapped[str | None] = mapped_column(Text, nullable=True)

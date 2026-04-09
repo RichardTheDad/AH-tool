@@ -424,6 +424,7 @@ def scan_result_to_schema(
         personal_sale_count=personal_sale_count,
         personal_cancel_count=personal_cancel_count,
         personal_expired_count=personal_expired_count,
+        score_provenance=result.score_provenance_json,
     )
 
 

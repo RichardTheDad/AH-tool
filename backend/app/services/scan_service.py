@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import datetime, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -10,7 +10,6 @@ from app.db.models import AppSettings, Item, ScanResult, ScanSession
 from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead, ScanSessionSummary
 from app.services.metadata_backfill_service import queue_missing_metadata_refresh, queue_missing_metadata_sweep
 from app.services.metadata_service import (
-    get_cached_tsm_region_stats,
     item_has_missing_metadata,
     item_is_noncommodity_trusted,
     refresh_tsm_market_stats,
@@ -26,7 +25,9 @@ from app.services.listing_service import (
 )
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
+from app.services.calibration_service import record_scan_predictions
 from app.services.scoring_service import MarketHistoryContext, TsmMarketContext, score_opportunity
+from app.services.scoring_service import derive_recommended_sell_price
 from app.services.tsm_ledger_service import TsmLedgerService
 from app.services.tsm_service import TsmMarketService
 
@@ -123,23 +124,37 @@ def _derive_tsm_market_context(
 ) -> TsmMarketContext | None:
     if item is None:
         return None
-    stats = get_cached_tsm_region_stats(item)
-    sale_rate = stats.get("db_region_sale_rate") if stats else None
-    sold_per_day = stats.get("db_region_sold_per_day") if stats else None
 
     realm_historical = None
     realm_market_value_recent = None
+    realm_num_auctions = None
     if sell_realm and tsm_service is not None:
         realm_stats, _realm_message = tsm_service.fetch_realm_item_stats(item.item_id, sell_realm)
         if realm_stats:
             realm_historical = realm_stats.get("historical")
             realm_market_value_recent = realm_stats.get("market_value_recent")
+            realm_num_auctions = realm_stats.get("num_auctions")
 
     personal_sale_count = 0
     personal_buy_count = 0
     personal_cancel_count = 0
     personal_expired_count = 0
     personal_avg_sale_price = None
+    personal_sale_recency_days = None
+    personal_negative_recency_days = None
+
+    def _to_days_since(timestamp_iso: object) -> float | None:
+        if not isinstance(timestamp_iso, str) or not timestamp_iso:
+            return None
+        try:
+            parsed = datetime.fromisoformat(timestamp_iso.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        delta = datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)
+        return max(delta.total_seconds() / 86400.0, 0.0)
+
     if tsm_ledger_service is not None:
         ledger_summary, _ledger_message = tsm_ledger_service.fetch_item_ledger(item.item_id, enabled_realms or [])
         if ledger_summary:
@@ -148,12 +163,16 @@ def _derive_tsm_market_context(
             personal_cancel_count = int(ledger_summary.get("cancel_count") or 0)
             personal_expired_count = int(ledger_summary.get("expired_count") or 0)
             personal_avg_sale_price = ledger_summary.get("auction_avg_unit_sale_price")
+            personal_sale_recency_days = _to_days_since(ledger_summary.get("last_auction_sale_at"))
+            cancel_recency = _to_days_since(ledger_summary.get("last_cancel_at"))
+            expired_recency = _to_days_since(ledger_summary.get("last_expired_at"))
+            negative_recencies = [value for value in [cancel_recency, expired_recency] if value is not None]
+            personal_negative_recency_days = min(negative_recencies) if negative_recencies else None
 
     if (
-        sale_rate is None
-        and sold_per_day is None
-        and realm_historical is None
+        realm_historical is None
         and realm_market_value_recent is None
+        and realm_num_auctions is None
         and personal_sale_count == 0
         and personal_buy_count == 0
         and personal_cancel_count == 0
@@ -163,15 +182,16 @@ def _derive_tsm_market_context(
         return None
 
     return TsmMarketContext(
-        sale_rate=float(sale_rate) if sale_rate is not None else None,
-        sold_per_day=float(sold_per_day) if sold_per_day is not None else None,
         realm_historical=float(realm_historical) if realm_historical is not None else None,
         realm_market_value_recent=float(realm_market_value_recent) if realm_market_value_recent is not None else None,
+        realm_num_auctions=float(realm_num_auctions) if realm_num_auctions is not None else None,
         personal_sale_count=personal_sale_count,
         personal_buy_count=personal_buy_count,
         personal_cancel_count=personal_cancel_count,
         personal_expired_count=personal_expired_count,
         personal_avg_sale_price=float(personal_avg_sale_price) if personal_avg_sale_price is not None else None,
+        personal_sale_recency_days=personal_sale_recency_days,
+        personal_negative_recency_days=personal_negative_recency_days,
     )
 
 
@@ -374,23 +394,33 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
             warning_parts.append(readiness.message)
 
         candidate_item_ids: list[int] = []
+        exploration_candidate_item_ids: list[int] = []
         for item_id, snapshots in grouped.items():
             if len(snapshots) < 2:
                 continue
             buy_snapshot = select_cheapest_buy_snapshot(snapshots)
-            best_observed_sell = max(
-                (float(snapshot.lowest_price or 0) for snapshot in snapshots if snapshot.realm != buy_snapshot.realm),
-                default=0.0,
+            best_observed_sell_snapshot = max(
+                (snapshot for snapshot in snapshots if snapshot.realm != buy_snapshot.realm),
+                key=lambda snapshot: float(snapshot.lowest_price or 0),
+                default=None,
             )
-            if best_observed_sell <= 0:
+            if best_observed_sell_snapshot is None:
                 continue
-            estimated_raw_profit = (best_observed_sell * (1 - app_settings.ah_cut_percent)) - float(buy_snapshot.lowest_price or 0) - app_settings.flat_buffer
+            conservative_sell_price, _sell_reasons = derive_recommended_sell_price(best_observed_sell_snapshot)
+            estimated_raw_profit = (conservative_sell_price * (1 - app_settings.ah_cut_percent)) - float(buy_snapshot.lowest_price or 0) - app_settings.flat_buffer
             if estimated_raw_profit > 0:
                 candidate_item_ids.append(item_id)
+            else:
+                exploration_candidate_item_ids.append(item_id)
 
         if candidate_item_ids:
             mark_scan_stage("Refreshing TSM market enrichment for likely flip candidates.")
-            tsm_summary = refresh_tsm_market_stats(session, candidate_item_ids[:120])
+            primary_budget = 90
+            explore_budget = 30
+            selected_primary = candidate_item_ids[:primary_budget]
+            selected_exploration = exploration_candidate_item_ids[:explore_budget]
+            selected_candidate_item_ids = selected_primary + selected_exploration
+            tsm_summary = refresh_tsm_market_stats(session, selected_candidate_item_ids[:120])
             if tsm_summary["warnings"] and tsm_summary["refreshed_count"] == 0:
                 warning_parts.append(tsm_summary["warnings"][0])
         tsm_service = TsmMarketService(get_settings())
@@ -458,6 +488,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 bait_risk_score=best_score.bait_risk_score,
                 final_score=best_score.final_score,
                 turnover_label=best_score.turnover_label,
+                score_provenance_json=best_score.score_provenance,
                 explanation=best_score.explanation,
                 has_stale_data=best_score.has_stale_data,
                 is_risky=best_score.is_risky,
@@ -500,6 +531,8 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
 
         mark_scan_stage("Saving ranked results and queueing follow-up metadata work.")
         session.add_all(results)
+        session.flush()
+        record_scan_predictions(session, scan_session.id, results)
         session.commit()
         session.refresh(scan_session)
 

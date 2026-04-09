@@ -180,7 +180,7 @@ def test_recommended_sell_price_is_more_conservative_for_thin_spiky_markets() ->
     assert reasons
 
 
-def test_tsm_slow_sale_rate_reduces_confidence_and_score() -> None:
+def test_tsm_slow_sell_realm_turnover_reduces_confidence_and_score() -> None:
     item = Item(item_id=1, name="Test Item", is_commodity=False)
     settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
     buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_500, quantity=8, listing_count=5)
@@ -192,12 +192,30 @@ def test_tsm_slow_sale_rate_reduces_confidence_and_score() -> None:
         buy,
         sell,
         settings,
-        tsm_market=TsmMarketContext(sale_rate=0.0025, sold_per_day=0.03),
+        tsm_market=TsmMarketContext(realm_num_auctions=1),
     )
 
     assert slow.confidence_score < normal.confidence_score
     assert slow.final_score < normal.final_score
-    assert "slow regional turnover" in slow.explanation.lower()
+    assert "sell-side realm turnover" in slow.explanation.lower()
+
+
+def test_region_sale_rate_does_not_drive_sellability_score() -> None:
+    item = Item(item_id=1, name="Test Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_500, quantity=8, listing_count=5)
+    sell = make_snapshot(realm="Zul'jin", lowest_price=19_000, average_price=18_700, quantity=8, listing_count=5)
+
+    baseline = score_opportunity(item, buy, sell, settings)
+    region_only = score_opportunity(
+        item,
+        buy,
+        sell,
+        settings,
+        tsm_market=TsmMarketContext(sale_rate=0.12, sold_per_day=1.8),
+    )
+
+    assert region_only.sellability_score == baseline.sellability_score
 
 
 def test_tsm_realm_history_caps_sell_target_and_profit() -> None:
@@ -250,6 +268,39 @@ def test_personal_tsm_ledger_history_changes_confidence_and_explanation() -> Non
     assert good_history.final_score > poor_history.final_score
     assert "sold successfully before" in good_history.explanation.lower()
     assert "frequent cancels or expirations" in poor_history.explanation.lower()
+
+
+def test_stale_personal_sales_history_has_less_influence_than_recent_history() -> None:
+    item = Item(item_id=1, name="Test Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_500, quantity=8, listing_count=5)
+    sell = make_snapshot(realm="Zul'jin", lowest_price=19_000, average_price=18_700, quantity=8, listing_count=5)
+
+    recent_history = score_opportunity(
+        item,
+        buy,
+        sell,
+        settings,
+        tsm_market=TsmMarketContext(
+            personal_sale_count=8,
+            personal_avg_sale_price=18_500,
+            personal_sale_recency_days=5,
+        ),
+    )
+    stale_history = score_opportunity(
+        item,
+        buy,
+        sell,
+        settings,
+        tsm_market=TsmMarketContext(
+            personal_sale_count=8,
+            personal_avg_sale_price=18_500,
+            personal_sale_recency_days=220,
+        ),
+    )
+
+    assert recent_history.sellability_score > stale_history.sellability_score
+    assert recent_history.final_score > stale_history.final_score
 
 
 def test_repeatable_stable_market_scores_higher_than_one_off_spike() -> None:

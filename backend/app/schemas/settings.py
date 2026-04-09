@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -22,4 +24,24 @@ class AppSettingsUpdate(BaseModel):
     stale_after_minutes: int | None = Field(default=None, ge=5, le=10080)
     scoring_preset: str | None = Field(default=None, pattern="^(safe|balanced|aggressive)$")
     non_commodity_only: bool | None = None
+
+
+class AppSettingsApplyPresetRequest(BaseModel):
+    preset_id: str = Field(pattern="^(safe_calibration|balanced_default)$")
+
+
+class TuningActionAuditRead(BaseModel):
+    id: int
+    action_id: str
+    action_label: str
+    source: str
+    applied_at: datetime
+    blocked: bool
+    blocked_reason: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class TuningActionAuditListRead(BaseModel):
+    entries: list[TuningActionAuditRead] = Field(default_factory=list)
 

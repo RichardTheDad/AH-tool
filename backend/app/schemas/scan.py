@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +36,7 @@ class ScanResultRead(BaseModel):
     personal_sale_count: int = 0
     personal_cancel_count: int = 0
     personal_expired_count: int = 0
+    score_provenance: dict[str, Any] | None = None
 
 
 class ScanSessionRead(BaseModel):
@@ -113,3 +115,43 @@ class ScanSessionSummary(BaseModel):
 
 class ScanHistoryResponse(BaseModel):
     scans: list[ScanSessionSummary] = Field(default_factory=list)
+
+
+class CalibrationBandRead(BaseModel):
+    band: str
+    total: int
+    realized: int
+    realized_rate: float
+
+
+class HorizonCalibrationRead(BaseModel):
+    horizon_hours: int
+    total_evaluated: int
+    confidence_bands: list[CalibrationBandRead] = Field(default_factory=list)
+    sellability_bands: list[CalibrationBandRead] = Field(default_factory=list)
+
+
+class CalibrationSuggestionRead(BaseModel):
+    level: str
+    message: str
+    action_id: str | None = None
+    action_label: str | None = None
+
+
+class CalibrationTrendPointRead(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    total: int
+    realized: int
+    realized_rate: float
+    avg_confidence: float
+    avg_sellability: float
+
+
+class ScanCalibrationSummaryRead(BaseModel):
+    total_evaluated: int
+    confidence_bands: list[CalibrationBandRead] = Field(default_factory=list)
+    sellability_bands: list[CalibrationBandRead] = Field(default_factory=list)
+    horizons: list[HorizonCalibrationRead] = Field(default_factory=list)
+    trends: list[CalibrationTrendPointRead] = Field(default_factory=list)
+    suggestions: list[CalibrationSuggestionRead] = Field(default_factory=list)

@@ -11,6 +11,7 @@ interface VirtualizedScannerListProps {
   sortBy: ScannerFilters["sortBy"];
   sortDirection: ScannerFilters["sortDirection"];
   onSortChange: (next: { sortBy: ScannerFilters["sortBy"]; sortDirection: ScannerFilters["sortDirection"] }) => void;
+  onOpenProvenance?: (result: ScanResult) => void;
 }
 
 function SortButton({
@@ -54,8 +55,29 @@ function summarizeMoverLikelihood(result: ScanResult) {
   return "slow seller";
 }
 
-function Row({ index, style, results }: RowComponentProps<{ results: ScanResult[] }>) {
+function summarizeProvenance(result: ScanResult) {
+  const provenance = result.score_provenance as { components?: Record<string, number>; evidence?: Record<string, boolean> } | null | undefined;
+  if (!provenance?.components) {
+    return null;
+  }
+  return {
+    liquidity: provenance.components.liquidity,
+    volatility: provenance.components.volatility,
+    antiBait: provenance.components.anti_bait,
+    personal: provenance.components.personal_turnover,
+    gateApplied: Boolean(provenance.evidence?.gate_applied),
+  };
+}
+
+function isEvidenceGated(result: ScanResult) {
+  const provenance = result.score_provenance as { evidence?: Record<string, boolean> } | null | undefined;
+  return Boolean(provenance?.evidence?.gate_applied);
+}
+
+function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ results: ScanResult[]; onOpenProvenance?: (result: ScanResult) => void }>) {
   const result = results[index];
+  const provenance = summarizeProvenance(result);
+  const gated = isEvidenceGated(result);
 
   return (
     <div style={style} className="border-b border-slate-100 px-4 py-3">
@@ -65,6 +87,21 @@ function Row({ index, style, results }: RowComponentProps<{ results: ScanResult[
             {result.item_name}
           </Link>
           <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.explanation}</p>
+          {provenance ? (
+            <p className="mt-1 text-[11px] text-slate-500">
+              Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}, Personal {provenance.personal?.toFixed?.(1) ?? "--"}
+              {provenance.gateApplied ? " | evidence gate" : ""}
+              {onOpenProvenance ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenProvenance(result)}
+                  className="ml-2 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                >
+                  Details
+                </button>
+              ) : null}
+            </p>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-1">
             {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
             {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
@@ -89,13 +126,13 @@ function Row({ index, style, results }: RowComponentProps<{ results: ScanResult[
         </div>
 
         <div className="min-w-0">
-          <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
+          <Badge tone={gated ? "warning" : result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
             {formatScore(result.confidence_score)}
           </Badge>
         </div>
 
         <div className="min-w-0">
-          <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
+          <Badge tone={gated ? "warning" : result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
             {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
           </Badge>
         </div>
@@ -104,7 +141,7 @@ function Row({ index, style, results }: RowComponentProps<{ results: ScanResult[
   );
 }
 
-export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortChange }: VirtualizedScannerListProps) {
+export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortChange, onOpenProvenance }: VirtualizedScannerListProps) {
   const [height, setHeight] = useState(560);
 
   useEffect(() => {
@@ -139,7 +176,7 @@ export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortC
         rowCount={results.length}
         rowHeight={124}
         rowComponent={Row}
-        rowProps={{ results }}
+        rowProps={{ results, onOpenProvenance }}
         overscanCount={6}
       />
     </div>

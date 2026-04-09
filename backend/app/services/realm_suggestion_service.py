@@ -330,42 +330,48 @@ def _serialize_run(
                 if previous_seen_at is None or seen_at > previous_seen_at:
                     realm_last_seen_cheapest_at[recommendation.realm] = seen_at
 
-    recommendations = [
-        SuggestedRealmRead(
-            realm=recommendation.realm,
-            opportunity_count=recommendation.opportunity_count,
-            cheapest_source_count=recommendation.cheapest_source_count,
-            average_profit=recommendation.average_profit,
-            average_roi=recommendation.average_roi,
-            average_confidence=recommendation.average_confidence,
-            average_sellability=recommendation.average_sellability,
-            consistency_score=recommendation.consistency_score,
-            latest_captured_at=recommendation.latest_captured_at,
-            appearance_count=realm_appearances.get(recommendation.realm, 0),
-            cheap_run_count=realm_cheap_runs.get(recommendation.realm, 0),
-            window_size=max(realm_eligible_runs.get(recommendation.realm, 0), 1),
-            recent_run_count=len(comparison_runs),
-            median_buy_price=recommendation.median_buy_price,
-            best_target_realm=recommendation.best_target_realm,
-            last_seen_cheapest_at=realm_last_seen_cheapest_at.get(recommendation.realm),
-            is_tracked=recommendation.realm in tracked_realms,
-            explanation=_build_realm_explanation(
-                recommendation.realm,
+    built_recommendations: list[SuggestedRealmRead] = []
+    for recommendation in run.recommendations:
+        eligible_runs = max(realm_eligible_runs.get(recommendation.realm, 0), 1)
+        coverage_factor = min(eligible_runs / 4.0, 1.0)
+        adjusted_consistency = round(float(recommendation.consistency_score) * (0.55 + (0.45 * coverage_factor)), 2)
+        built_recommendations.append(
+            SuggestedRealmRead(
+                realm=recommendation.realm,
+                opportunity_count=recommendation.opportunity_count,
+                cheapest_source_count=recommendation.cheapest_source_count,
+                average_profit=recommendation.average_profit,
+                average_roi=recommendation.average_roi,
+                average_confidence=recommendation.average_confidence,
+                average_sellability=recommendation.average_sellability,
+                consistency_score=adjusted_consistency,
+                latest_captured_at=recommendation.latest_captured_at,
                 appearance_count=realm_appearances.get(recommendation.realm, 0),
                 cheap_run_count=realm_cheap_runs.get(recommendation.realm, 0),
-                window_size=max(realm_eligible_runs.get(recommendation.realm, 0), 1),
-                cheapest_source_count=recommendation.cheapest_source_count,
-                opportunity_count=recommendation.opportunity_count,
+                window_size=eligible_runs,
+                recent_run_count=len(comparison_runs),
+                median_buy_price=recommendation.median_buy_price,
                 best_target_realm=recommendation.best_target_realm,
-            ),
-            top_items=[SuggestedRealmItemRead.model_validate(item) for item in (recommendation.top_items_json or [])],
+                last_seen_cheapest_at=realm_last_seen_cheapest_at.get(recommendation.realm),
+                is_tracked=recommendation.realm in tracked_realms,
+                explanation=_build_realm_explanation(
+                    recommendation.realm,
+                    appearance_count=realm_appearances.get(recommendation.realm, 0),
+                    cheap_run_count=realm_cheap_runs.get(recommendation.realm, 0),
+                    window_size=eligible_runs,
+                    cheapest_source_count=recommendation.cheapest_source_count,
+                    opportunity_count=recommendation.opportunity_count,
+                    best_target_realm=recommendation.best_target_realm,
+                ),
+                top_items=[SuggestedRealmItemRead.model_validate(item) for item in (recommendation.top_items_json or [])],
+            )
         )
-        for recommendation in sorted(
-            run.recommendations,
-            key=lambda recommendation: (recommendation.consistency_score, recommendation.average_profit),
-            reverse=True,
-        )
-    ]
+
+    recommendations = sorted(
+        built_recommendations,
+        key=lambda recommendation: (recommendation.consistency_score, recommendation.average_profit),
+        reverse=True,
+    )
 
     return SuggestedRealmReportRead(
         generated_at=run.generated_at,

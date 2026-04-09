@@ -23,11 +23,36 @@ function summarizeMoverLikelihood(result: ScanResult) {
   return "slow seller";
 }
 
+function summarizeProvenance(result: ScanResult) {
+  const provenance = result.score_provenance as { components?: Record<string, number>; evidence?: Record<string, boolean> } | null | undefined;
+  if (!provenance?.components) {
+    return null;
+  }
+  const liquidity = provenance.components.liquidity;
+  const volatility = provenance.components.volatility;
+  const antiBait = provenance.components.anti_bait;
+  const personal = provenance.components.personal_turnover;
+  const gateApplied = Boolean(provenance.evidence?.gate_applied);
+  return {
+    liquidity,
+    volatility,
+    antiBait,
+    personal,
+    gateApplied,
+  };
+}
+
+function isEvidenceGated(result: ScanResult) {
+  const provenance = result.score_provenance as { evidence?: Record<string, boolean> } | null | undefined;
+  return Boolean(provenance?.evidence?.gate_applied);
+}
+
 interface ScannerTableProps {
   results: ScanResult[];
   sortBy: ScannerFilters["sortBy"];
   sortDirection: ScannerFilters["sortDirection"];
   onSortChange: (next: { sortBy: ScannerFilters["sortBy"]; sortDirection: ScannerFilters["sortDirection"] }) => void;
+  onOpenProvenance?: (result: ScanResult) => void;
 }
 
 function SortableHeader({
@@ -68,7 +93,7 @@ function SortableHeader({
   );
 }
 
-export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: ScannerTableProps) {
+export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onOpenProvenance }: ScannerTableProps) {
   if (!results.length) {
     return <EmptyState title="No current opportunities" description="Try a looser preset, import fresher listings, or refresh from an available listing provider." />;
   }
@@ -175,17 +200,29 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: S
                 <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-emerald-700">{formatGold(result.estimated_profit)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
+                  {(() => {
+                    const gated = isEvidenceGated(result);
+                    const tone = gated
+                      ? "warning"
+                      : result.confidence_score >= 70
+                        ? "success"
+                        : result.confidence_score >= 50
+                          ? "warning"
+                          : "danger";
+                    return (
                   <span
                     title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)} | Personal sales ${result.personal_sale_count} | Cancels ${result.personal_cancel_count} | Expired ${result.personal_expired_count}`}
                   >
-                    <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
+                    <Badge tone={tone}>
                       {formatScore(result.confidence_score)}
                     </Badge>
                   </span>
+                    );
+                  })()}
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
-                  <span title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}`}>
-                    <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
+                  <span title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}${isEvidenceGated(result) ? " | evidence gate active" : ""}`}>
+                    <Badge tone={isEvidenceGated(result) ? "warning" : result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
                       {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
                     </Badge>
                   </span>
@@ -194,6 +231,24 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange }: S
                   className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-slate-600 [overflow-wrap:anywhere]"
                   title={`Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)} | Personal sales ${result.personal_sale_count} | Cancels ${result.personal_cancel_count} | Expired ${result.personal_expired_count}`}
                 >
+                  {(() => {
+                    const provenance = summarizeProvenance(result);
+                    return provenance ? (
+                      <div className="mb-2 rounded-2xl bg-slate-100 px-3 py-2 text-[11px] text-slate-600">
+                        Signals: L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}, Personal {provenance.personal?.toFixed?.(1) ?? "--"}
+                        {provenance.gateApplied ? " | evidence gate applied" : ""}
+                        {onOpenProvenance ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenProvenance(result)}
+                            className="ml-2 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                          >
+                            Details
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="space-y-2">
                     <p>{result.explanation}</p>
                     <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">

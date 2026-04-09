@@ -12,8 +12,10 @@ from app.db.models import (
     ListingSnapshot,
     RealmSuggestionRecommendation,
     RealmSuggestionRun,
+    ScoreCalibrationEvent,
     ScanPreset,
     ScanSession,
+    TuningActionAudit,
     TrackedRealm,
 )
 from app.db.session import get_engine
@@ -88,6 +90,15 @@ def create_db_and_tables() -> None:
             connection.execute(text("ALTER TABLE scan_results ADD COLUMN sellability_score FLOAT DEFAULT 0"))
         if "turnover_label" not in existing_scan_result_columns:
             connection.execute(text("ALTER TABLE scan_results ADD COLUMN turnover_label VARCHAR(24) DEFAULT 'slow'"))
+        if "score_provenance_json" not in existing_scan_result_columns:
+            connection.execute(text("ALTER TABLE scan_results ADD COLUMN score_provenance_json JSON"))
+
+        existing_calibration_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('score_calibration_events')")).fetchall()
+        }
+        if existing_calibration_columns and "horizon_outcomes_json" not in existing_calibration_columns:
+            connection.execute(text("ALTER TABLE score_calibration_events ADD COLUMN horizon_outcomes_json JSON"))
         if "source_realms_json" not in existing_realm_suggestion_run_columns:
             connection.execute(text("ALTER TABLE realm_suggestion_runs ADD COLUMN source_realms_json JSON"))
         if "target_set_key" not in existing_realm_suggestion_run_columns:
@@ -131,6 +142,30 @@ def create_db_and_tables() -> None:
             connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN median_buy_price FLOAT"))
         if "best_target_realm" not in existing_realm_suggestion_recommendation_columns:
             connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN best_target_realm VARCHAR(120)"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_score_calibration_events_generated "
+                "ON score_calibration_events(generated_at)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_score_calibration_events_due "
+                "ON score_calibration_events(evaluation_due_at, evaluated_at)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_tuning_action_audit_applied "
+                "ON tuning_action_audit(applied_at)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_tuning_action_audit_action "
+                "ON tuning_action_audit(action_id, applied_at)"
+            )
+        )
 
 
 def ensure_defaults(session: Session) -> None:
@@ -150,6 +185,8 @@ def ensure_defaults(session: Session) -> None:
 
 def purge_app_runtime_data(session: Session) -> None:
     try:
+        session.execute(text("DELETE FROM tuning_action_audit"))
+        session.execute(text("DELETE FROM score_calibration_events"))
         session.execute(text("DELETE FROM realm_suggestion_recommendations"))
         session.execute(text("DELETE FROM realm_suggestion_runs"))
         session.execute(text("DELETE FROM scan_results"))
@@ -186,6 +223,12 @@ def purge_expired_app_data(session: Session, *, retention_days: int = APP_DATA_R
         session.flush()
 
         session.query(ListingSnapshot).filter(ListingSnapshot.captured_at < cutoff).delete(synchronize_session=False)
+        session.flush()
+
+        session.query(ScoreCalibrationEvent).filter(ScoreCalibrationEvent.generated_at < cutoff).delete(synchronize_session=False)
+        session.flush()
+
+        session.query(TuningActionAudit).filter(TuningActionAudit.applied_at < cutoff).delete(synchronize_session=False)
         session.flush()
 
         session.execute(

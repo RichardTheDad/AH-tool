@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
-import { getLatestScan, getScan, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../api/scans";
+import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../api/scans";
+import { applyTuningPreset, getTuningAudit } from "../api/settings";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -11,9 +12,37 @@ import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
 import { useScannerFilters } from "../hooks/useScannerFilters";
-import type { ScanPreset } from "../types/models";
+import type { ScanPreset, ScanResult } from "../types/models";
 import { filterScanResults } from "../utils/filters";
 import { formatDateTime } from "../utils/format";
+
+const CALIBRATION_CHART_WIDTH = 640;
+const CALIBRATION_CHART_HEIGHT = 180;
+const CALIBRATION_CHART_PADDING = 14;
+const TUNING_COOLDOWN_MS = 30 * 60 * 1000;
+
+function toPercentPoints(values: number[]) {
+  if (!values.length) {
+    return "";
+  }
+  const innerWidth = CALIBRATION_CHART_WIDTH - CALIBRATION_CHART_PADDING * 2;
+  const innerHeight = CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING * 2;
+  return values
+    .map((value, index) => {
+      const x = CALIBRATION_CHART_PADDING + (values.length > 1 ? (index / (values.length - 1)) * innerWidth : innerWidth / 2);
+      const clamped = Math.max(0, Math.min(100, value));
+      const y = CALIBRATION_CHART_PADDING + ((100 - clamped) / 100) * innerHeight;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+function formatCooldown(ms: number) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
 
 function applyPresetToFilterState(preset: ScanPreset) {
   return {
@@ -83,10 +112,14 @@ export function Scanner() {
   const queryClient = useQueryClient();
   const [selectedProvider, setSelectedProvider] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
+  const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const { filters, updateFilters } = useScannerFilters();
 
   const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan() });
   const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory });
+  const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000 });
+  const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000 });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
   const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 4000 });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
@@ -112,6 +145,14 @@ export function Scanner() {
         queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
         queryClient.invalidateQueries({ queryKey: ["scans", "status"] });
       }, 2500);
+    },
+  });
+  const tuningMutation = useMutation({
+    mutationFn: applyTuningPreset,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+      queryClient.invalidateQueries({ queryKey: ["scans", "calibration"] });
+      queryClient.invalidateQueries({ queryKey: ["settings", "tuning-audit"] });
     },
   });
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
@@ -140,9 +181,18 @@ export function Scanner() {
     }
   }, [activeProvider, scannerProviders]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   if (
     scanQuery.isLoading ||
     scanHistoryQuery.isLoading ||
+    calibrationQuery.isLoading ||
+    tuningAuditQuery.isLoading ||
     readinessQuery.isLoading ||
     scanStatusQuery.isLoading ||
     providersQuery.isLoading ||
@@ -155,6 +205,8 @@ export function Scanner() {
   if (
     scanQuery.error ||
     scanHistoryQuery.error ||
+    calibrationQuery.error ||
+    tuningAuditQuery.error ||
     readinessQuery.error ||
     scanStatusQuery.error ||
     providersQuery.error ||
@@ -177,7 +229,9 @@ export function Scanner() {
   }
 
   const latest = scanQuery.data?.latest ?? null;
+  const calibration = calibrationQuery.data;
   const previousScan = previousScanQuery.data ?? null;
+  const tuningAudit = tuningAuditQuery.data?.entries ?? [];
   const recentScans = scanHistoryQuery.data?.scans ?? [];
   const results = filterScanResults(latest?.results ?? [], filters);
   const useVirtualizedResults = results.length > 300;
@@ -241,6 +295,18 @@ export function Scanner() {
 
     return { newItems, droppedItems, movers };
   })();
+
+  const trendRows = calibration?.trends ?? [];
+  const confidenceTrend = trendRows.map((trend) => trend.avg_confidence);
+  const sellabilityTrend = trendRows.map((trend) => trend.avg_sellability);
+  const realizedTrend = trendRows.map((trend) => trend.realized_rate * 100);
+  const confidenceLine = toPercentPoints(confidenceTrend);
+  const sellabilityLine = toPercentPoints(sellabilityTrend);
+  const realizedLine = toPercentPoints(realizedTrend);
+  const latestAppliedTuning = tuningAudit.find((entry) => !entry.blocked) ?? null;
+  const latestAppliedAtMs = latestAppliedTuning ? new Date(latestAppliedTuning.applied_at).getTime() : null;
+  const tuningCooldownRemainingMs = latestAppliedAtMs ? Math.max(0, latestAppliedAtMs + TUNING_COOLDOWN_MS - nowMs) : 0;
+  const tuningCooldownActive = tuningCooldownRemainingMs > 0;
 
   return (
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
@@ -345,6 +411,126 @@ export function Scanner() {
           </div>
         ) : null}
 
+        {calibration && calibration.total_evaluated > 0 ? (
+          <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
+            <h3 className="font-display text-lg font-semibold text-ink">Calibration telemetry (30d)</h3>
+            <p className="mt-1 text-sm text-slate-600">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Confidence bands</p>
+                <div className="mt-2 space-y-1 text-sm text-slate-700">
+                  {calibration.confidence_bands.map((row) => (
+                    <div key={`confidence-${row.band}`} className="flex items-center justify-between gap-3">
+                      <span>{row.band}</span>
+                      <span>{Math.round(row.realized_rate * 100)}% realized ({row.realized}/{row.total})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Sellability bands</p>
+                <div className="mt-2 space-y-1 text-sm text-slate-700">
+                  {calibration.sellability_bands.map((row) => (
+                    <div key={`sellability-${row.band}`} className="flex items-center justify-between gap-3">
+                      <span>{row.band}</span>
+                      <span>{Math.round(row.realized_rate * 100)}% realized ({row.realized}/{row.total})</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {calibration.horizons?.length ? (
+              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Horizon buckets</p>
+                <div className="mt-2 grid gap-2 md:grid-cols-3">
+                  {calibration.horizons.map((horizon) => (
+                    <div key={`h-${horizon.horizon_hours}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                      <p className="font-semibold text-ink">{horizon.horizon_hours}h</p>
+                      <p>{horizon.total_evaluated} evaluated</p>
+                      <p className="text-xs text-slate-500">
+                        Top confidence band: {horizon.confidence_bands[0] ? `${horizon.confidence_bands[0].band} (${Math.round(horizon.confidence_bands[0].realized_rate * 100)}%)` : "--"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {calibration.trends?.length ? (
+              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Weekly confidence vs realized drift overlay</p>
+                <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+                  <svg viewBox={`0 0 ${CALIBRATION_CHART_WIDTH} ${CALIBRATION_CHART_HEIGHT}`} className="h-44 w-full">
+                    <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#cbd5e1" strokeWidth="1" />
+                    <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_WIDTH - CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#cbd5e1" strokeWidth="1" />
+                    <polyline points={confidenceLine} fill="none" stroke="#1d4ed8" strokeWidth="2" />
+                    <polyline points={sellabilityLine} fill="none" stroke="#7c3aed" strokeWidth="2" strokeDasharray="5 4" />
+                    <polyline points={realizedLine} fill="none" stroke="#059669" strokeWidth="2.2" />
+                  </svg>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-blue-700" />avg confidence</span>
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-600" />avg sellability</span>
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-600" />realized rate</span>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1 text-sm text-slate-700">
+                  {calibration.trends.map((trend) => {
+                    const driftPoints = Math.round((trend.realized_rate - trend.avg_confidence / 100) * 1000) / 10;
+                    const driftLabel = driftPoints >= 0 ? `+${driftPoints}` : `${driftPoints}`;
+                    return (
+                      <div key={`trend-${trend.period_start}`} className="flex items-center justify-between gap-3">
+                        <span>{formatDateTime(trend.period_start)}</span>
+                        <span className={driftPoints < 0 ? "text-amber-700" : "text-emerald-700"}>drift {driftLabel} pts</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+            {calibration.suggestions?.length ? (
+              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Auto-tuning suggestions</p>
+                <div className="mt-2 space-y-2 text-sm">
+                  {calibration.suggestions.map((suggestion, index) => (
+                    <div key={`suggestion-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className={suggestion.level === "warning" ? "text-amber-800" : "text-slate-700"}>{suggestion.message}</p>
+                      {suggestion.action_id && suggestion.action_label ? (
+                        <button
+                          type="button"
+                          onClick={() => tuningMutation.mutate(suggestion.action_id as "safe_calibration" | "balanced_default")}
+                          disabled={tuningMutation.isPending || tuningCooldownActive}
+                          className="mt-2 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {tuningMutation.isPending
+                            ? "Applying..."
+                            : tuningCooldownActive
+                              ? `Cooldown ${formatCooldown(tuningCooldownRemainingMs)}`
+                              : suggestion.action_label}
+                        </button>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                {tuningCooldownActive ? <p className="mt-2 text-xs text-amber-700">Tuning actions unlock in {formatCooldown(tuningCooldownRemainingMs)}.</p> : null}
+                {tuningMutation.error ? <p className="mt-2 text-xs text-rose-700">{(tuningMutation.error as Error).message}</p> : null}
+              </div>
+            ) : null}
+
+            {tuningAudit.length ? (
+              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Tuning audit history</p>
+                <div className="mt-2 space-y-1 text-sm text-slate-700">
+                  {tuningAudit.map((entry) => (
+                    <div key={`audit-${entry.id}`} className="flex items-center justify-between gap-3">
+                      <span>{formatDateTime(entry.applied_at)} • {entry.action_label}</span>
+                      <span className={entry.blocked ? "text-amber-700" : "text-emerald-700"}>{entry.blocked ? (entry.blocked_reason ?? "blocked") : "applied"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : latest ? (
@@ -354,6 +540,7 @@ export function Scanner() {
               sortBy={filters.sortBy}
               sortDirection={filters.sortDirection}
               onSortChange={handleFilterChange}
+              onOpenProvenance={setSelectedProvenanceResult}
             />
           ) : (
             <ScannerTable
@@ -361,6 +548,7 @@ export function Scanner() {
               sortBy={filters.sortBy}
               sortDirection={filters.sortDirection}
               onSortChange={handleFilterChange}
+              onOpenProvenance={setSelectedProvenanceResult}
             />
           )
         ) : (
@@ -415,6 +603,97 @@ export function Scanner() {
                   <div className="mt-1 text-slate-500">{scan.result_count} ranked results</div>
                 </div>
               ))}
+            </div>
+          </div>
+        ) : null}
+
+        {selectedProvenanceResult ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+            <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/70 bg-white p-5 shadow-card">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-display text-xl font-semibold text-ink">Score provenance drilldown</h3>
+                  <p className="mt-1 text-sm text-slate-600">{selectedProvenanceResult.item_name} • {selectedProvenanceResult.cheapest_buy_realm} → {selectedProvenanceResult.best_sell_realm}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedProvenanceResult(null)}
+                  className="rounded-full border border-slate-300 px-3 py-1 text-sm font-semibold text-slate-700"
+                >
+                  Close
+                </button>
+              </div>
+
+              {(() => {
+                const provenance = (selectedProvenanceResult.score_provenance ?? {}) as {
+                  components?: Record<string, number>;
+                  confidence_components?: Record<string, number>;
+                  final_components?: Record<string, number>;
+                  adjustments?: Record<string, number>;
+                  evidence?: Record<string, boolean | string[] | unknown>;
+                };
+                const components = provenance.components ?? {};
+                const confidenceComponents = provenance.confidence_components ?? {};
+                const finalComponents = provenance.final_components ?? {};
+                const adjustments = provenance.adjustments ?? {};
+                const evidence = provenance.evidence ?? {};
+                const gateReasons = Array.isArray(evidence.gate_reasons) ? evidence.gate_reasons : [];
+
+                return (
+                  <div className="mt-4 space-y-4">
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Components</p>
+                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                          <p>Liquidity: {(components.liquidity ?? 0).toFixed(2)}</p>
+                          <p>Volatility: {(components.volatility ?? 0).toFixed(2)}</p>
+                          <p>Anti-bait: {(components.anti_bait ?? 0).toFixed(2)}</p>
+                          <p>Personal turnover: {(components.personal_turnover ?? 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Confidence components</p>
+                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                          {Object.entries(confidenceComponents).map(([key, value]) => (
+                            <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Final components</p>
+                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                          {Object.entries(finalComponents).map(([key, value]) => (
+                            <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Adjustments</p>
+                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                          {Object.entries(adjustments).map(([key, value]) => (
+                            <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Evidence gate</p>
+                      <div className="mt-2 space-y-1 text-sm text-slate-700">
+                        <p>Applied: {String(Boolean(evidence.gate_applied))}</p>
+                        <p>Sell depth OK: {String(Boolean(evidence.sell_depth_ok))}</p>
+                        <p>History coverage OK: {String(Boolean(evidence.history_coverage_ok))}</p>
+                        <p>Realm turnover OK: {String(Boolean(evidence.realm_turnover_ok))}</p>
+                        <p>Recency OK: {String(Boolean(evidence.recency_ok))}</p>
+                        {gateReasons.length ? <p>Reasons: {gateReasons.join(", ")}</p> : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         ) : null}

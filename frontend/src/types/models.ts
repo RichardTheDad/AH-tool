@@ -64,6 +64,7 @@ export interface ScanResult {
   personal_sale_count: number;
   personal_cancel_count: number;
   personal_expired_count: number;
+  score_provenance?: Record<string, unknown> | null;
 }
 
 export interface ScanSession {
@@ -172,6 +173,40 @@ export interface ScanHistoryResponse {
   scans: ScanSessionSummary[];
 }
 
+export interface CalibrationBand {
+  band: string;
+  total: number;
+  realized: number;
+  realized_rate: number;
+}
+
+export interface ScanCalibrationSummary {
+  total_evaluated: number;
+  confidence_bands: CalibrationBand[];
+  sellability_bands: CalibrationBand[];
+  horizons: Array<{
+    horizon_hours: number;
+    total_evaluated: number;
+    confidence_bands: CalibrationBand[];
+    sellability_bands: CalibrationBand[];
+  }>;
+  trends: Array<{
+    period_start: string;
+    period_end: string;
+    total: number;
+    realized: number;
+    realized_rate: number;
+    avg_confidence: number;
+    avg_sellability: number;
+  }>;
+  suggestions: Array<{
+    level: string;
+    message: string;
+    action_id?: "safe_calibration" | "balanced_default" | null;
+    action_label?: string | null;
+  }>;
+}
+
 export interface AppSettings {
   id: number;
   ah_cut_percent: number;
@@ -180,6 +215,20 @@ export interface AppSettings {
   stale_after_minutes: number;
   scoring_preset: "safe" | "balanced" | "aggressive";
   non_commodity_only: boolean;
+}
+
+export interface TuningActionAuditEntry {
+  id: number;
+  action_id: string;
+  action_label: string;
+  source: string;
+  applied_at: string;
+  blocked: boolean;
+  blocked_reason?: string | null;
+}
+
+export interface TuningActionAuditList {
+  entries: TuningActionAuditEntry[];
 }
 
 export interface ScanPreset {

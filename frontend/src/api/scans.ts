@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { LatestScanResponse, ScanHistoryResponse, ScanReadiness, ScanRuntimeStatus, ScanSession } from "../types/models";
+import type { LatestScanResponse, ScanCalibrationSummary, ScanHistoryResponse, ScanReadiness, ScanRuntimeStatus, ScanSession } from "../types/models";
 
 export interface RunScanPayload {
   provider_name?: string;
@@ -30,6 +30,10 @@ export function getScanReadiness() {
 
 export function getScanStatus() {
   return apiRequest<ScanRuntimeStatus>("/scans/status");
+}
+
+export function getScanCalibration() {
+  return apiRequest<ScanCalibrationSummary>("/scans/calibration");
 }
 
 export function getScan(scanId: number, limit?: number) {

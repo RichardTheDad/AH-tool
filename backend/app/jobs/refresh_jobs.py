@@ -10,6 +10,7 @@ from app.schemas.scan import ScanRunRequest
 from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 from app.services.listing_service import mark_stale_snapshots
 from app.services.provider_service import get_provider_registry
+from app.services.calibration_service import evaluate_due_predictions
 from app.services.realm_suggestion_service import run_realm_suggestions, should_refresh_realm_suggestions
 from app.services.realm_service import get_enabled_realm_names
 from app.services.scan_service import get_scan_readiness, run_scan
@@ -67,6 +68,10 @@ def run_refresh_cycle() -> None:
                 "Skipping Suggested Realms refresh: latest run for this target set is still within the %s-minute cooldown.",
                 suggestion_cooldown_minutes,
             )
+
+        evaluated = evaluate_due_predictions(session, limit=500)
+        if evaluated:
+            logger.info("Updated %s score calibration telemetry events.", evaluated)
     except Exception:  # pragma: no cover - scheduler safety
         logger.exception("Scheduled refresh cycle failed.")
     finally:
