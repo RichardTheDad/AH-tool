@@ -105,6 +105,7 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
           <div className="mt-2 flex flex-wrap gap-1">
             {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
             {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
+            {gated ? <Badge tone="warning">Evidence gate</Badge> : null}
             <Badge tone={summarizeMoverLikelihood(result) === "likely mover" ? "success" : "warning"}>{summarizeMoverLikelihood(result)}</Badge>
           </div>
         </div>
@@ -126,13 +127,13 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
         </div>
 
         <div className="min-w-0">
-          <Badge tone={gated ? "warning" : result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
+          <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
             {formatScore(result.confidence_score)}
           </Badge>
         </div>
 
         <div className="min-w-0">
-          <Badge tone={gated ? "warning" : result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
+          <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
             {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
           </Badge>
         </div>

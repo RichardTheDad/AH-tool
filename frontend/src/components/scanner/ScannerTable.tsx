@@ -163,6 +163,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                         <Badge tone="warning">Cancel history</Badge>
                       ) : null}
                       {result.has_missing_metadata ? <Badge tone="warning">Metadata gap</Badge> : null}
+                      {isEvidenceGated(result) ? <Badge tone="warning">Evidence gate</Badge> : null}
                       <Badge
                         tone={
                           summarizeMoverLikelihood(result) === "likely mover"
@@ -201,10 +202,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 <td className="px-3 py-3 align-top whitespace-nowrap">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   {(() => {
-                    const gated = isEvidenceGated(result);
-                    const tone = gated
-                      ? "warning"
-                      : result.confidence_score >= 70
+                    const tone = result.confidence_score >= 70
                         ? "success"
                         : result.confidence_score >= 50
                           ? "warning"
@@ -222,7 +220,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   <span title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}${isEvidenceGated(result) ? " | evidence gate active" : ""}`}>
-                    <Badge tone={isEvidenceGated(result) ? "warning" : result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
+                    <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
                       {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
                     </Badge>
                   </span>
