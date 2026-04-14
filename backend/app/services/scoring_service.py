@@ -286,25 +286,19 @@ def score_opportunity(
                 if sell_vs_history > 1.35:
                     sell_history_spike = True
                     volatility_score -= min(26, (sell_vs_history - 1.35) * 26)
-                sell_range_ratio = max(sell_history) / max(min(sell_history), 1)
+                sell_range_ratio = max(sell_history) / max(min(sell_history), sell_median * 0.05)
                 if sell_range_ratio > 1.7:
                     inconsistent_sell_history = True
                     volatility_score -= min(18, (sell_range_ratio - 1.7) * 12)
                 elif len(sell_history) >= 3 and sell_range_ratio <= 1.18 and history.freshness_gap_minutes <= 30:
                     stable_sell_history = True
-                    volatility_score += 6
-                    liquidity_score += 5
                 elif len(sell_history) >= 3 and sell_range_ratio <= 1.28:
                     volatility_score += 2
                     liquidity_score += 2
                 if len(sell_history) >= 4 and sell_range_ratio <= 1.28:
                     repeatable_market = True
-                    volatility_score += 2
-                    liquidity_score += 3
                 if len(sell_history) >= 5 and len(buy_history) >= 3 and buy_median > 0 and sell_median / buy_median >= 1.18:
                     persistent_margin = True
-                    volatility_score += 5
-                    liquidity_score += 4
         if len(buy_history) < 2:
             limited_history = True
             volatility_score -= 4
@@ -312,9 +306,9 @@ def score_opportunity(
             buy_range_ratio = max(buy_history) / max(min(buy_history), 1)
             if buy_range_ratio <= 1.22:
                 volatility_score += 2
-        if history.freshness_gap_minutes > 90:
+        if history.freshness_gap_minutes > 180:
             freshness_gap_flag = True
-            volatility_score -= min(14, ((history.freshness_gap_minutes - 90) / 30) * 3)
+            volatility_score -= min(14, ((history.freshness_gap_minutes - 180) / 30) * 3)
 
     if tsm_market is not None:
         if tsm_market.realm_market_value_recent and tsm_market.realm_market_value_recent > 0:
@@ -342,8 +336,6 @@ def score_opportunity(
             elif tsm_market.realm_num_auctions >= 15:
                 liquidity_score += 4
         personal_turnover_adjust = _personal_turnover_adjustment(tsm_market)
-        liquidity_score += personal_turnover_adjust * 0.8
-        volatility_score += personal_turnover_adjust * 0.5
         if personal_turnover_adjust <= -4:
             weak_turnover_market = True
         if tsm_market.personal_avg_sale_price and tsm_market.personal_avg_sale_price > 0:
@@ -395,7 +387,7 @@ def score_opportunity(
         ):
             bait_risk += 8
         if tsm_market.personal_avg_sale_price and tsm_market.personal_avg_sale_price > 0:
-            personal_realized_ratio = observed_sell_price / tsm_market.personal_avg_sale_price
+            personal_realized_ratio = recommended_sell_price / tsm_market.personal_avg_sale_price
             if personal_realized_ratio > 1.5:
                 bait_risk += min(12, (personal_realized_ratio - 1.5) * 12)
 
@@ -472,8 +464,10 @@ def score_opportunity(
     if history is not None:
         history_coverage_ok = len([price for price in history.sell_recent_prices if price > 0]) >= 3
     realm_turnover_ok = tsm_market is not None and (tsm_market.realm_num_auctions or 0) >= 5
-    recency_ok = history is not None and history.freshness_gap_minutes <= 60
-    sufficient_evidence = sell_depth_ok and (history_coverage_ok or realm_turnover_ok) and recency_ok
+    personal_history_ok = tsm_market is not None and tsm_market.personal_sale_count >= 4
+    # Treat missing history as unknown, not stale — freshness_gap_flag handles the penalty separately.
+    recency_ok = history is None or history.freshness_gap_minutes <= 120
+    sufficient_evidence = sell_depth_ok and (history_coverage_ok or realm_turnover_ok or personal_history_ok) and recency_ok
     evidence_gate_applied = not sufficient_evidence
     gate_reasons: list[str] = []
     if evidence_gate_applied:
@@ -534,6 +528,8 @@ def score_opportunity(
         ):
             final_score += 4
     final_score = round(clamp(final_score, 0, 100), 2)
+    if evidence_gate_applied:
+        final_score = min(final_score, 65.0)
 
     score_provenance = {
         "components": {
@@ -567,6 +563,7 @@ def score_opportunity(
             "sell_depth_ok": sell_depth_ok,
             "history_coverage_ok": history_coverage_ok,
             "realm_turnover_ok": bool(realm_turnover_ok),
+            "personal_history_ok": bool(personal_history_ok),
             "recency_ok": recency_ok,
             "gate_applied": evidence_gate_applied,
             "gate_reasons": gate_reasons,

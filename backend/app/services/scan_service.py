@@ -393,7 +393,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         if readiness.status != "ready":
             warning_parts.append(readiness.message)
 
-        candidate_item_ids: list[int] = []
+        candidate_items: list[tuple[float, int]] = []
         exploration_candidate_item_ids: list[int] = []
         for item_id, snapshots in grouped.items():
             if len(snapshots) < 2:
@@ -409,9 +409,12 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
             conservative_sell_price, _sell_reasons = derive_recommended_sell_price(best_observed_sell_snapshot)
             estimated_raw_profit = (conservative_sell_price * (1 - app_settings.ah_cut_percent)) - float(buy_snapshot.lowest_price or 0) - app_settings.flat_buffer
             if estimated_raw_profit > 0:
-                candidate_item_ids.append(item_id)
+                candidate_items.append((estimated_raw_profit, item_id))
             else:
                 exploration_candidate_item_ids.append(item_id)
+
+        candidate_items.sort(key=lambda x: x[0], reverse=True)
+        candidate_item_ids = [item_id for _profit, item_id in candidate_items]
 
         if candidate_item_ids:
             mark_scan_stage("Refreshing TSM market enrichment for likely flip candidates.")
