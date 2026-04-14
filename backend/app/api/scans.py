@@ -13,7 +13,7 @@ from app.schemas.scan import (
     ScanRuntimeStatusRead,
     ScanSessionRead,
 )
-from app.services.calibration_service import evaluate_due_predictions, get_calibration_summary
+from app.services.calibration_service import get_calibration_summary
 from app.services.scan_runtime_service import get_scan_runtime_state
 from app.services.scan_service import ScanAlreadyRunningError, get_latest_scan, get_scan_history, get_scan_readiness, get_scan_session, run_scan
 
@@ -44,7 +44,6 @@ def scan_history(db: Session = Depends(get_db)) -> ScanHistoryResponse:
 
 @router.get("/scans/calibration", response_model=ScanCalibrationSummaryRead)
 def scan_calibration(db: Session = Depends(get_db)) -> ScanCalibrationSummaryRead:
-    evaluate_due_predictions(db, limit=500)
     return get_calibration_summary(db, days=30)
 
 

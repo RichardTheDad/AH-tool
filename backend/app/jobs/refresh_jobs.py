@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import logging
+import time
+
+from sqlalchemy.exc import OperationalError
 
 from app.core.config import get_settings
 from app.db.models import AppSettings
@@ -13,10 +16,37 @@ from app.services.provider_service import get_provider_registry
 from app.services.calibration_service import evaluate_due_predictions
 from app.services.realm_suggestion_service import run_realm_suggestions, should_refresh_realm_suggestions
 from app.services.realm_service import get_enabled_realm_names
-from app.services.scan_service import get_scan_readiness, run_scan
+from app.services.scan_service import ScanAlreadyRunningError, get_scan_readiness, run_scan
 
 
 logger = logging.getLogger(__name__)
+
+
+LOCK_RETRY_ATTEMPTS = 4
+LOCK_RETRY_DELAY_SECONDS = 1.5
+
+
+def _run_with_sqlite_lock_retry(session, operation_name: str, func):
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            return func()
+        except OperationalError as exc:
+            session.rollback()
+            message = str(exc).lower()
+            if "database is locked" in message and attempt < LOCK_RETRY_ATTEMPTS:
+                delay = LOCK_RETRY_DELAY_SECONDS * attempt
+                logger.info(
+                    "%s hit a database lock; retrying in %.1fs (attempt %s/%s).",
+                    operation_name,
+                    delay,
+                    attempt,
+                    LOCK_RETRY_ATTEMPTS,
+                )
+                time.sleep(delay)
+                continue
+            raise
 
 
 def run_refresh_cycle() -> None:
@@ -36,14 +66,18 @@ def run_refresh_cycle() -> None:
             logger.info("Skipping scheduled scan: %s", readiness.message)
             return
 
-        run_scan(
-            session,
-            ScanRunRequest(
-                provider_name=provider_name,
-                refresh_live=provider.supports_live_fetch,
-                include_losers=False,
-            ),
-        )
+        try:
+            run_scan(
+                session,
+                ScanRunRequest(
+                    provider_name=provider_name,
+                    refresh_live=provider.supports_live_fetch,
+                    include_losers=False,
+                ),
+            )
+        except ScanAlreadyRunningError:
+            logger.info("Skipping scheduled scan because another scan is already running.")
+            return
         queued = queue_missing_metadata_sweep(limit=200)
         if queued:
             logger.info("Queued scheduled metadata sweep for %s unresolved items.", queued)
@@ -54,7 +88,11 @@ def run_refresh_cycle() -> None:
             cooldown_minutes=suggestion_cooldown_minutes,
         )
         if should_refresh_suggestions:
-            suggestion_report = run_realm_suggestions(session)
+            suggestion_report = _run_with_sqlite_lock_retry(
+                session,
+                "Suggested Realms refresh",
+                lambda: run_realm_suggestions(session),
+            )
             if suggestion_report.recommendations:
                 logger.info(
                     "Updated Suggested Realms with %s recommendations across %s source realms.",
@@ -69,7 +107,11 @@ def run_refresh_cycle() -> None:
                 suggestion_cooldown_minutes,
             )
 
-        evaluated = evaluate_due_predictions(session, limit=500)
+        evaluated = _run_with_sqlite_lock_retry(
+            session,
+            "Calibration telemetry evaluation",
+            lambda: evaluate_due_predictions(session, limit=500),
+        )
         if evaluated:
             logger.info("Updated %s score calibration telemetry events.", evaluated)
     except Exception:  # pragma: no cover - scheduler safety

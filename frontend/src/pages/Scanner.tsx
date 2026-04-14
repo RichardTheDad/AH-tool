@@ -131,6 +131,22 @@ export function Scanner() {
     queryFn: () => getScan(previousScanId as number, 200),
     enabled: typeof previousScanId === "number",
   });
+  const coreQueriesLoading =
+    scanQuery.isLoading ||
+    scanHistoryQuery.isLoading ||
+    readinessQuery.isLoading ||
+    scanStatusQuery.isLoading ||
+    providersQuery.isLoading ||
+    presetsQuery.isLoading ||
+    realmsQuery.isLoading;
+  const coreQueriesErrored =
+    scanQuery.error ||
+    scanHistoryQuery.error ||
+    readinessQuery.error ||
+    scanStatusQuery.error ||
+    providersQuery.error ||
+    presetsQuery.error ||
+    realmsQuery.error;
 
   const scanMutation = useMutation({
     mutationFn: runScan,
@@ -188,34 +204,11 @@ export function Scanner() {
     return () => window.clearInterval(timer);
   }, []);
 
-  if (
-    scanQuery.isLoading ||
-    scanHistoryQuery.isLoading ||
-    calibrationQuery.isLoading ||
-    tuningAuditQuery.isLoading ||
-    readinessQuery.isLoading ||
-    scanStatusQuery.isLoading ||
-    providersQuery.isLoading ||
-    presetsQuery.isLoading ||
-    realmsQuery.isLoading
-  ) {
+  if (coreQueriesLoading) {
     return <LoadingState label="Loading scanner..." />;
   }
 
-  if (
-    scanQuery.error ||
-    scanHistoryQuery.error ||
-    calibrationQuery.error ||
-    tuningAuditQuery.error ||
-    readinessQuery.error ||
-    scanStatusQuery.error ||
-    providersQuery.error ||
-    presetsQuery.error ||
-    realmsQuery.error ||
-    previousScanQuery.error ||
-    !readiness ||
-    !scanStatus
-  ) {
+  if (coreQueriesErrored || !readiness || !scanStatus) {
     return <ErrorState message="Scanner data could not be loaded." />;
   }
 
@@ -231,6 +224,8 @@ export function Scanner() {
   const latest = scanQuery.data?.latest ?? null;
   const calibration = calibrationQuery.data;
   const previousScan = previousScanQuery.data ?? null;
+  const calibrationUnavailable = Boolean(calibrationQuery.error);
+  const previousScanUnavailable = Boolean(previousScanQuery.error);
   const tuningAudit = tuningAuditQuery.data?.entries ?? [];
   const recentScans = scanHistoryQuery.data?.scans ?? [];
   const results = filterScanResults(latest?.results ?? [], filters);
@@ -411,7 +406,11 @@ export function Scanner() {
           </div>
         ) : null}
 
-        {calibration && calibration.total_evaluated > 0 ? (
+        {calibrationQuery.isLoading ? (
+          <LoadingState label="Loading calibration telemetry..." />
+        ) : calibrationUnavailable ? (
+          <ErrorState message="Calibration telemetry is temporarily unavailable." />
+        ) : calibration && calibration.total_evaluated > 0 ? (
           <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
             <h3 className="font-display text-lg font-semibold text-ink">Calibration telemetry (30d)</h3>
             <p className="mt-1 text-sm text-slate-600">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through.</p>
@@ -555,7 +554,11 @@ export function Scanner() {
           <EmptyState title="Scanner is empty" description="Run the live Blizzard provider to pull fresh listings, or import listing snapshots as a fallback." />
         )}
 
-        {diffSummary ? (
+        {previousScanQuery.isLoading ? (
+          <LoadingState label="Loading scan comparison..." />
+        ) : previousScanUnavailable ? (
+          <ErrorState message="Previous scan comparison is temporarily unavailable." />
+        ) : diffSummary ? (
           <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
             <h3 className="font-display text-lg font-semibold text-ink">Since last scan</h3>
             <p className="mt-1 text-sm text-slate-600">
