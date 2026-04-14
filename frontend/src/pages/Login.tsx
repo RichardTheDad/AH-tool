@@ -24,22 +24,28 @@ export function Login() {
     setError(null);
     setMessage(null);
     setLoading(true);
-    if (mode === "forgot") {
-      const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+    try {
+      if (mode === "forgot") {
+        const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        setLoading(false);
+        if (authError) setError(authError.message);
+        else setMessage("Password reset link sent — check your email.");
+      } else if (mode === "signup") {
+        const { error: authError } = await supabase.auth.signUp({ email, password });
+        setLoading(false);
+        if (authError) setError(authError.message);
+        else setMessage("Check your email for a confirmation link.");
+      } else {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+        setLoading(false);
+        if (authError) setError(authError.message);
+        else if (!data.session) setError("Sign in succeeded but no session was returned — check Supabase Auth settings.");
+      }
+    } catch (err: unknown) {
       setLoading(false);
-      if (authError) setError(authError.message);
-      else setMessage("Password reset link sent — check your email.");
-    } else if (mode === "signup") {
-      const { error: authError } = await supabase.auth.signUp({ email, password });
-      setLoading(false);
-      if (authError) setError(authError.message);
-      else setMessage("Check your email for a confirmation link.");
-    } else {
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
-      setLoading(false);
-      if (authError) setError(authError.message);
+      setError(err instanceof Error ? err.message : "Unexpected error — check browser console.");
     }
   }
 
