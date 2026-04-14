@@ -10,8 +10,13 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 async function handleUnauthorized(response: Response): Promise<void> {
   if (response.status === 401) {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+    // Only sign out if the token is genuinely expired/invalid, not on transient failures.
+    // Check if we still have a local session before nuking it.
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) {
+      window.location.href = "/login";
+    }
+    // If we have a session, the backend JWT secret may be misconfigured — don't sign out.
   }
 }
 
