@@ -22,25 +22,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-
-    let justUpdatedPassword = false;
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
-      if (event === "USER_UPDATED") {
-        justUpdatedPassword = true;
-        // keep current session alive — redirect handled by ResetPassword page
-        return;
-      }
-      if (event === "SIGNED_OUT" && justUpdatedPassword) {
-        justUpdatedPassword = false;
-        // ignore the sign-out that Supabase fires after a password reset
-        return;
-      }
-      justUpdatedPassword = false;
       setSession(newSession);
+      setLoading(false);
     });
 
     return () => listener.subscription.unsubscribe();
