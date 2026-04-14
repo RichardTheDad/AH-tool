@@ -16,8 +16,6 @@ from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
 from app.services.scan_service import select_best_sell_snapshot
 from app.services.scoring_service import ScoreBreakdown
-from app.services.tsm_ledger_service import TsmLedgerService
-from app.services.tsm_service import TsmMarketService
 from app.services.undermine_service import build_undermine_item_url
 
 
@@ -158,8 +156,6 @@ def _build_current_recommendations(
     history_by_item = get_recent_snapshot_history_for_items(session, list(item_ids), history_realms, limit_per_realm=6)
     settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
     app_settings = get_settings()
-    tsm_service = TsmMarketService(app_settings)
-    tsm_ledger_service = TsmLedgerService(app_settings)
 
     cheapest_source_counts: dict[str, int] = defaultdict(int)
     preferred_target_counts_by_source: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
@@ -192,9 +188,6 @@ def _build_current_recommendations(
                 settings,
                 include_losers=False,
                 history_by_realm=history_by_item.get(item_id),
-                tsm_service=tsm_service,
-                tsm_ledger_service=tsm_ledger_service,
-                enabled_realms=target_realms,
             )
             if sell_snapshot is None or score is None:
                 continue

@@ -42,8 +42,6 @@ class Settings(BaseSettings):
     blizzard_locale: str = "en_US"
     tsm_api_key: str = ""
     tsm_region_id: int | None = None
-    tsm_apphelper_path: str = ""
-    tsm_savedvariables_path: str = ""
     supabase_jwt_secret: str = ""
     scheduler_refresh_interval_minutes: int = 30
 

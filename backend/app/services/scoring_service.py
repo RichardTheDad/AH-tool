@@ -59,26 +59,9 @@ class MarketHistoryContext:
     freshness_gap_minutes: float
 
 
-@dataclass
-class TsmMarketContext:
-    sale_rate: float | None = None
-    sold_per_day: float | None = None
-    realm_historical: float | None = None
-    realm_market_value_recent: float | None = None
-    realm_num_auctions: float | None = None
-    personal_sale_count: int = 0
-    personal_buy_count: int = 0
-    personal_cancel_count: int = 0
-    personal_expired_count: int = 0
-    personal_avg_sale_price: float | None = None
-    personal_sale_recency_days: float | None = None
-    personal_negative_recency_days: float | None = None
-
-
 def derive_recommended_sell_price(
     sell_snapshot: ListingSnapshot,
     history: MarketHistoryContext | None = None,
-    tsm_market: TsmMarketContext | None = None,
 ) -> tuple[float, list[str]]:
     observed_price = float(sell_snapshot.lowest_price or 0)
     if observed_price <= 0:
@@ -106,18 +89,6 @@ def derive_recommended_sell_price(
             if observed_price > history_cap:
                 reasons.append("sell target capped by recent history")
 
-    if tsm_market is not None:
-        if tsm_market.realm_market_value_recent and tsm_market.realm_market_value_recent > 0:
-            recent_cap = tsm_market.realm_market_value_recent * (1.0 if thin_market else 1.08)
-            caps.append(recent_cap)
-            if observed_price > recent_cap:
-                reasons.append("sell target capped by TSM recent market value")
-        if tsm_market.realm_historical and tsm_market.realm_historical > 0:
-            historical_cap = tsm_market.realm_historical * (1.03 if thin_market else 1.12)
-            caps.append(historical_cap)
-            if observed_price > historical_cap:
-                reasons.append("sell target capped by TSM historical value")
-
     if thin_market:
         thin_cap = observed_price * 0.95
         caps.append(thin_cap)
@@ -135,18 +106,7 @@ def clamp(value: float, lower: float, upper: float) -> float:
     return max(lower, min(upper, value))
 
 
-def _turnover_label(sellability_score: float, tsm_market: TsmMarketContext | None) -> str:
-    realm_num_auctions = tsm_market.realm_num_auctions if tsm_market is not None else None
-    personal_sales = tsm_market.personal_sale_count if tsm_market is not None else 0
-
-    if realm_num_auctions is not None and realm_num_auctions >= 40:
-        return "fast"
-    if realm_num_auctions is not None and realm_num_auctions >= 15:
-        return "steady"
-    if realm_num_auctions is not None and realm_num_auctions < 2:
-        return "very slow"
-    if personal_sales >= 6 and sellability_score >= 72:
-        return "steady"
+def _turnover_label(sellability_score: float) -> str:
     if sellability_score >= 78:
         return "fast"
     if sellability_score >= 58:
@@ -160,38 +120,6 @@ def calculate_profit_and_roi(buy_price: float, sell_price: float, settings: AppS
     estimated_profit = round((sell_price * (1 - settings.ah_cut_percent)) - buy_price - settings.flat_buffer, 2)
     roi = round((estimated_profit / buy_price) if buy_price > 0 else 0, 4)
     return estimated_profit, roi
-
-
-def _personal_turnover_adjustment(tsm_market: TsmMarketContext | None) -> float:
-    if tsm_market is None:
-        return 0.0
-    sales = max(tsm_market.personal_sale_count, 0)
-    churn = max(tsm_market.personal_cancel_count + tsm_market.personal_expired_count, 0)
-    activity = sales + churn
-    if activity == 0:
-        return 0.0
-    def _recency_weight(days_since_event: float | None, *, half_life_days: float, max_age_days: float) -> float:
-        if days_since_event is None:
-            return 1.0
-        if days_since_event <= 0:
-            return 1.0
-        if days_since_event >= max_age_days:
-            return 0.0
-        return 0.5 ** (days_since_event / half_life_days)
-
-    sale_decay = _recency_weight(tsm_market.personal_sale_recency_days, half_life_days=35.0, max_age_days=240.0)
-    churn_decay = _recency_weight(tsm_market.personal_negative_recency_days, half_life_days=25.0, max_age_days=180.0)
-
-    effective_sales = sales * sale_decay
-    effective_churn = churn * churn_decay
-    effective_activity = effective_sales + effective_churn
-    if effective_activity <= 0:
-        return 0.0
-
-    success_ratio = effective_sales / effective_activity
-    confidence_in_signal = min(effective_activity / 20.0, 1.0)
-    # Center around 0.5 to avoid boosting scores from sparse history.
-    return (success_ratio - 0.5) * 20.0 * confidence_in_signal
 
 
 def _is_thin_market(snapshot: ListingSnapshot) -> bool:
@@ -228,23 +156,19 @@ def score_opportunity(
     sell_snapshot: ListingSnapshot,
     settings: AppSettings,
     history: MarketHistoryContext | None = None,
-    tsm_market: TsmMarketContext | None = None,
 ) -> ScoreBreakdown:
     tuning = SCORING_PRESETS.get(settings.scoring_preset, SCORING_PRESETS["balanced"])
     buy_price = float(buy_snapshot.lowest_price or 0)
     observed_sell_price = float(sell_snapshot.lowest_price or 0)
-    recommended_sell_price, sell_price_reasons = derive_recommended_sell_price(sell_snapshot, history, tsm_market)
+    recommended_sell_price, sell_price_reasons = derive_recommended_sell_price(sell_snapshot, history)
     estimated_profit, roi = calculate_profit_and_roi(buy_price, recommended_sell_price, settings)
 
     sell_depth = _market_depth_score(sell_snapshot, tuning, buy_side=False)
     buy_depth = _market_depth_score(buy_snapshot, tuning, buy_side=True)
     liquidity_score = round(clamp((sell_depth * 0.75) + (buy_depth * 0.25), 0, 100), 2)
-    tsm_slow_market = False
-    tsm_very_slow_market = False
     stable_sell_history = False
     repeatable_market = False
     persistent_margin = False
-    weak_turnover_market = False
 
     spread_ratio = (observed_sell_price / buy_price) if buy_price > 0 else 1
     sell_avg_ratio = (
@@ -310,53 +234,10 @@ def score_opportunity(
             freshness_gap_flag = True
             volatility_score -= min(14, ((history.freshness_gap_minutes - 180) / 30) * 3)
 
-    if tsm_market is not None:
-        if tsm_market.realm_market_value_recent and tsm_market.realm_market_value_recent > 0:
-            recent_ratio = observed_sell_price / tsm_market.realm_market_value_recent
-            if recent_ratio > 1.35:
-                volatility_score -= min(18, (recent_ratio - 1.35) * 20)
-        if tsm_market.realm_historical and tsm_market.realm_historical > 0:
-            historical_ratio = observed_sell_price / tsm_market.realm_historical
-            if historical_ratio > 1.45:
-                volatility_score -= min(16, (historical_ratio - 1.45) * 18)
-        if tsm_market.realm_num_auctions is not None:
-            if tsm_market.realm_num_auctions < 2:
-                tsm_very_slow_market = True
-                weak_turnover_market = True
-                liquidity_score -= 18
-                volatility_score -= 8
-            elif tsm_market.realm_num_auctions < 5:
-                tsm_slow_market = True
-                weak_turnover_market = True
-                liquidity_score -= 9
-                volatility_score -= 3
-            elif tsm_market.realm_num_auctions >= 40:
-                liquidity_score += 7
-                volatility_score += 2
-            elif tsm_market.realm_num_auctions >= 15:
-                liquidity_score += 4
-        personal_turnover_adjust = _personal_turnover_adjustment(tsm_market)
-        if personal_turnover_adjust <= -4:
-            weak_turnover_market = True
-        if tsm_market.personal_avg_sale_price and tsm_market.personal_avg_sale_price > 0:
-            personal_realized_ratio = observed_sell_price / tsm_market.personal_avg_sale_price
-            if personal_realized_ratio > 1.5:
-                volatility_score -= min(16, (personal_realized_ratio - 1.5) * 14)
-            elif personal_realized_ratio <= 1.12 and tsm_market.personal_sale_count >= 3:
-                volatility_score += 4
-                liquidity_score += 3
     volatility_score = round(clamp(volatility_score, 0, 100), 2)
     liquidity_score = round(clamp(liquidity_score, 0, 100), 2)
 
     bait_risk = 8.0
-    if tsm_market is not None and tsm_market.realm_market_value_recent and tsm_market.realm_market_value_recent > 0:
-        recent_ratio = observed_sell_price / tsm_market.realm_market_value_recent
-        if recent_ratio > 1.35:
-            bait_risk += min(14, (recent_ratio - 1.35) * 16)
-    if tsm_market is not None and tsm_market.realm_historical and tsm_market.realm_historical > 0:
-        historical_ratio = observed_sell_price / tsm_market.realm_historical
-        if historical_ratio > 1.45:
-            bait_risk += min(12, (historical_ratio - 1.45) * 14)
     if spread_ratio > tuning["suspicious_spread"]:
         bait_risk += tuning["bait_penalty"] * 0.8
     if spread_ratio > tuning["extreme_spread"]:
@@ -377,26 +258,11 @@ def score_opportunity(
         bait_risk += 12
     if freshness_gap_flag:
         bait_risk += 8
-    if tsm_slow_market:
-        bait_risk += 6
-    if tsm_very_slow_market:
-        bait_risk += 12
-    if tsm_market is not None:
-        if tsm_market.personal_cancel_count + tsm_market.personal_expired_count > tsm_market.personal_sale_count and (
-            tsm_market.personal_cancel_count > 0 or tsm_market.personal_expired_count > 0
-        ):
-            bait_risk += 8
-        if tsm_market.personal_avg_sale_price and tsm_market.personal_avg_sale_price > 0:
-            personal_realized_ratio = recommended_sell_price / tsm_market.personal_avg_sale_price
-            if personal_realized_ratio > 1.5:
-                bait_risk += min(12, (personal_realized_ratio - 1.5) * 12)
-
     has_stale_data = bool(buy_snapshot.is_stale or sell_snapshot.is_stale)
     if has_stale_data:
         bait_risk += tuning["stale_penalty"] * 0.75
     bait_risk = round(clamp(bait_risk, 0, 100), 2)
 
-    personal_turnover_adjustment = _personal_turnover_adjustment(tsm_market) if tsm_market is not None else 0
     liquidity_component = liquidity_score * 0.45
     volatility_component = volatility_score * 0.25
     anti_bait_component = (100 - bait_risk) * 0.20
@@ -404,7 +270,6 @@ def score_opportunity(
         liquidity_component
         + volatility_component
         + anti_bait_component
-        + personal_turnover_adjustment
     )
     stable_history_bonus = 0.0
     repeatable_market_bonus = 0.0
@@ -412,7 +277,6 @@ def score_opportunity(
     limited_history_penalty = 0.0
     freshness_gap_penalty = 0.0
     sell_history_spike_penalty = 0.0
-    weak_turnover_penalty = 0.0
     if stable_sell_history:
         stable_history_bonus = 6.0
         sellability_score += stable_history_bonus
@@ -431,13 +295,10 @@ def score_opportunity(
     if sell_history_spike:
         sell_history_spike_penalty = 10.0
         sellability_score -= sell_history_spike_penalty
-    if weak_turnover_market:
-        weak_turnover_penalty = 10.0
-        sellability_score -= weak_turnover_penalty
     if item.name is None:
         sellability_score -= 4
     sellability_score = round(clamp(sellability_score, 0, 100), 2)
-    turnover_label = _turnover_label(sellability_score, tsm_market)
+    turnover_label = _turnover_label(sellability_score)
 
     confidence = (
         (liquidity_score * 0.42)
@@ -463,18 +324,16 @@ def score_opportunity(
     history_coverage_ok = False
     if history is not None:
         history_coverage_ok = len([price for price in history.sell_recent_prices if price > 0]) >= 3
-    realm_turnover_ok = tsm_market is not None and (tsm_market.realm_num_auctions or 0) >= 5
-    personal_history_ok = tsm_market is not None and tsm_market.personal_sale_count >= 4
     # Treat missing history as unknown, not stale — freshness_gap_flag handles the penalty separately.
     recency_ok = history is None or history.freshness_gap_minutes <= 120
-    sufficient_evidence = sell_depth_ok and (history_coverage_ok or realm_turnover_ok or personal_history_ok) and recency_ok
+    sufficient_evidence = sell_depth_ok and history_coverage_ok and recency_ok
     evidence_gate_applied = not sufficient_evidence
     gate_reasons: list[str] = []
     if evidence_gate_applied:
         if not sell_depth_ok:
             gate_reasons.append("sell_depth_below_minimum")
-        if not (history_coverage_ok or realm_turnover_ok):
-            gate_reasons.append("insufficient_history_or_realm_turnover")
+        if not history_coverage_ok:
+            gate_reasons.append("insufficient_history")
         if not recency_ok:
             gate_reasons.append("snapshot_recency_gap_too_large")
 
@@ -503,14 +362,6 @@ def score_opportunity(
         final_score -= 6
     if limited_history:
         final_score -= 4
-    if tsm_slow_market:
-        final_score -= 8
-    if tsm_very_slow_market:
-        final_score -= 14
-    if buy_price >= 2_500_000 and weak_turnover_market:
-        final_score -= 12
-    elif buy_price >= 1_000_000 and weak_turnover_market:
-        final_score -= 7
     if buy_price >= 2_500_000 and roi < 0.18:
         final_score -= 8
     if stable_sell_history:
@@ -519,14 +370,6 @@ def score_opportunity(
         final_score += 4
     if persistent_margin:
         final_score += 7
-    if tsm_market is not None:
-        final_score += _personal_turnover_adjustment(tsm_market) * 0.6
-        if (
-            tsm_market.personal_sale_count >= 5
-            and tsm_market.personal_avg_sale_price
-            and recommended_sell_price <= tsm_market.personal_avg_sale_price * 1.1
-        ):
-            final_score += 4
     final_score = round(clamp(final_score, 0, 100), 2)
     if evidence_gate_applied:
         final_score = min(final_score, 65.0)
@@ -536,7 +379,6 @@ def score_opportunity(
             "liquidity": round(liquidity_component, 2),
             "volatility": round(volatility_component, 2),
             "anti_bait": round(anti_bait_component, 2),
-            "personal_turnover": round(personal_turnover_adjustment, 2),
         },
         "confidence_components": {
             "liquidity": round(liquidity_score * 0.42, 2),
@@ -557,13 +399,10 @@ def score_opportunity(
             "limited_history_penalty": limited_history_penalty,
             "freshness_gap_penalty": freshness_gap_penalty,
             "sell_history_spike_penalty": sell_history_spike_penalty,
-            "weak_turnover_penalty": weak_turnover_penalty,
         },
         "evidence": {
             "sell_depth_ok": sell_depth_ok,
             "history_coverage_ok": history_coverage_ok,
-            "realm_turnover_ok": bool(realm_turnover_ok),
-            "personal_history_ok": bool(personal_history_ok),
             "recency_ok": recency_ok,
             "gate_applied": evidence_gate_applied,
             "gate_reasons": gate_reasons,
@@ -584,13 +423,6 @@ def score_opportunity(
         inconsistent_sell_history=inconsistent_sell_history,
         sell_history_spike=sell_history_spike,
         freshness_gap_flag=freshness_gap_flag,
-        tsm_slow_market=tsm_slow_market,
-        tsm_very_slow_market=tsm_very_slow_market,
-        personal_sale_count=tsm_market.personal_sale_count if tsm_market is not None else 0,
-        personal_cancel_count=tsm_market.personal_cancel_count if tsm_market is not None else 0,
-        personal_expired_count=tsm_market.personal_expired_count if tsm_market is not None else 0,
-        personal_sale_recency_days=tsm_market.personal_sale_recency_days if tsm_market is not None else None,
-        personal_negative_recency_days=tsm_market.personal_negative_recency_days if tsm_market is not None else None,
         observed_sell_price=observed_sell_price,
         recommended_sell_price=recommended_sell_price,
         sell_price_reasons=sell_price_reasons,
@@ -628,13 +460,6 @@ def build_explanation(
     inconsistent_sell_history: bool = False,
     sell_history_spike: bool = False,
     freshness_gap_flag: bool = False,
-    tsm_slow_market: bool = False,
-    tsm_very_slow_market: bool = False,
-    personal_sale_count: int = 0,
-    personal_cancel_count: int = 0,
-    personal_expired_count: int = 0,
-    personal_sale_recency_days: float | None = None,
-    personal_negative_recency_days: float | None = None,
     observed_sell_price: float | None = None,
     recommended_sell_price: float | None = None,
     sell_price_reasons: list[str] | None = None,
@@ -653,24 +478,6 @@ def build_explanation(
         return f"Cheapest on {buy_realm}, but recent sell-side pricing on {sell_realm} has been inconsistent.{sell_target_note}".strip()
     if freshness_gap_flag:
         return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but the market snapshots are not closely timed.{sell_target_note}".strip()
-    if tsm_very_slow_market:
-        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but TSM shows extremely slow sell-side realm turnover.{sell_target_note}".strip()
-    if tsm_slow_market:
-        return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but TSM shows low sell-side realm turnover.{sell_target_note}".strip()
-    if (
-        personal_cancel_count + personal_expired_count > personal_sale_count
-        and (personal_cancel_count > 0 or personal_expired_count > 0)
-        and (personal_negative_recency_days is None or personal_negative_recency_days <= 120)
-    ):
-        return (
-            f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but your TSM ledger shows frequent cancels or expirations."
-            f"{sell_target_note}"
-        ).strip()
-    if personal_sale_count >= 3 and (personal_sale_recency_days is None or personal_sale_recency_days <= 120):
-        return (
-            f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, and your TSM ledger shows this item has sold successfully before."
-            f"{sell_target_note}"
-        ).strip()
     if limited_history:
         return f"Cheapest on {buy_realm}, strongest sell on {sell_realm}, but recent history is limited.{sell_target_note}".strip()
     if bait_risk >= 72:
