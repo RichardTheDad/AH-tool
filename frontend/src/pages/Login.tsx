@@ -1,10 +1,17 @@
-import { type FormEvent, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { type FormEvent, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 
 export function Login() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { session } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+
+  useEffect(() => {
+    if (session) navigate("/", { replace: true });
+  }, [session, navigate]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
