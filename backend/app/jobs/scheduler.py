@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from app.db.models import AppSettings
-from app.db.session import get_session_factory
+from app.core.config import get_settings
 from app.jobs.refresh_jobs import run_refresh_cycle
 
 
@@ -21,18 +20,14 @@ class SchedulerManager:
             self.scheduler.shutdown(wait=False)
 
     def reconfigure(self) -> None:
-        session = get_session_factory()()
-        try:
-            app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
-            self.scheduler.add_job(
-                run_refresh_cycle,
-                "interval",
-                id="refresh-cycle",
-                replace_existing=True,
-                minutes=app_settings.refresh_interval_minutes,
-            )
-        finally:
-            session.close()
+        interval = get_settings().scheduler_refresh_interval_minutes
+        self.scheduler.add_job(
+            run_refresh_cycle,
+            "interval",
+            id="refresh-cycle",
+            replace_existing=True,
+            minutes=interval,
+        )
 
     def status(self) -> dict[str, object]:
         return {

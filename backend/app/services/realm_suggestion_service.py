@@ -156,7 +156,7 @@ def _build_current_recommendations(
     items_by_id = _load_items(session, item_ids)
     history_realms = sorted(set(target_realms + source_realms), key=str.casefold)
     history_by_item = get_recent_snapshot_history_for_items(session, list(item_ids), history_realms, limit_per_realm=6)
-    settings = session.get(AppSettings, 1) or AppSettings(id=1)
+    settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
     app_settings = get_settings()
     tsm_service = TsmMarketService(app_settings)
     tsm_ledger_service = TsmLedgerService(app_settings)
@@ -298,8 +298,11 @@ def _load_recent_runs_for_target_set(
     *,
     target_set_key: str | None,
     limit: int,
+    user_id: str | None = None,
 ) -> list[RealmSuggestionRun]:
     query = session.query(RealmSuggestionRun)
+    if user_id is not None:
+        query = query.filter(RealmSuggestionRun.user_id == user_id)
     if target_set_key is not None:
         query = query.filter(RealmSuggestionRun.target_set_key == target_set_key)
     return query.order_by(RealmSuggestionRun.generated_at.desc()).limit(limit).all()
@@ -384,20 +387,20 @@ def _serialize_run(
     )
 
 
-def get_latest_realm_suggestions(session: Session, *, target_realms: list[str] | None = None) -> SuggestedRealmReportRead | None:
+def get_latest_realm_suggestions(session: Session, user_id: str, *, target_realms: list[str] | None = None) -> SuggestedRealmReportRead | None:
     normalized_targets = _normalize_target_realms(target_realms)
-    tracked_realms = {realm.realm_name for realm in session.query(TrackedRealm).all()}
+    tracked_realms = {realm.realm_name for realm in session.query(TrackedRealm).filter(TrackedRealm.user_id == user_id).all()}
     if normalized_targets:
         target_set_key = _target_set_key(normalized_targets)
-        recent_runs = _load_recent_runs_for_target_set(session, target_set_key=target_set_key, limit=CONSISTENCY_WINDOW)
+        recent_runs = _load_recent_runs_for_target_set(session, target_set_key=target_set_key, limit=CONSISTENCY_WINDOW, user_id=user_id)
         latest_run = recent_runs[0] if recent_runs else None
         prior_runs = recent_runs[:CONSISTENCY_WINDOW]
     else:
-        latest_run = session.query(RealmSuggestionRun).order_by(RealmSuggestionRun.generated_at.desc()).first()
+        latest_run = session.query(RealmSuggestionRun).filter(RealmSuggestionRun.user_id == user_id).order_by(RealmSuggestionRun.generated_at.desc()).first()
         if latest_run is None:
             return None
         if latest_run.target_set_key:
-            prior_runs = _load_recent_runs_for_target_set(session, target_set_key=latest_run.target_set_key, limit=CONSISTENCY_WINDOW)
+            prior_runs = _load_recent_runs_for_target_set(session, target_set_key=latest_run.target_set_key, limit=CONSISTENCY_WINDOW, user_id=user_id)
         else:
             prior_runs = [latest_run]
     if latest_run is None:
@@ -405,11 +408,11 @@ def get_latest_realm_suggestions(session: Session, *, target_realms: list[str] |
     return _serialize_run(latest_run, tracked_realms=tracked_realms, prior_runs=prior_runs)
 
 
-def run_realm_suggestions(session: Session, *, target_realms: list[str] | None = None) -> SuggestedRealmReportRead:
+def run_realm_suggestions(session: Session, user_id: str, *, target_realms: list[str] | None = None) -> SuggestedRealmReportRead:
     selected_target_realms = _normalize_target_realms(target_realms)
-    tracked_enabled_realms = get_enabled_realm_names(session)
+    tracked_enabled_realms = get_enabled_realm_names(session, user_id)
     target_realms = _normalize_target_realms(selected_target_realms or tracked_enabled_realms)
-    tracked_realms = {realm.realm_name for realm in session.query(TrackedRealm).all()}
+    tracked_realms = {realm.realm_name for realm in session.query(TrackedRealm).filter(TrackedRealm.user_id == user_id).all()}
     if not target_realms:
         return SuggestedRealmReportRead(
             generated_at=None,
@@ -443,7 +446,7 @@ def run_realm_suggestions(session: Session, *, target_realms: list[str] | None =
     target_set_key = _target_set_key(target_realms)
     prior_run_count = (
         session.query(RealmSuggestionRun)
-        .filter(RealmSuggestionRun.target_set_key == target_set_key)
+        .filter(RealmSuggestionRun.user_id == user_id, RealmSuggestionRun.target_set_key == target_set_key)
         .count()
     )
     source_batch, batch_start = _select_realm_batch(sorted(available_realms), prior_run_count)
@@ -459,12 +462,14 @@ def run_realm_suggestions(session: Session, *, target_realms: list[str] | None =
 
     recommendations, generated_at = _build_current_recommendations(
         session=session,
+        user_id=user_id,
         target_realms=target_realms,
         source_realms=source_batch,
         fetched_rows=rows,
     )
     warning_text = None if recommendations else "This rotating discovery batch did not surface strong source realms for your current targets."
     run = RealmSuggestionRun(
+        user_id=user_id,
         generated_at=generated_at or datetime.now(timezone.utc),
         target_set_key=target_set_key,
         target_realms_json=target_realms,
@@ -500,7 +505,7 @@ def run_realm_suggestions(session: Session, *, target_realms: list[str] | None =
     session.commit()
     session.refresh(run)
 
-    prior_runs = _load_recent_runs_for_target_set(session, target_set_key=target_set_key, limit=CONSISTENCY_WINDOW)
+    prior_runs = _load_recent_runs_for_target_set(session, target_set_key=target_set_key, limit=CONSISTENCY_WINDOW, user_id=user_id)
     return _serialize_run(run, tracked_realms=tracked_realms, prior_runs=prior_runs) or SuggestedRealmReportRead(
         generated_at=run.generated_at,
         target_realms=target_realms,

@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user
+from app.db.init_db import provision_new_user
 from app.db.models import AppSettings, TuningActionAudit
 from app.db.session import get_db
 from app.jobs.scheduler import manager as scheduler_manager
@@ -32,39 +34,34 @@ def _settings_snapshot(app_settings: AppSettings) -> dict[str, object]:
     }
 
 
-@router.get("/settings", response_model=AppSettingsRead)
-def get_settings_route(db: Session = Depends(get_db)) -> AppSettingsRead:
-    app_settings = db.get(AppSettings, 1)
+def _get_or_provision_settings(db: Session, user_id: str) -> AppSettings:
+    app_settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
     if app_settings is None:
-        app_settings = AppSettings(id=1)
-        db.add(app_settings)
-        db.commit()
-        db.refresh(app_settings)
-    return AppSettingsRead.model_validate(app_settings)
+        provision_new_user(db, user_id)
+        app_settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
+    return app_settings  # type: ignore[return-value]
+
+
+@router.get("/settings", response_model=AppSettingsRead)
+def get_settings_route(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> AppSettingsRead:
+    return AppSettingsRead.model_validate(_get_or_provision_settings(db, current_user))
 
 
 @router.put("/settings", response_model=AppSettingsRead)
-def update_settings(payload: AppSettingsUpdate, db: Session = Depends(get_db)) -> AppSettingsRead:
-    app_settings = db.get(AppSettings, 1)
-    if app_settings is None:
-        app_settings = AppSettings(id=1)
-        db.add(app_settings)
+def update_settings(payload: AppSettingsUpdate, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> AppSettingsRead:
+    app_settings = _get_or_provision_settings(db, current_user)
 
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(app_settings, key, value)
 
     db.commit()
     db.refresh(app_settings)
-    scheduler_manager.reconfigure()
     return AppSettingsRead.model_validate(app_settings)
 
 
 @router.post("/settings/apply-tuning-preset", response_model=AppSettingsRead)
-def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = Depends(get_db)) -> AppSettingsRead:
-    app_settings = db.get(AppSettings, 1)
-    if app_settings is None:
-        app_settings = AppSettings(id=1)
-        db.add(app_settings)
+def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> AppSettingsRead:
+    app_settings = _get_or_provision_settings(db, current_user)
 
     labels = {
         "safe_calibration": "Apply safer tuning",
@@ -75,7 +72,7 @@ def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = De
 
     last_success = (
         db.query(TuningActionAudit)
-        .filter(TuningActionAudit.blocked.is_(False))
+        .filter(TuningActionAudit.user_id == current_user, TuningActionAudit.blocked.is_(False))
         .order_by(TuningActionAudit.applied_at.desc())
         .first()
     )
@@ -90,6 +87,7 @@ def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = De
             remaining_minutes = max(1, int(remaining.total_seconds() // 60))
             db.add(
                 TuningActionAudit(
+                    user_id=current_user,
                     action_id=payload.preset_id,
                     action_label=action_label,
                     source="scanner_suggestion",
@@ -116,6 +114,7 @@ def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = De
 
     db.add(
         TuningActionAudit(
+            user_id=current_user,
             action_id=payload.preset_id,
             action_label=action_label,
             source="scanner_suggestion",
@@ -128,7 +127,6 @@ def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = De
     )
     db.commit()
     db.refresh(app_settings)
-    scheduler_manager.reconfigure()
     return AppSettingsRead.model_validate(app_settings)
 
 
@@ -136,6 +134,7 @@ def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = De
 def get_tuning_action_audit(
     limit: int = Query(default=20, ge=1, le=200),
     db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
 ) -> TuningActionAuditListRead:
-    entries = db.query(TuningActionAudit).order_by(TuningActionAudit.applied_at.desc()).limit(limit).all()
+    entries = db.query(TuningActionAudit).filter(TuningActionAudit.user_id == current_user).order_by(TuningActionAudit.applied_at.desc()).limit(limit).all()
     return TuningActionAuditListRead(entries=[TuningActionAuditRead.model_validate(entry) for entry in entries])

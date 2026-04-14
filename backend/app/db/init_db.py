@@ -19,6 +19,7 @@ from app.db.models import (
     TrackedRealm,
 )
 from app.db.session import get_engine
+from app.core.config import get_settings
 
 
 NON_PRODUCTION_SOURCES = {"seed", "mock"}
@@ -28,6 +29,14 @@ APP_DATA_RETENTION_DAYS = 30
 def create_db_and_tables() -> None:
     engine = get_engine()
     Base.metadata.create_all(engine)
+
+    database_url = get_settings().database_url
+    if not database_url.startswith("sqlite"):
+        # PostgreSQL (and other non-SQLite) engines: create_all handles schema and
+        # model-defined indexes correctly, so no raw SQL migrations are needed.
+        return
+
+    # --- SQLite-specific post-creation migrations ---
     with engine.begin() as connection:
         connection.execute(
             text(
@@ -168,19 +177,26 @@ def create_db_and_tables() -> None:
         )
 
 
-def ensure_defaults(session: Session) -> None:
-    if session.get(AppSettings, 1) is None:
-        session.add(AppSettings(id=1))
+def provision_new_user(session: Session, user_id: str) -> None:
+    """Create default AppSettings and ScanPresets for a new user if they don't already exist."""
+    existing_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first()
+    if existing_settings is None:
+        session.add(AppSettings(user_id=user_id))
 
-    if not session.query(ScanPreset).count():
+    if not session.query(ScanPreset).filter(ScanPreset.user_id == user_id).count():
         session.add_all(
             [
-                ScanPreset(name="Safe Floor", min_profit=5000, min_roi=0.2, min_confidence=70, hide_risky=True),
-                ScanPreset(name="Balanced Board", min_profit=2500, min_roi=0.12, min_confidence=55, hide_risky=True),
-                ScanPreset(name="Aggressive Peek", min_profit=1000, min_roi=0.08, min_confidence=35, hide_risky=False),
+                ScanPreset(user_id=user_id, name="Safe Floor", min_profit=5000, min_roi=0.2, min_confidence=70, hide_risky=True),
+                ScanPreset(user_id=user_id, name="Balanced Board", min_profit=2500, min_roi=0.12, min_confidence=55, hide_risky=True),
+                ScanPreset(user_id=user_id, name="Aggressive Peek", min_profit=1000, min_roi=0.08, min_confidence=35, hide_risky=False),
             ]
         )
     session.commit()
+
+
+def ensure_defaults(session: Session) -> None:
+    """Deprecated: use provision_new_user(session, user_id) instead."""
+    pass
 
 
 def purge_app_runtime_data(session: Session) -> None:
@@ -308,4 +324,5 @@ def purge_legacy_nonproduction_data(session: Session) -> None:
 def initialize_app_data(session: Session) -> None:
     purge_legacy_nonproduction_data(session)
     purge_expired_app_data(session)
-    ensure_defaults(session)
+    # User-specific provisioning (default settings + presets) now happens on first
+    # authenticated API request via provision_new_user(session, user_id).

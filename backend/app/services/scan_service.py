@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db.models import AppSettings, Item, ScanResult, ScanSession
+from app.db.init_db import provision_new_user
 from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead, ScanSessionSummary
 from app.services.metadata_backfill_service import queue_missing_metadata_refresh, queue_missing_metadata_sweep
 from app.services.metadata_service import (
@@ -15,12 +16,11 @@ from app.services.metadata_service import (
     refresh_tsm_market_stats,
     scan_result_to_schema,
 )
-from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_stage, try_mark_scan_started
+from app.services.scan_runtime_service import try_mark_user_scan_started, USER_SCAN_COOLDOWN_SECONDS
 from app.services.listing_service import (
     get_latest_snapshots_for_realms,
     get_recent_snapshot_history_for_items,
     mark_stale_snapshots,
-    refresh_from_provider,
     snapshot_is_stale,
 )
 from app.services.provider_service import get_provider_registry
@@ -230,9 +230,9 @@ def select_best_sell_snapshot(
     return best_candidate, best_score
 
 
-def get_scan_readiness(session: Session) -> ScanReadinessRead:
-    realms = get_enabled_realm_names(session)
-    app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
+def get_scan_readiness(session: Session, user_id: str) -> ScanReadinessRead:
+    realms = get_enabled_realm_names(session, user_id)
+    app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
     latest_snapshots = get_latest_snapshots_for_realms(session, realms)
     metadata_provider = get_provider_registry().metadata_provider
     metadata_configured, _metadata_message = metadata_provider.is_available()
@@ -345,18 +345,30 @@ def get_scan_readiness(session: Session) -> ScanReadinessRead:
     )
 
 
-def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
-    if not try_mark_scan_started(payload.provider_name):
-        raise ScanAlreadyRunningError("A scan is already running.")
+def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> ScanSessionRead:
+    """Compute a scan for a specific user using existing cached listing data.
+
+    Live data refresh is handled exclusively by the background scheduler. This
+    function only scores opportunities from already-cached ListingSnapshot rows.
+    A per-user cooldown prevents scan spam.
+    """
+    remaining = 0.0
+    from app.services.scan_runtime_service import get_user_scan_cooldown_remaining
+    if not try_mark_user_scan_started(user_id):
+        remaining = get_user_scan_cooldown_remaining(user_id)
+        raise ScanAlreadyRunningError(
+            f"Scan cooldown active. Please wait {int(remaining)} more second(s) before scanning again."
+        )
+    # Ensure user has default settings/presets on first scan
+    provision_new_user(session, user_id)
     try:
-        mark_scan_stage("Resolving enabled realms and scanner readiness.")
-        realms = get_enabled_realm_names(session)
+        realms = get_enabled_realm_names(session, user_id)
         if not realms:
-            scan_session = ScanSession(provider_name=payload.provider_name or "stored", warning_text="No enabled realms configured.")
+            scan_session = ScanSession(user_id=user_id, provider_name=payload.provider_name or "stored", warning_text="No enabled realms configured.")
             session.add(scan_session)
             session.commit()
             session.refresh(scan_session)
-            response = ScanSessionRead(
+            return ScanSessionRead(
                 id=scan_session.id,
                 provider_name=scan_session.provider_name,
                 warning_text=scan_session.warning_text,
@@ -364,23 +376,14 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
                 result_count=0,
                 results=[],
             )
-            mark_scan_finished(response.provider_name, result_count=0, warning_text=response.warning_text)
-            return response
 
         warning_parts: list[str] = []
-        if payload.refresh_live:
-            mark_scan_stage("Refreshing live listings from the selected provider.")
-            inserted, warning = refresh_from_provider(session, realms, payload.provider_name)
-            if warning:
-                warning_parts.append(warning)
-            elif inserted == 0:
-                warning_parts.append("Provider refresh returned no rows; using cached listings.")
 
-        mark_scan_stage("Loading the latest cached listings across tracked realms.")
+        mark_scan_stage = lambda msg: None  # noqa: E731 - stage tracking not used for user scans
         mark_stale_snapshots(session)
-        app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
+        app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         latest_snapshots = get_latest_snapshots_for_realms(session, realms)
-        readiness = get_scan_readiness(session)
+        readiness = get_scan_readiness(session, user_id)
 
         grouped: dict[int, list] = {}
         for snapshot in latest_snapshots:
@@ -430,6 +433,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         tsm_ledger_service = TsmLedgerService(get_settings())
 
         scan_session = ScanSession(
+            user_id=user_id,
             provider_name=payload.provider_name or "stored",
             warning_text=" ".join(warning_parts) if warning_parts else None,
         )
@@ -539,7 +543,7 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
         mark_scan_stage("Saving ranked results and queueing follow-up metadata work.")
         session.add_all(results)
         session.flush()
-        record_scan_predictions(session, scan_session.id, results)
+        record_scan_predictions(session, scan_session.id, user_id, results)
         session.commit()
         session.refresh(scan_session)
 
@@ -559,16 +563,14 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
             result_count=len(results),
             results=_serialize_scan_results(results, history_by_item, latest_by_item, tsm_ledger_service, realms),
         )
-        mark_scan_finished(response.provider_name, result_count=response.result_count, warning_text=response.warning_text)
         return response
-    except Exception as exc:
-        mark_scan_failed(payload.provider_name, f"Last scan failed: {exc}")
+    except Exception:
         raise
 
 
-def get_scan_session(session: Session, scan_id: int, *, limit: int | None = None) -> ScanSessionRead | None:
+def get_scan_session(session: Session, scan_id: int, user_id: str, *, limit: int | None = None) -> ScanSessionRead | None:
     scan_session = session.get(ScanSession, scan_id)
-    if scan_session is None:
+    if scan_session is None or scan_session.user_id != user_id:
         return None
 
     query = (
@@ -592,7 +594,7 @@ def get_scan_session(session: Session, scan_id: int, *, limit: int | None = None
         sorted({result.best_sell_realm for result in ordered_results}),
         limit_per_realm=3,
     )
-    enabled_realms = get_enabled_realm_names(session)
+    enabled_realms = get_enabled_realm_names(session, scan_session.user_id)
     tsm_ledger_service = TsmLedgerService(get_settings())
     return ScanSessionRead(
         id=scan_session.id,
@@ -604,14 +606,14 @@ def get_scan_session(session: Session, scan_id: int, *, limit: int | None = None
     )
 
 
-def get_latest_scan(session: Session, *, limit: int | None = None) -> ScanSessionRead | None:
-    latest = session.query(ScanSession).order_by(ScanSession.generated_at.desc()).first()
+def get_latest_scan(session: Session, user_id: str, *, limit: int | None = None) -> ScanSessionRead | None:
+    latest = session.query(ScanSession).filter(ScanSession.user_id == user_id).order_by(ScanSession.generated_at.desc()).first()
     if latest is None:
         return None
-    return get_scan_session(session, latest.id, limit=limit)
+    return get_scan_session(session, latest.id, user_id, limit=limit)
 
 
-def get_scan_history(session: Session, *, limit: int = 8) -> list[ScanSessionSummary]:
+def get_scan_history(session: Session, user_id: str, *, limit: int = 8) -> list[ScanSessionSummary]:
     rows = (
         session.query(
             ScanSession.id,
@@ -619,6 +621,7 @@ def get_scan_history(session: Session, *, limit: int = 8) -> list[ScanSessionSum
             ScanSession.provider_name,
             func.count(ScanResult.id).label("result_count"),
         )
+        .filter(ScanSession.user_id == user_id)
         .outerjoin(ScanResult, ScanResult.scan_session_id == ScanSession.id)
         .group_by(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
         .order_by(ScanSession.generated_at.desc())

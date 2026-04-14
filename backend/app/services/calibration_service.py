@@ -50,6 +50,7 @@ def _sellability_band(score: float) -> str:
 def record_scan_predictions(
     session: Session,
     scan_session_id: int,
+    user_id: str,
     results: list[ScanResult],
     *,
     evaluation_delay_hours: int = 24,
@@ -66,6 +67,7 @@ def record_scan_predictions(
         ScoreCalibrationEvent(
             scan_result_id=result.id,
             scan_session_id=scan_session_id,
+            user_id=user_id,
             item_id=result.item_id,
             buy_realm=result.cheapest_buy_realm,
             sell_realm=result.best_sell_realm,
@@ -169,11 +171,12 @@ def evaluate_due_predictions(session: Session, *, limit: int = 500) -> int:
     return evaluated
 
 
-def get_calibration_summary(session: Session, *, days: int = 30) -> ScanCalibrationSummaryRead:
+def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -> ScanCalibrationSummaryRead:
     cutoff = datetime.now(timezone.utc) - timedelta(days=max(1, days))
     events = (
         session.query(ScoreCalibrationEvent)
         .filter(
+            ScoreCalibrationEvent.user_id == user_id,
             ScoreCalibrationEvent.evaluated_at.is_not(None),
             ScoreCalibrationEvent.generated_at >= cutoff,
         )

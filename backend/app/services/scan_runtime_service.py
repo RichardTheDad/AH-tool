@@ -14,8 +14,37 @@ class ScanRuntimeState:
     finished_at: datetime | None = None
 
 
+# Global state tracks background data-refresh cycles (scheduler-driven).
 _state = ScanRuntimeState()
 _lock = Lock()
+
+# Per-user scan cooldown to prevent individual users from spamming scan requests.
+_user_last_scan: dict[str, datetime] = {}
+_user_scan_lock = Lock()
+
+USER_SCAN_COOLDOWN_SECONDS: int = 60
+
+
+def try_mark_user_scan_started(user_id: str, cooldown_seconds: int = USER_SCAN_COOLDOWN_SECONDS) -> bool:
+    """Return False if the user has run a scan within the cooldown window, True otherwise."""
+    now = datetime.now(timezone.utc)
+    with _user_scan_lock:
+        last = _user_last_scan.get(user_id)
+        if last is not None and (now - last).total_seconds() < cooldown_seconds:
+            return False
+        _user_last_scan[user_id] = now
+        return True
+
+
+def get_user_scan_cooldown_remaining(user_id: str, cooldown_seconds: int = USER_SCAN_COOLDOWN_SECONDS) -> float:
+    """Return seconds remaining in the user's scan cooldown (0 if not in cooldown)."""
+    now = datetime.now(timezone.utc)
+    with _user_scan_lock:
+        last = _user_last_scan.get(user_id)
+        if last is None:
+            return 0.0
+        elapsed = (now - last).total_seconds()
+        return max(0.0, cooldown_seconds - elapsed)
 
 
 def get_scan_runtime_state() -> ScanRuntimeState:

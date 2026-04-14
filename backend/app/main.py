@@ -4,9 +4,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api import health, imports, items, presets, providers, realm_suggestions, realms, scans, settings
 from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.core.logging import configure_logging
 from app.db.init_db import create_db_and_tables, initialize_app_data
 from app.db.session import get_session_factory
@@ -38,6 +41,8 @@ def create_app() -> FastAPI:
         version=get_settings().api_version,
         lifespan=lifespan,
     )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=get_settings().cors_origins,

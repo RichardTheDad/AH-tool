@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -14,9 +14,13 @@ def utcnow() -> datetime:
 
 class TrackedRealm(Base):
     __tablename__ = "tracked_realms"
+    __table_args__ = (
+        UniqueConstraint("user_id", "realm_name", name="ux_tracked_realms_user_realm"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    realm_name: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    realm_name: Mapped[str] = mapped_column(String(120), index=True)
     region: Mapped[str] = mapped_column(String(16), default="us")
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -62,6 +66,7 @@ class ScanSession(Base):
     __tablename__ = "scan_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     provider_name: Mapped[str] = mapped_column(String(64), default="stored")
     warning_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, default=utcnow)
@@ -104,9 +109,13 @@ class ScanResult(Base):
 
 class ScanPreset(Base):
     __tablename__ = "scan_presets"
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", name="ux_scan_presets_user_name"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(120), unique=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120))
     min_profit: Mapped[float | None] = mapped_column(Float, nullable=True)
     min_roi: Mapped[float | None] = mapped_column(Float, nullable=True)
     max_buy_price: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -120,6 +129,7 @@ class RealmSuggestionRun(Base):
     __tablename__ = "realm_suggestion_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, default=utcnow)
     target_set_key: Mapped[str | None] = mapped_column(String(255), index=True, nullable=True)
     target_realms_json: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
@@ -160,8 +170,12 @@ class RealmSuggestionRecommendation(Base):
 
 class AppSettings(Base):
     __tablename__ = "app_settings"
+    __table_args__ = (
+        UniqueConstraint("user_id", name="ux_app_settings_user"),
+    )
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     ah_cut_percent: Mapped[float] = mapped_column(Float, default=0.05)
     flat_buffer: Mapped[float] = mapped_column(Float, default=0)
     refresh_interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
@@ -178,6 +192,7 @@ class TuningActionAudit(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     action_id: Mapped[str] = mapped_column(String(64), index=True)
     action_label: Mapped[str] = mapped_column(String(160))
     source: Mapped[str] = mapped_column(String(64), default="scanner_suggestion")
@@ -196,6 +211,7 @@ class ScoreCalibrationEvent(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     scan_result_id: Mapped[int | None] = mapped_column(ForeignKey("scan_results.id"), nullable=True, index=True)
     scan_session_id: Mapped[int | None] = mapped_column(ForeignKey("scan_sessions.id"), nullable=True, index=True)
     item_id: Mapped[int] = mapped_column(ForeignKey("items.item_id"), index=True)

@@ -6,17 +6,14 @@ import time
 from sqlalchemy.exc import OperationalError
 
 from app.core.config import get_settings
-from app.db.models import AppSettings
 from app.db.init_db import purge_expired_app_data
 from app.db.session import get_session_factory
-from app.schemas.scan import ScanRunRequest
 from app.services.metadata_backfill_service import queue_missing_metadata_sweep
-from app.services.listing_service import mark_stale_snapshots
+from app.services.listing_service import mark_stale_snapshots, refresh_from_provider
 from app.services.provider_service import get_provider_registry
 from app.services.calibration_service import evaluate_due_predictions
-from app.services.realm_suggestion_service import run_realm_suggestions, should_refresh_realm_suggestions
-from app.services.realm_service import get_enabled_realm_names
-from app.services.scan_service import ScanAlreadyRunningError, get_scan_readiness, run_scan
+from app.services.realm_service import get_all_enabled_realm_names
+from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, try_mark_scan_started
 
 
 logger = logging.getLogger(__name__)
@@ -50,62 +47,46 @@ def _run_with_sqlite_lock_retry(session, operation_name: str, func):
 
 
 def run_refresh_cycle() -> None:
+    """Background data-refresh cycle.
+
+    Fetches raw listing data for the union of all users' enabled realms and stores
+    it in the shared ListingSnapshot table. Individual user scans are computed on
+    demand via the API using each user's personal settings and realm list.
+    """
     session = get_session_factory()()
+    provider_name = get_settings().default_listing_provider
     try:
         purge_expired_app_data(session)
         mark_stale_snapshots(session)
-        realms = get_enabled_realm_names(session)
+
+        realms = get_all_enabled_realm_names(session)
         if not realms:
-            logger.info("Skipping scheduled scan: no enabled realms.")
+            logger.info("Skipping scheduled data refresh: no enabled realms across all users.")
             return
 
-        provider_name = get_settings().default_listing_provider
         provider = get_provider_registry().get_listing_provider(None)
-        readiness = get_scan_readiness(session)
-        if not readiness.ready_for_scan and not provider.supports_live_fetch:
-            logger.info("Skipping scheduled scan: %s", readiness.message)
+        if not provider.supports_live_fetch:
+            logger.info("Skipping scheduled data refresh: provider '%s' does not support live fetch.", provider_name)
+            return
+
+        if not try_mark_scan_started(provider_name):
+            logger.info("Skipping scheduled data refresh: a refresh is already running.")
             return
 
         try:
-            run_scan(
-                session,
-                ScanRunRequest(
-                    provider_name=provider_name,
-                    refresh_live=provider.supports_live_fetch,
-                    include_losers=False,
-                ),
-            )
-        except ScanAlreadyRunningError:
-            logger.info("Skipping scheduled scan because another scan is already running.")
-            return
+            inserted, warning = refresh_from_provider(session, realms, provider_name)
+            if warning:
+                logger.info("Data refresh warning: %s", warning)
+            else:
+                logger.info("Refreshed listing data for %d realm(s) (%d rows written).", len(realms), inserted)
+            mark_scan_finished(provider_name, result_count=inserted)
+        except Exception:
+            mark_scan_failed(provider_name, "Scheduled data refresh failed.")
+            raise
+
         queued = queue_missing_metadata_sweep(limit=200)
         if queued:
-            logger.info("Queued scheduled metadata sweep for %s unresolved items.", queued)
-        app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
-        suggestion_cooldown_minutes = max(app_settings.refresh_interval_minutes * 4, 120)
-        should_refresh_suggestions, latest_suggestion_run = should_refresh_realm_suggestions(
-            session,
-            cooldown_minutes=suggestion_cooldown_minutes,
-        )
-        if should_refresh_suggestions:
-            suggestion_report = _run_with_sqlite_lock_retry(
-                session,
-                "Suggested Realms refresh",
-                lambda: run_realm_suggestions(session),
-            )
-            if suggestion_report.recommendations:
-                logger.info(
-                    "Updated Suggested Realms with %s recommendations across %s source realms.",
-                    len(suggestion_report.recommendations),
-                    suggestion_report.source_realm_count,
-                )
-            elif suggestion_report.warning_text:
-                logger.info("Suggested Realms skipped or empty: %s", suggestion_report.warning_text)
-        elif latest_suggestion_run is not None:
-            logger.info(
-                "Skipping Suggested Realms refresh: latest run for this target set is still within the %s-minute cooldown.",
-                suggestion_cooldown_minutes,
-            )
+            logger.info("Queued metadata sweep for %d unresolved item(s).", queued)
 
         evaluated = _run_with_sqlite_lock_retry(
             session,
@@ -113,8 +94,8 @@ def run_refresh_cycle() -> None:
             lambda: evaluate_due_predictions(session, limit=500),
         )
         if evaluated:
-            logger.info("Updated %s score calibration telemetry events.", evaluated)
-    except Exception:  # pragma: no cover - scheduler safety
+            logger.info("Updated %d calibration telemetry event(s).", evaluated)
+    except Exception:  # pragma: no cover - scheduler safety net
         logger.exception("Scheduled refresh cycle failed.")
     finally:
         session.close()
