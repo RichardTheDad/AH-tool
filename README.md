@@ -6,7 +6,7 @@ Local-first World of Warcraft flipping analysis focused on current non-commodity
 
 - Frontend: React, Vite, TypeScript, Tailwind, TanStack Query
 - Backend: FastAPI, SQLAlchemy, Pydantic, APScheduler
-- Database: SQLite
+- Database: SQLite 
 
 ## Real Data Model
 
