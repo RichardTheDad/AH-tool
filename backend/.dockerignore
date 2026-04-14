@@ -2,3 +2,18 @@
 # Created by pytest automatically.
 .pytest_cache\**\*
 fly.toml
+
+# Exclude local build artifacts and virtual environments
+.tmp
+.tmp/**
+.venv
+.venv/**
+.deps
+.deps/**
+*.db
+*.db-shm
+*.db-wal
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
