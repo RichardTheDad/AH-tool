@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import Header, HTTPException, status
 from jose import JWTError, jwt
 
 from app.core.config import get_settings
 
+logger = logging.getLogger(__name__)
+
 
 def get_current_user(authorization: str | None = Header(None, alias="Authorization")) -> str:
     """Verify a Supabase-issued JWT and return the caller's user UUID (sub claim)."""
     if not authorization or not authorization.startswith("Bearer "):
+        logger.warning("Auth rejected: missing or malformed Authorization header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authentication token.",
@@ -30,9 +35,10 @@ def get_current_user(authorization: str | None = Header(None, alias="Authorizati
             options={"verify_exp": True},
         )
     except JWTError as exc:
+        logger.warning("Auth rejected: JWTError — %s (token prefix: %s...)", exc, token[:20])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token.",
+            detail=f"Invalid or expired token: {exc}",
             headers={"WWW-Authenticate": "Bearer"},
         ) from exc
     user_id: str | None = payload.get("sub")
