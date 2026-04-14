@@ -150,7 +150,18 @@ export function Scanner() {
 
   const scanMutation = useMutation({
     mutationFn: runScan,
-    onSuccess: () => {
+    onSuccess: (scanSession) => {
+      queryClient.setQueryData(["scans", "latest"], { latest: scanSession });
+      queryClient.setQueryData(["scans", "history"], (current: { scans?: Array<{ id: number; generated_at: string; provider_name: string; result_count: number }> } | undefined) => {
+        const nextEntry = {
+          id: scanSession.id,
+          generated_at: scanSession.generated_at,
+          provider_name: scanSession.provider_name,
+          result_count: scanSession.result_count,
+        };
+        const remaining = (current?.scans ?? []).filter((scan) => scan.id !== scanSession.id);
+        return { scans: [nextEntry, ...remaining] };
+      });
       queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
       queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
       queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
@@ -230,7 +241,6 @@ export function Scanner() {
   const recentScans = scanHistoryQuery.data?.scans ?? [];
   const results = filterScanResults(latest?.results ?? [], filters);
   const useVirtualizedResults = results.length > 300;
-  const hiddenByFilters = Math.max((latest?.results.length ?? 0) - results.length, 0);
   const categoryOptions = Array.from(
     new Set((latest?.results ?? []).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
@@ -400,9 +410,9 @@ export function Scanner() {
           ) : null}
         </div>
 
-        {latest && hiddenByFilters > 0 ? (
+        {latest?.results.length ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            {hiddenByFilters} results are currently hidden by your filters or preset. Loosen profit, confidence, or risky-item settings if you want to inspect why they fell out.
+            Filter controls now reprioritize the list instead of removing rows, so weaker matches stay visible lower in the rankings.
           </div>
         ) : null}
 
