@@ -46,6 +46,16 @@ export function ItemDetail() {
         subtitle={`${item.class_name ?? "Unknown class"}${item.subclass_name ? ` | ${item.subclass_name}` : ""}`}
       >
         <div className="mb-4 flex flex-wrap items-center gap-3">
+          {item.undermine_url ? (
+            <a
+              href={item.undermine_url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-ink hover:text-ink"
+            >
+              View on Undermine Exchange
+            </a>
+          ) : null}
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
               item.metadata_status === "live"

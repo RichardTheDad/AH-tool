@@ -17,6 +17,12 @@ from app.schemas.scan import (
 HORIZONS_HOURS = [24, 48, 72]
 
 
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _confidence_band(score: float) -> str:
     if score >= 85:
         return "85-100"
@@ -94,25 +100,31 @@ def evaluate_due_predictions(session: Session, *, limit: int = 500) -> int:
 
     evaluated = 0
     for event in events:
+        event_generated_at = _as_utc(event.generated_at)
+        event_expires_at = _as_utc(event.evaluation_expires_at)
         outcomes = dict(event.horizon_outcomes_json or {})
         snapshots = (
             session.query(ListingSnapshot)
             .filter(
                 ListingSnapshot.item_id == event.item_id,
                 ListingSnapshot.realm == event.sell_realm,
-                ListingSnapshot.captured_at >= event.generated_at,
+                ListingSnapshot.captured_at >= event_generated_at,
                 ListingSnapshot.captured_at <= now,
             )
             .order_by(ListingSnapshot.captured_at.asc())
             .all()
         )
+        snapshot_points = [
+            (_as_utc(snapshot.captured_at), float(snapshot.lowest_price or 0))
+            for snapshot in snapshots
+        ]
 
         def _max_sell_until(hours: int) -> float | None:
-            horizon_cutoff = event.generated_at + timedelta(hours=hours)
-            horizon_snapshots = [snapshot for snapshot in snapshots if snapshot.captured_at <= horizon_cutoff]
-            if not horizon_snapshots:
+            horizon_cutoff = event_generated_at + timedelta(hours=hours)
+            horizon_prices = [price for captured_at, price in snapshot_points if captured_at <= horizon_cutoff and price > 0]
+            if not horizon_prices:
                 return None
-            value = max(float(snapshot.lowest_price or 0) for snapshot in horizon_snapshots)
+            value = max(horizon_prices)
             return value if value > 0 else None
 
         for horizon in HORIZONS_HOURS:
@@ -120,7 +132,7 @@ def evaluate_due_predictions(session: Session, *, limit: int = 500) -> int:
             already_evaluated = isinstance(outcomes.get(key), dict) and bool(outcomes.get(key, {}).get("evaluated"))
             if already_evaluated:
                 continue
-            if now < (event.generated_at + timedelta(hours=horizon)):
+            if now < (event_generated_at + timedelta(hours=horizon)):
                 continue
 
             max_sell = _max_sell_until(horizon)
@@ -145,7 +157,7 @@ def evaluate_due_predictions(session: Session, *, limit: int = 500) -> int:
             )
             event.evaluated_at = now
             evaluated += 1
-        elif now >= event.evaluation_expires_at:
+        elif now >= event_expires_at:
             event.realized_outcome = False
             event.realized_sell_price = None
             event.outcome_reason = "Calibration window expired before a 72h horizon match could be confirmed."
@@ -281,7 +293,8 @@ def get_calibration_summary(session: Session, *, days: int = 30) -> ScanCalibrat
 
     weekly_buckets: dict[tuple[datetime, datetime], dict[str, float]] = {}
     for event in events:
-        period_start = event.generated_at - timedelta(days=event.generated_at.weekday())
+        event_generated_at = _as_utc(event.generated_at)
+        period_start = event_generated_at - timedelta(days=event_generated_at.weekday())
         period_start = period_start.replace(hour=0, minute=0, second=0, microsecond=0)
         period_end = period_start + timedelta(days=7)
         bucket = weekly_buckets.setdefault(

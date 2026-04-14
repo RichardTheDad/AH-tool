@@ -38,6 +38,7 @@ export interface ScanResult {
   id: number;
   item_id: number;
   item_name: string;
+  undermine_url?: string | null;
   item_quality?: string | null;
   item_class_name?: string | null;
   item_icon_url?: string | null;
@@ -125,6 +126,7 @@ export interface ScanRuntimeStatus {
 export interface SuggestedRealmItem {
   item_id: number;
   item_name: string;
+  undermine_url?: string | null;
   target_realm: string;
   buy_price: number;
   target_sell_price: number;
@@ -246,6 +248,7 @@ export interface ScanPreset {
 export interface ItemSummary {
   item_id: number;
   name: string;
+  undermine_url?: string | null;
   class_name?: string | null;
   subclass_name?: string | null;
   quality?: string | null;

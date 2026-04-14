@@ -519,12 +519,16 @@ def run_scan(session: Session, payload: ScanRunRequest) -> ScanSessionRead:
             if refresh_targets:
                 queued_count = queue_missing_metadata_refresh(refresh_targets)
                 if queued_count:
-                    warning_parts.append(f"Queued live Blizzard metadata refresh for {queued_count} scanned items.")
+                    warning_parts.append(
+                        f"Queued live Blizzard metadata refresh for {queued_count} scanned items and will keep retrying unresolved metadata in the background."
+                    )
 
         if metadata_configured and readiness.items_missing_metadata:
             sweep_queued = queue_missing_metadata_sweep(limit=200)
             if sweep_queued:
-                warning_parts.append(f"Queued metadata sweep for {sweep_queued} unresolved cached items.")
+                warning_parts.append(
+                    f"Queued metadata sweep for {sweep_queued} unresolved cached items; the background worker will keep topping that queue off until the remaining items are resolved."
+                )
 
         if warning_parts:
             scan_session.warning_text = " ".join(warning_parts)

@@ -234,9 +234,21 @@ export function SuggestedRealms() {
                     {realm.top_items.map((item) => (
                       <div key={`${realm.realm}-${item.item_id}`} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                          <Link to={`/items/${item.item_id}`} className="font-semibold text-ink hover:underline">
-                            {item.item_name}
-                          </Link>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <Link to={`/items/${item.item_id}`} className="font-semibold text-ink hover:underline">
+                              {item.item_name}
+                            </Link>
+                            {item.undermine_url ? (
+                              <a
+                                href={item.undermine_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                              >
+                                Undermine
+                              </a>
+                            ) : null}
+                          </div>
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">{item.turnover_label}</span>
                         </div>
                         <p className="mt-2 text-sm text-slate-600">

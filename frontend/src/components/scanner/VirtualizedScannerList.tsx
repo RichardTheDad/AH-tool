@@ -83,9 +83,21 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
     <div style={style} className="border-b border-slate-100 px-4 py-3">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
         <div className="min-w-0">
-          <Link to={`/items/${result.item_id}`} className="font-semibold text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]">
-            {result.item_name}
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Link to={`/items/${result.item_id}`} className="font-semibold text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]">
+              {result.item_name}
+            </Link>
+            {result.undermine_url ? (
+              <a
+                href={result.undermine_url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+              >
+                Undermine
+              </a>
+            ) : null}
+          </div>
           <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.explanation}</p>
           {provenance ? (
             <p className="mt-1 text-[11px] text-slate-500">

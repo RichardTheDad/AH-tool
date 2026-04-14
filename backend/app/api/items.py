@@ -16,7 +16,7 @@ router = APIRouter(tags=["items"])
 @router.post("/items/search", response_model=list[ItemSearchResult])
 def search_items(payload: ItemSearchRequest, db: Session = Depends(get_db)) -> list[ItemSearchResult]:
     items = metadata_service.search_items(db, payload.query, payload.limit)
-    return metadata_service.to_search_results(items)
+    return metadata_service.to_search_results(db, items)
 
 
 @router.get("/items/{item_id}", response_model=ItemDetail)

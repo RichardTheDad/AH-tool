@@ -25,6 +25,7 @@ from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
 from app.services.tsm_ledger_service import TsmLedgerService
 from app.services.tsm_service import TsmMarketService
+from app.services.undermine_service import build_undermine_item_url
 
 
 def _build_search_filter(query: str):
@@ -329,8 +330,15 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
             tsm_ledger_status = "error"
             tsm_ledger_message = ledger_message
 
+    preferred_undermine_realm = (
+        recent_scan.best_sell_realm
+        if recent_scan is not None
+        else (listings[0].realm if listings else (realms[0] if realms else None))
+    )
+
     return ItemDetail(
         **ItemRead.model_validate(item).model_dump(),
+        undermine_url=build_undermine_item_url(item.item_id, preferred_undermine_realm),
         metadata_status=metadata_status,
         metadata_message=metadata_message,
         latest_listings=[ListingSnapshotRead.model_validate(listing) for listing in listings],
@@ -398,6 +406,7 @@ def scan_result_to_schema(
         id=result.id,
         item_id=result.item_id,
         item_name=result.item.name if result.item else f"Item {result.item_id} (metadata unavailable)",
+        undermine_url=build_undermine_item_url(result.item_id, result.best_sell_realm),
         item_quality=result.item.quality if result.item else None,
         item_class_name=result.item.class_name if result.item else None,
         item_icon_url=result.item.icon_url if result.item else None,
@@ -428,5 +437,13 @@ def scan_result_to_schema(
     )
 
 
-def to_search_results(items: list[Item]) -> list[ItemSearchResult]:
-    return [ItemSearchResult.model_validate(item) for item in items]
+def to_search_results(session: Session, items: list[Item]) -> list[ItemSearchResult]:
+    enabled_realms = get_enabled_realm_names(session)
+    preferred_realm = enabled_realms[0] if enabled_realms else None
+    return [
+        ItemSearchResult(
+            **ItemRead.model_validate(item).model_dump(),
+            undermine_url=build_undermine_item_url(item.item_id, preferred_realm),
+        )
+        for item in items
+    ]

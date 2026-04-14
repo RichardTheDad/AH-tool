@@ -10,6 +10,7 @@ class ScanResultRead(BaseModel):
     id: int
     item_id: int
     item_name: str
+    undermine_url: str | None = None
     item_quality: str | None = None
     item_class_name: str | None = None
     item_icon_url: str | None = None

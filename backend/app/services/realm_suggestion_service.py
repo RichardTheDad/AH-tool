@@ -18,6 +18,7 @@ from app.services.scan_service import select_best_sell_snapshot
 from app.services.scoring_service import ScoreBreakdown
 from app.services.tsm_ledger_service import TsmLedgerService
 from app.services.tsm_service import TsmMarketService
+from app.services.undermine_service import build_undermine_item_url
 
 
 DISCOVERY_BATCH_SIZE = 24
@@ -131,6 +132,7 @@ def _pair_to_item(pair: SuggestedPair) -> SuggestedRealmItemRead:
     return SuggestedRealmItemRead(
         item_id=pair.item.item_id,
         item_name=pair.item.name,
+        undermine_url=build_undermine_item_url(pair.item.item_id, pair.source_realm),
         target_realm=pair.target_realm,
         buy_price=pair.buy_price,
         target_sell_price=pair.score.recommended_sell_price,

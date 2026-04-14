@@ -149,9 +149,21 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
               <tr key={result.id} className="hover:bg-parchment/40">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
                   <div className="flex flex-col gap-1">
-                    <Link to={`/items/${result.item_id}`} className="font-semibold leading-snug text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]">
-                      {result.item_name}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <Link to={`/items/${result.item_id}`} className="font-semibold leading-snug text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]">
+                        {result.item_name}
+                      </Link>
+                      {result.undermine_url ? (
+                        <a
+                          href={result.undermine_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                        >
+                          Undermine
+                        </a>
+                      ) : null}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
                       {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}

@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class SuggestedRealmItemRead(BaseModel):
     item_id: int
     item_name: str
+    undermine_url: str | None = None
     target_realm: str
     buy_price: float
     target_sell_price: float

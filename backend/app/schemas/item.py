@@ -32,7 +32,7 @@ class ItemRead(BaseModel):
 
 
 class ItemSearchResult(ItemRead):
-    pass
+    undermine_url: str | None = None
 
 
 class TsmRegionStatsRead(BaseModel):
@@ -91,6 +91,7 @@ class ItemRealmHistoryRead(BaseModel):
 
 
 class ItemDetail(ItemRead):
+    undermine_url: str | None = None
     metadata_status: str = "cached"
     metadata_message: str | None = None
     latest_listings: list[ListingSnapshotRead] = Field(default_factory=list)
