@@ -22,7 +22,11 @@ export function ResetPassword() {
     if (authError) {
       setError(authError.message);
     } else {
-      navigate("/");
+      // Sign out cleanly then send to login with a success message.
+      // Supabase invalidates the recovery session after updateUser, so we
+      // redirect to login rather than relying on that session still being valid.
+      await supabase.auth.signOut();
+      navigate("/login", { state: { message: "Password updated — please sign in with your new password." } });
     }
   }
 

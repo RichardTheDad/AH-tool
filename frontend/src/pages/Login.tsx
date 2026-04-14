@@ -1,12 +1,16 @@
 import { type FormEvent, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 export function Login() {
+  const location = useLocation();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(
+    (location.state as { message?: string } | null)?.message ?? null
+  );
   const [loading, setLoading] = useState(false);
 
   function switchMode(next: "signin" | "signup" | "forgot") {

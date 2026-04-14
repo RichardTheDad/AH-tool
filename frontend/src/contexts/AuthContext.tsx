@@ -27,7 +27,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    let justUpdatedPassword = false;
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (event === "USER_UPDATED") {
+        justUpdatedPassword = true;
+        // keep current session alive — redirect handled by ResetPassword page
+        return;
+      }
+      if (event === "SIGNED_OUT" && justUpdatedPassword) {
+        justUpdatedPassword = false;
+        // ignore the sign-out that Supabase fires after a password reset
+        return;
+      }
+      justUpdatedPassword = false;
       setSession(newSession);
     });
 
