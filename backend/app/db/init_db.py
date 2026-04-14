@@ -27,14 +27,13 @@ APP_DATA_RETENTION_DAYS = 30
 
 
 def create_db_and_tables() -> None:
-    engine = get_engine()
-    Base.metadata.create_all(engine)
-
     database_url = get_settings().database_url
     if not database_url.startswith("sqlite"):
-        # PostgreSQL (and other non-SQLite) engines: create_all handles schema and
-        # model-defined indexes correctly, so no raw SQL migrations are needed.
+        # PostgreSQL: schema is managed by Alembic migrations, not create_all.
         return
+
+    engine = get_engine()
+    Base.metadata.create_all(engine)
 
     # --- SQLite-specific post-creation migrations ---
     with engine.begin() as connection:

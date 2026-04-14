@@ -21,13 +21,18 @@ from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 async def lifespan(_: FastAPI):
     configure_logging()
     create_db_and_tables()
-    session = get_session_factory()()
-    try:
-        initialize_app_data(session)
-    finally:
-        session.close()
 
-    queue_missing_metadata_sweep(limit=250)
+    database_url = get_settings().database_url
+    if database_url.startswith("sqlite"):
+        session = get_session_factory()()
+        try:
+            initialize_app_data(session)
+        finally:
+            session.close()
+
+        queue_missing_metadata_sweep(limit=250)
+    # For PostgreSQL deployments, startup data initialization is handled by
+    # Alembic migrations; the scheduler picks up pending work on its first cycle.
 
     if get_settings().enable_scheduler:
         scheduler_manager.start()
