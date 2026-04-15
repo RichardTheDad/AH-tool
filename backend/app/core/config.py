@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     tsm_region_id: int | None = None
     supabase_url: str = ""
     supabase_jwt_secret: str = ""
+    enforce_auth_startup_validation: bool = True
+    restrict_health_diagnostics: bool = False
+    health_diagnostics_api_key: str = ""
     scheduler_refresh_interval_minutes: int = 65
     db_pool_size: int = 8
     db_max_overflow: int = 8
@@ -137,3 +140,16 @@ def get_settings() -> Settings:
 
 def clear_settings_cache() -> None:
     get_settings.cache_clear()
+
+
+def validate_startup_settings(settings: Settings) -> None:
+    issues: list[str] = []
+    if settings.enforce_auth_startup_validation:
+        if not settings.supabase_url:
+            issues.append("AZEROTHFLIPLOCAL_SUPABASE_URL must be set.")
+        if not settings.supabase_jwt_secret:
+            issues.append("AZEROTHFLIPLOCAL_SUPABASE_JWT_SECRET must be set.")
+
+    if issues:
+        joined = " ".join(issues)
+        raise RuntimeError(f"Startup configuration invalid. {joined}")

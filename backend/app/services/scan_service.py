@@ -113,9 +113,9 @@ def _derive_readiness_status(
         return "caution", "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results.", items_missing_count
     if missing_metadata_item_ids:
         if metadata_configured:
-            msg = "Some items still have missing metadata, so unverified imports will be excluded from non-commodity scans until metadata is refreshed."
+            msg = "Some items still have incomplete item details, so unverified imports will be excluded from non-commodity scans until item details are refreshed."
         else:
-            msg = "Live metadata is not configured, so some items still lack rich metadata even though local listing coverage is present."
+            msg = "Live item-detail lookups are not configured, so some items still lack full details even though local listing coverage is present."
         return "caution", msg, items_missing_count
     if missing_realms:
         return "caution", "Some enabled realms still have no listing data. Results only reflect the realms currently covered by your local cache.", 0
@@ -271,9 +271,9 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
     elif missing_metadata_item_ids:
         status = "caution"
         if metadata_configured:
-            message = "Some items still have missing metadata, so unverified imports will be excluded from non-commodity scans until metadata is refreshed."
+            message = "Some items still have incomplete item details, so unverified imports will be excluded from non-commodity scans until item details are refreshed."
         else:
-            message = "Live metadata is not configured, so some items still lack rich metadata even though local listing coverage is present."
+            message = "Live item-detail lookups are not configured, so some items still lack full details even though local listing coverage is present."
     elif missing_realms:
         status = "caution"
         message = "Some enabled realms still have no listing data. Results only reflect the realms currently covered by your local cache."
@@ -497,11 +497,11 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
 
         if skipped_missing_metadata:
             warning_parts.append(
-                f"Excluded {skipped_missing_metadata} items with missing metadata from non-commodity scanning."
+                f"Excluded {skipped_missing_metadata} items with incomplete item details from non-commodity scanning."
             )
         if included_unverified_metadata:
             warning_parts.append(
-                f"Included {included_unverified_metadata} items with unverified metadata because live metadata is not configured."
+                f"Included {included_unverified_metadata} items with unverified item details because live item-detail lookups are not configured."
             )
 
         results.sort(key=lambda result: (result.final_score, result.estimated_profit), reverse=True)
@@ -520,20 +520,20 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
                 queued_count = queue_missing_metadata_refresh(refresh_targets)
                 if queued_count:
                     warning_parts.append(
-                        f"Queued live Blizzard metadata refresh for {queued_count} scanned items and will keep retrying unresolved metadata in the background."
+                        f"Queued live Blizzard item-detail refresh for {queued_count} scanned items and will keep retrying unresolved item details in the background."
                     )
 
         if metadata_configured and items_missing_metadata_count:
             sweep_queued = queue_missing_metadata_sweep(limit=200)
             if sweep_queued:
                 warning_parts.append(
-                    f"Queued metadata sweep for {sweep_queued} unresolved cached items; the background worker will keep topping that queue off until the remaining items are resolved."
+                    f"Queued item-detail sweep for {sweep_queued} unresolved cached items; the background worker will keep topping that queue off until the remaining items are resolved."
                 )
 
         if warning_parts:
             scan_session.warning_text = " ".join(warning_parts)
 
-        mark_scan_stage("Saving ranked results and queueing follow-up metadata work.")
+        mark_scan_stage("Saving ranked results and queueing follow-up item-detail work.")
         session.add_all(results)
         session.flush()
         record_scan_predictions(session, scan_session.id, user_id, results)

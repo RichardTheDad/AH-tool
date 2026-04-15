@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
 from app.core.config import SYSTEM_USER_ID
+from app.core.mutation_limiter import enforce_user_mutation_limit
 from app.db.init_db import provision_new_user
 from app.db.models import AppSettings, TuningActionAudit
 from app.db.session import get_db
@@ -51,7 +52,7 @@ def get_settings_route(db: Session = Depends(get_db), current_user: str = Depend
 
 @router.put("/settings", response_model=AppSettingsRead)
 def update_settings(payload: AppSettingsUpdate, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> AppSettingsRead:
-    del current_user
+    enforce_user_mutation_limit(user_id=current_user, scope="settings.update", limit=10)
     app_settings = _get_or_provision_settings(db, SYSTEM_USER_ID)
 
     for key, value in payload.model_dump(exclude_unset=True).items():
@@ -64,7 +65,7 @@ def update_settings(payload: AppSettingsUpdate, db: Session = Depends(get_db), c
 
 @router.post("/settings/apply-tuning-preset", response_model=AppSettingsRead)
 def apply_tuning_preset(payload: AppSettingsApplyPresetRequest, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> AppSettingsRead:
-    del current_user
+    enforce_user_mutation_limit(user_id=current_user, scope="settings.apply_tuning_preset", limit=5)
     app_settings = _get_or_provision_settings(db, SYSTEM_USER_ID)
 
     labels = {

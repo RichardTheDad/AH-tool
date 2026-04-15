@@ -95,7 +95,7 @@ describe("Realms page", () => {
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
     vi.mocked(getScanStatus).mockResolvedValue({
       status: "running",
-      message: "A scan is currently running. Realm and metadata edits are temporarily locked.",
+      message: "A scan is currently running. Realm edits are temporarily locked.",
       provider_name: "blizzard_auctions",
       started_at: new Date().toISOString(),
       finished_at: null,

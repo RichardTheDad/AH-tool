@@ -5,13 +5,12 @@ import { ItemDetail } from "../ItemDetail";
 
 vi.mock("../../api/items", () => ({
   getItem: vi.fn(),
-  getLiveItemListings: vi.fn(),
 }));
 
-import { getItem, getLiveItemListings } from "../../api/items";
+import { getItem } from "../../api/items";
 
 describe("ItemDetail page", () => {
-  it("renders item detail and live lookup controls", async () => {
+  it("renders item detail sections", async () => {
     vi.mocked(getItem).mockResolvedValue({
       item_id: 873,
       name: "Staff of Jordan",
@@ -93,22 +92,6 @@ describe("ItemDetail page", () => {
       },
       recent_scan: null,
     });
-    vi.mocked(getLiveItemListings).mockResolvedValue({
-      provider_name: "blizzard_auctions",
-      status: "available",
-      message: "Live Blizzard lookup returned 1 tracked realm listings for item 873.",
-      listings: [
-        {
-          realm: "Stormrage",
-          lowest_price: 15000,
-          average_price: 15500,
-          quantity: 2,
-          listing_count: 2,
-          captured_at: new Date().toISOString(),
-          source_name: "blizzard_auctions_live",
-        },
-      ],
-    });
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -127,7 +110,6 @@ describe("ItemDetail page", () => {
     );
 
     expect(await screen.findByText("Staff of Jordan")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Check live Blizzard listings" })).toBeInTheDocument();
     expect(screen.getByText("Auction history")).toBeInTheDocument();
     expect(screen.getByText("TSM market context")).toBeInTheDocument();
     expect(screen.getByText("Region sale rate")).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+let redirectingToLogin = false;
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
@@ -9,14 +10,19 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 async function handleUnauthorized(response: Response): Promise<void> {
-  if (response.status === 401) {
-    // Only sign out if the token is genuinely expired/invalid, not on transient failures.
-    // Check if we still have a local session before nuking it.
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) {
-      window.location.href = "/login";
-    }
-    // If we have a session, the backend JWT secret may be misconfigured — don't sign out.
+  if (response.status !== 401 || redirectingToLogin) {
+    return;
+  }
+
+  redirectingToLogin = true;
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    // Continue redirect even if sign-out fails so the user can recover the session.
+  }
+
+  if (window.location.pathname !== "/login") {
+    window.location.assign("/login?reason=unauthorized");
   }
 }
 

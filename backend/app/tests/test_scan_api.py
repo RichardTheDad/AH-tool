@@ -147,7 +147,7 @@ def test_scan_queues_background_metadata_refresh_for_blizzard_results(client, mo
     assert response.status_code == 200
     assert response.json()["result_count"] > 0
     assert queued == [[873]]
-    assert "Queued live Blizzard metadata refresh for 1 scanned items" in (response.json()["warning_text"] or "")
+    assert "Queued live Blizzard item-detail refresh for 1 scanned items" in (response.json()["warning_text"] or "")
 
 
 def test_latest_scan_includes_recent_sell_history_for_chosen_sell_realm(client) -> None:
@@ -235,7 +235,7 @@ def test_scan_excludes_items_with_missing_metadata_from_non_commodity_mode(clien
     scan = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
     assert scan.status_code == 200
     assert scan.json()["result_count"] == 0
-    assert "missing metadata" in (scan.json()["warning_text"] or "").lower()
+    assert "incomplete item details" in (scan.json()["warning_text"] or "").lower()
 
 
 def test_health_and_realms_smoke_flow(client) -> None:

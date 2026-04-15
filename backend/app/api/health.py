@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.jobs.scheduler import manager as scheduler_manager
@@ -13,6 +14,29 @@ from app.services.scan_runtime_service import get_scan_runtime_state
 
 
 router = APIRouter(tags=["health"])
+
+
+def require_health_diagnostics_access(
+    x_health_key: str | None = Header(default=None, alias="X-Health-Key"),
+    authorization: str | None = Header(default=None, alias="Authorization"),
+) -> None:
+    settings = get_settings()
+    if not settings.restrict_health_diagnostics:
+        return
+
+    configured_key = settings.health_diagnostics_api_key.strip()
+    if configured_key and x_health_key and x_health_key == configured_key:
+        return
+
+    if authorization:
+        get_current_user(authorization=authorization)
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Detailed health diagnostics require authentication.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 @router.get("/health")
@@ -29,7 +53,10 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, object]:
 
 
 @router.get("/health/scheduler")
-def scheduler_health(db: Session = Depends(get_db)) -> dict[str, object]:
+def scheduler_health(
+    db: Session = Depends(get_db),
+    _auth: None = Depends(require_health_diagnostics_access),
+) -> dict[str, object]:
     runtime_state = get_scan_runtime_state()
     latest_event = get_latest_scheduler_event(db)
     return {
@@ -61,7 +88,7 @@ def scheduler_health(db: Session = Depends(get_db)) -> dict[str, object]:
 
 
 @router.get("/health/metadata")
-def metadata_health() -> dict[str, object]:
+def metadata_health(_auth: None = Depends(require_health_diagnostics_access)) -> dict[str, object]:
     return {
         "metadata_backfill": get_metadata_backfill_status(),
     }

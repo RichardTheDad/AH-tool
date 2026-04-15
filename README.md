@@ -302,6 +302,15 @@ cd frontend
 npm run build
 ```
 
+## Fly Deploy
+
+Use the single root Fly config so deploy context always includes `backend/Dockerfile` correctly:
+
+```powershell
+cd .
+fly deploy --config fly.toml --remote-only
+```
+
 ## Notes
 
 - No auth

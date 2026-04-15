@@ -8,7 +8,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api import health, items, presets, providers, realm_suggestions, realms, scans, settings
-from app.core.config import SYSTEM_USER_ID, get_settings
+from app.core.config import SYSTEM_USER_ID, get_settings, validate_startup_settings
 from app.core.limiter import limiter
 from app.core.logging import configure_logging
 from app.db.init_db import create_db_and_tables, initialize_app_data, migrate_to_system_user, provision_new_user
@@ -20,6 +20,7 @@ from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     configure_logging()
+    validate_startup_settings(get_settings())
     create_db_and_tables()
 
     database_url = get_settings().database_url
