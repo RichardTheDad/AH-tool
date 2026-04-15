@@ -5,8 +5,10 @@ from datetime import datetime, timedelta, timezone
 from itertools import islice
 
 from sqlalchemy import and_, func, insert, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.db.models import AppSettings, Item, ListingSnapshot
 from app.schemas.listing import ListingImportRow
 from app.services.provider_service import get_provider_registry
@@ -178,14 +180,26 @@ def persist_listing_rows(session: Session, rows: list[ListingImportRow], source_
     ensure_item_records(session, item_ids, source_name=source_name)
     session.commit()
 
+    is_postgres = not get_settings().database_url.startswith("sqlite")
+
     for chunk in _chunked(payloads, 1000):
-        # Count inserted rows precisely even when duplicates are ignored.
-        result = session.execute(
-            insert(ListingSnapshot)
-            .prefix_with("OR IGNORE")
-            .returning(ListingSnapshot.id),
-            chunk,
-        )
+        if is_postgres:
+            stmt = (
+                pg_insert(ListingSnapshot)
+                .values(chunk)
+                .on_conflict_do_nothing(
+                    index_elements=["item_id", "realm", "source_name", "captured_at"]
+                )
+                .returning(ListingSnapshot.id)
+            )
+            result = session.execute(stmt)
+        else:
+            result = session.execute(
+                insert(ListingSnapshot)
+                .prefix_with("OR IGNORE")
+                .returning(ListingSnapshot.id),
+                chunk,
+            )
         inserted_in_chunk = len(result.scalars().all())
         session.commit()
         inserted += inserted_in_chunk
