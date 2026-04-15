@@ -41,7 +41,7 @@
       ]
     },
     {
-      "source": "/assets/**",
+      "source": "/assets/(.*)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -50,7 +50,16 @@
       ]
     },
     {
-      "source": "/(home|public/docs)/**",
+      "source": "/home(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=7200, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/public/docs(.*)",
       "headers": [
         {
           "key": "Cache-Control",
