@@ -79,6 +79,12 @@ class MarketHistoryContext:
     freshness_gap_minutes: float
 
 
+@dataclass
+class ExecutionRiskPenalty:
+    total: float
+    reasons: list[str]
+
+
 def derive_recommended_sell_price(
     sell_snapshot: ListingSnapshot,
     history: MarketHistoryContext | None = None,
@@ -180,14 +186,56 @@ def _evidence_gate_cap(*, sell_depth_ok: bool, history_coverage_ok: bool, recenc
 
     failures = int(not sell_depth_ok) + int(not history_coverage_ok) + int(not recency_ok)
     if failures >= 3:
-        return 60.0
+        return 55.0
     if failures == 2:
-        return 65.0
+        return 62.0
     if not recency_ok:
-        return 68.0
+        return 66.0
     if not history_coverage_ok:
-        return 70.0
-    return 75.0
+        return 68.0
+    return 72.0
+
+
+def _execution_risk_penalty(
+    *,
+    bait_risk: float,
+    liquidity_score: float,
+    limited_history: bool,
+    inconsistent_sell_history: bool,
+    sell_history_spike: bool,
+    freshness_gap_flag: bool,
+) -> ExecutionRiskPenalty:
+    total = 0.0
+    reasons: list[str] = []
+
+    if bait_risk > 75:
+        total += 8.0
+        reasons.append("extreme_bait_risk")
+    elif bait_risk >= 65:
+        total += 4.0
+        reasons.append("elevated_bait_risk")
+
+    if liquidity_score < 40:
+        total += 7.0
+        reasons.append("thin_sell_liquidity")
+    elif liquidity_score < 48:
+        total += 3.0
+        reasons.append("shallow_sell_liquidity")
+
+    if sell_history_spike:
+        total += 6.0
+        reasons.append("sell_history_spike")
+    if inconsistent_sell_history:
+        total += 4.0
+        reasons.append("inconsistent_sell_history")
+    if freshness_gap_flag:
+        total += 4.0
+        reasons.append("freshness_gap")
+    if limited_history:
+        total += 2.0
+        reasons.append("limited_history")
+
+    return ExecutionRiskPenalty(total=round(total, 2), reasons=reasons)
 
 
 def score_opportunity(
@@ -241,7 +289,7 @@ def score_opportunity(
         buy_history = [price for price in history.buy_recent_prices if price > 0]
         if len(sell_history) < 2:
             limited_history = True
-            volatility_score -= 8
+            volatility_score -= 4
         else:
             sell_median = median(sell_history)
             if sell_median > 0:
@@ -265,7 +313,7 @@ def score_opportunity(
                     persistent_margin = True
         if len(buy_history) < 2:
             limited_history = True
-            volatility_score -= 4
+            volatility_score -= 2
         elif len(buy_history) >= 3:
             buy_range_ratio = max(buy_history) / max(min(buy_history), 1)
             if buy_range_ratio <= 1.22:
@@ -291,7 +339,7 @@ def score_opportunity(
     if (sell_snapshot.quantity or 0) <= 1 and (sell_snapshot.listing_count or 0) <= 1:
         bait_risk += tuning["bait_penalty"] * 0.55
     if limited_history:
-        bait_risk += 6
+        bait_risk += 3
     if inconsistent_sell_history:
         bait_risk += 8
     if sell_history_spike:
@@ -327,7 +375,7 @@ def score_opportunity(
         persistent_margin_bonus = 8.0
         sellability_score += persistent_margin_bonus
     if limited_history:
-        limited_history_penalty = 5.0
+        limited_history_penalty = 2.5
         sellability_score -= limited_history_penalty
     if freshness_gap_flag:
         freshness_gap_penalty = 5.0
@@ -355,7 +403,7 @@ def score_opportunity(
     if inconsistent_sell_history:
         confidence -= 2
     if limited_history:
-        confidence -= 2
+        confidence -= 1
     if freshness_gap_flag:
         confidence -= 2
 
@@ -390,18 +438,15 @@ def score_opportunity(
         + (profit_component * FINAL_SCORE_WEIGHTS["profit_component"])
         + (roi_component * FINAL_SCORE_WEIGHTS["roi_component"])
     )
-    if bait_risk > 75:
-        final_score -= 12
-    if liquidity_score < 40:
-        final_score -= 10
-    if sell_history_spike:
-        final_score -= 18
-    if inconsistent_sell_history:
-        final_score -= 10
-    if freshness_gap_flag:
-        final_score -= 6
-    if limited_history:
-        final_score -= 4
+    execution_risk = _execution_risk_penalty(
+        bait_risk=bait_risk,
+        liquidity_score=liquidity_score,
+        limited_history=limited_history,
+        inconsistent_sell_history=inconsistent_sell_history,
+        sell_history_spike=sell_history_spike,
+        freshness_gap_flag=freshness_gap_flag,
+    )
+    final_score -= execution_risk.total
     if buy_price >= 2_500_000 and roi < 0.18:
         final_score -= 8
     if stable_sell_history:
@@ -444,6 +489,8 @@ def score_opportunity(
             "limited_history_penalty": limited_history_penalty,
             "freshness_gap_penalty": freshness_gap_penalty,
             "sell_history_spike_penalty": sell_history_spike_penalty,
+            "execution_risk_penalty": execution_risk.total,
+            "execution_risk_reasons": execution_risk.reasons,
         },
         "evidence": {
             "sell_depth_ok": sell_depth_ok,

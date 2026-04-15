@@ -9,6 +9,24 @@ from app.db.session import get_engine, get_session_factory
 
 
 def test_settings_presets_imports_and_providers_smoke(client) -> None:
+    health = client.get("/health")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+
+    scheduler_health = client.get("/health/scheduler")
+    assert scheduler_health.status_code == 200
+    scheduler_payload = scheduler_health.json()
+    assert "scheduler" in scheduler_payload
+    assert "last_persisted_cycle" in scheduler_payload
+    assert "scan_runtime" in scheduler_payload
+    assert scheduler_payload["configured"]["enable_scheduler"] is False
+
+    metadata_health = client.get("/health/metadata")
+    assert metadata_health.status_code == 200
+    metadata_payload = metadata_health.json()
+    assert "metadata_backfill" in metadata_payload
+    assert "pending_count" in metadata_payload["metadata_backfill"]
+
     settings = client.get("/settings")
     assert settings.status_code == 200
     assert settings.json()["scoring_preset"] == "balanced"

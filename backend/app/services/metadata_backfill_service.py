@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.exc import OperationalError
 
@@ -20,6 +21,7 @@ _pending_item_ids: set[int] = set()
 _pending_lock = threading.Lock()
 _worker_thread: threading.Thread | None = None
 _attempt_counts: dict[int, int] = {}
+_retry_not_before: dict[int, datetime] = {}
 _run_follow_up_scan_when_resolved = False
 
 METADATA_BATCH_SIZE = 50
@@ -27,6 +29,7 @@ LOCK_RETRY_ATTEMPTS = 4
 LOCK_RETRY_DELAY_SECONDS = 1.5
 AUTO_REQUEUE_ATTEMPTS = 5
 AUTO_TOP_OFF_LIMIT = 250
+AUTO_REQUEUE_BACKOFF_MINUTES = 45
 
 
 def _get_still_missing_item_ids(item_ids: list[int]) -> list[int]:
@@ -53,17 +56,42 @@ def _load_more_missing_item_ids(*, limit: int = AUTO_TOP_OFF_LIMIT) -> list[int]
 
 def _queue_candidates(candidate_item_ids: list[int], *, reset_attempts: bool) -> list[int]:
     queued_item_ids: list[int] = []
+    now = datetime.now(timezone.utc)
     with _pending_lock:
         for item_id in candidate_item_ids:
             if reset_attempts:
                 _attempt_counts[item_id] = 0
-            elif _attempt_counts.get(item_id, 0) >= AUTO_REQUEUE_ATTEMPTS:
-                continue
+                _retry_not_before.pop(item_id, None)
+            else:
+                retry_not_before = _retry_not_before.get(item_id)
+                if retry_not_before is not None:
+                    if retry_not_before > now:
+                        continue
+                    _retry_not_before.pop(item_id, None)
+                    _attempt_counts[item_id] = 0
+                elif _attempt_counts.get(item_id, 0) >= AUTO_REQUEUE_ATTEMPTS:
+                    _retry_not_before[item_id] = now + timedelta(minutes=AUTO_REQUEUE_BACKOFF_MINUTES)
+                    continue
             if item_id in _pending_item_ids:
                 continue
             _pending_item_ids.add(item_id)
             queued_item_ids.append(item_id)
     return queued_item_ids
+
+
+def get_metadata_backfill_status() -> dict[str, object]:
+    now = datetime.now(timezone.utc)
+    with _pending_lock:
+        earliest_retry = min(_retry_not_before.values()) if _retry_not_before else None
+        backoff_items = sum(1 for value in _retry_not_before.values() if value > now)
+        return {
+            "worker_running": bool(_worker_thread and _worker_thread.is_alive()),
+            "pending_count": len(_pending_item_ids),
+            "attempt_tracked_count": len(_attempt_counts),
+            "backoff_count": backoff_items,
+            "next_retry_at": earliest_retry.isoformat() if earliest_retry else None,
+            "follow_up_scan_when_resolved": _run_follow_up_scan_when_resolved,
+        }
 
 
 def _missing_metadata_count(*, limit: int = 1) -> int:
@@ -195,6 +223,7 @@ def _background_refresh_worker() -> None:
                     _pending_item_ids.discard(item_id)
                     if item_id not in still_missing_item_ids:
                         _attempt_counts.pop(item_id, None)
+                        _retry_not_before.pop(item_id, None)
                         continue
 
                     next_attempt = _attempt_counts.get(item_id, 0) + 1
@@ -202,10 +231,13 @@ def _background_refresh_worker() -> None:
                     if next_attempt < AUTO_REQUEUE_ATTEMPTS:
                         _pending_item_ids.add(item_id)
                     else:
+                        retry_at = datetime.now(timezone.utc) + timedelta(minutes=AUTO_REQUEUE_BACKOFF_MINUTES)
+                        _retry_not_before[item_id] = retry_at
                         logger.warning(
-                            "Stopping automatic metadata retries for item %s after %s attempts; it still has missing metadata.",
+                            "Pausing automatic metadata retries for item %s after %s attempts; next retry after %s.",
                             item_id,
                             next_attempt,
+                            retry_at.isoformat(),
                         )
 
     if should_run_follow_up_scan and _missing_metadata_count(limit=1) == 0:

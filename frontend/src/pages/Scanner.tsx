@@ -237,7 +237,7 @@ export function Scanner() {
   const trendRows = calibration?.trends ?? [];
   const confidenceTrend = trendRows.map((trend) => trend.avg_confidence);
   const sellabilityTrend = trendRows.map((trend) => trend.avg_sellability);
-  const realizedTrend = trendRows.map((trend) => trend.realized_rate * 100);
+  const realizedTrend = trendRows.map((trend) => trend.avg_target_capture * 100);
   const confidenceLine = toPercentPoints(confidenceTrend);
   const sellabilityLine = toPercentPoints(sellabilityTrend);
   const realizedLine = toPercentPoints(realizedTrend);
@@ -317,7 +317,7 @@ export function Scanner() {
           ) : null}
         </div>
 
-        {latest?.results.length ? (
+        {(latest?.results?.length ?? 0) ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Filter controls now reprioritize the list instead of removing rows, so weaker matches stay visible lower in the rankings.
           </div>
@@ -330,7 +330,7 @@ export function Scanner() {
         ) : calibration && calibration.total_evaluated > 0 ? (
           <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
             <h3 className="font-display text-lg font-semibold text-ink">Calibration telemetry (30d)</h3>
-            <p className="mt-1 text-sm text-slate-600">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through.</p>
+            <p className="mt-1 text-sm text-slate-600">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through, above-buy durability, and peak target capture.</p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
                 <p className="text-xs uppercase tracking-label text-slate-500">Confidence bands</p>
@@ -338,7 +338,9 @@ export function Scanner() {
                   {calibration.confidence_bands.map((row) => (
                     <div key={`confidence-${row.band}`} className="flex items-center justify-between gap-3">
                       <span>{row.band}</span>
-                      <span>{Math.round(row.realized_rate * 100)}% realized ({row.realized}/{row.total})</span>
+                      <span>
+                        {Math.round(row.realized_rate * 100)}% hit target, {Math.round(row.profitable_rate * 100)}% stayed above buy, {Math.round(row.avg_target_capture * 100)}% avg capture
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -349,7 +351,9 @@ export function Scanner() {
                   {calibration.sellability_bands.map((row) => (
                     <div key={`sellability-${row.band}`} className="flex items-center justify-between gap-3">
                       <span>{row.band}</span>
-                      <span>{Math.round(row.realized_rate * 100)}% realized ({row.realized}/{row.total})</span>
+                      <span>
+                        {Math.round(row.realized_rate * 100)}% hit target, {Math.round(row.profitable_rate * 100)}% stayed above buy, {Math.round(row.avg_target_capture * 100)}% avg capture
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -363,6 +367,9 @@ export function Scanner() {
                     <div key={`h-${horizon.horizon_hours}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
                       <p className="font-semibold text-ink">{horizon.horizon_hours}h</p>
                       <p>{horizon.total_evaluated} evaluated</p>
+                      <p>{Math.round(horizon.realized_rate * 100)}% hit target</p>
+                      <p>{Math.round(horizon.profitable_rate * 100)}% stayed above buy</p>
+                      <p>{Math.round(horizon.avg_target_capture * 100)}% avg target capture</p>
                       <p className="text-xs text-slate-500">
                         Top confidence band: {horizon.confidence_bands[0] ? `${horizon.confidence_bands[0].band} (${Math.round(horizon.confidence_bands[0].realized_rate * 100)}%)` : "--"}
                       </p>
@@ -373,7 +380,7 @@ export function Scanner() {
             ) : null}
             {calibration.trends?.length ? (
               <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Weekly confidence vs realized drift overlay</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Weekly confidence vs target-capture drift overlay</p>
                 <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
                   <svg viewBox={`0 0 ${CALIBRATION_CHART_WIDTH} ${CALIBRATION_CHART_HEIGHT}`} className="h-44 w-full">
                     <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#cbd5e1" strokeWidth="1" />
@@ -385,17 +392,19 @@ export function Scanner() {
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
                     <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-blue-700" />avg confidence</span>
                     <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-600" />avg sellability</span>
-                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-600" />realized rate</span>
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-600" />avg target capture</span>
                   </div>
                 </div>
                 <div className="mt-3 space-y-1 text-sm text-slate-700">
                   {calibration.trends.map((trend) => {
-                    const driftPoints = Math.round((trend.realized_rate - trend.avg_confidence / 100) * 1000) / 10;
+                    const driftPoints = Math.round((trend.avg_target_capture - trend.avg_confidence / 100) * 1000) / 10;
                     const driftLabel = driftPoints >= 0 ? `+${driftPoints}` : `${driftPoints}`;
                     return (
                       <div key={`trend-${trend.period_start}`} className="flex items-center justify-between gap-3">
                         <span>{formatDateTime(trend.period_start)}</span>
-                        <span className={driftPoints < 0 ? "text-amber-700" : "text-emerald-700"}>drift {driftLabel} pts</span>
+                        <span className={driftPoints < 0 ? "text-amber-700" : "text-emerald-700"}>
+                          drift {driftLabel} pts • {Math.round(trend.profitable_rate * 100)}% above buy
+                        </span>
                       </div>
                     );
                   })}
@@ -551,7 +560,7 @@ export function Scanner() {
                   components?: Record<string, number>;
                   confidence_components?: Record<string, number>;
                   final_components?: Record<string, number>;
-                  adjustments?: Record<string, number>;
+                  adjustments?: Record<string, unknown>;
                   evidence?: Record<string, boolean | string[] | unknown>;
                 };
                 const components = provenance.components ?? {};
@@ -560,6 +569,10 @@ export function Scanner() {
                 const adjustments = provenance.adjustments ?? {};
                 const evidence = provenance.evidence ?? {};
                 const gateReasons = Array.isArray(evidence.gate_reasons) ? evidence.gate_reasons : [];
+                const numericAdjustments = Object.entries(adjustments).filter(([, value]) => typeof value === "number");
+                const executionRiskReasons = Array.isArray(adjustments.execution_risk_reasons)
+                  ? adjustments.execution_risk_reasons.filter((value): value is string => typeof value === "string")
+                  : [];
 
                 return (
                   <div className="mt-4 space-y-4">
@@ -594,9 +607,10 @@ export function Scanner() {
                       <div className="rounded-2xl bg-slate-50 px-4 py-3">
                         <p className="text-xs uppercase tracking-label text-slate-500">Adjustments</p>
                         <div className="mt-2 space-y-1 text-sm text-slate-700">
-                          {Object.entries(adjustments).map(([key, value]) => (
+                          {numericAdjustments.map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
                           ))}
+                          {executionRiskReasons.length ? <p>Execution risk reasons: {executionRiskReasons.join(", ")}</p> : null}
                         </div>
                       </div>
                     </div>

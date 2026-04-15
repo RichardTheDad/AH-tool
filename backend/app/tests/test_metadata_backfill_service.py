@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timedelta, timezone
 
 from app.db.models import Item
 from app.db.session import get_session_factory
@@ -8,6 +9,33 @@ from app.schemas.item import ItemRead
 from app.services import metadata_backfill_service
 from app.services.metadata_service import get_missing_metadata_item_ids
 from app.services.provider_service import get_provider_registry
+
+
+def test_queue_candidates_retries_after_backoff_window() -> None:
+    with metadata_backfill_service._pending_lock:
+        metadata_backfill_service._pending_item_ids.clear()
+        metadata_backfill_service._attempt_counts.clear()
+        metadata_backfill_service._retry_not_before.clear()
+        metadata_backfill_service._worker_thread = None
+
+        item_id = 777001
+        metadata_backfill_service._attempt_counts[item_id] = metadata_backfill_service.AUTO_REQUEUE_ATTEMPTS
+        metadata_backfill_service._retry_not_before[item_id] = datetime.now(timezone.utc) + timedelta(minutes=10)
+
+    blocked = metadata_backfill_service._queue_candidates([item_id], reset_attempts=False)
+    assert blocked == []
+
+    with metadata_backfill_service._pending_lock:
+        metadata_backfill_service._retry_not_before[item_id] = datetime.now(timezone.utc) - timedelta(minutes=1)
+
+    unblocked = metadata_backfill_service._queue_candidates([item_id], reset_attempts=False)
+    assert unblocked == [item_id]
+    with metadata_backfill_service._pending_lock:
+        assert metadata_backfill_service._attempt_counts[item_id] == 0
+        assert item_id not in metadata_backfill_service._retry_not_before
+        metadata_backfill_service._pending_item_ids.clear()
+        metadata_backfill_service._attempt_counts.clear()
+        metadata_backfill_service._retry_not_before.clear()
 
 
 def test_metadata_backfill_worker_auto_tops_off_until_all_missing_items_are_resolved(client, monkeypatch) -> None:

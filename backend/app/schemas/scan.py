@@ -118,12 +118,18 @@ class CalibrationBandRead(BaseModel):
     band: str
     total: int
     realized: int
+    profitable: int
     realized_rate: float
+    profitable_rate: float
+    avg_target_capture: float
 
 
 class HorizonCalibrationRead(BaseModel):
     horizon_hours: int
     total_evaluated: int
+    realized_rate: float
+    profitable_rate: float
+    avg_target_capture: float
     confidence_bands: list[CalibrationBandRead] = Field(default_factory=list)
     sellability_bands: list[CalibrationBandRead] = Field(default_factory=list)
 
@@ -140,9 +146,12 @@ class CalibrationTrendPointRead(BaseModel):
     period_end: datetime
     total: int
     realized: int
+    profitable: int
     realized_rate: float
+    profitable_rate: float
     avg_confidence: float
     avg_sellability: float
+    avg_target_capture: float
 
 
 class ScanCalibrationSummaryRead(BaseModel):

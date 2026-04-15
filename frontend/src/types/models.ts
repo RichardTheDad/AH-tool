@@ -176,7 +176,10 @@ export interface CalibrationBand {
   band: string;
   total: number;
   realized: number;
+  profitable: number;
   realized_rate: number;
+  profitable_rate: number;
+  avg_target_capture: number;
 }
 
 export interface ScanCalibrationSummary {
@@ -186,6 +189,9 @@ export interface ScanCalibrationSummary {
   horizons: Array<{
     horizon_hours: number;
     total_evaluated: number;
+    realized_rate: number;
+    profitable_rate: number;
+    avg_target_capture: number;
     confidence_bands: CalibrationBand[];
     sellability_bands: CalibrationBand[];
   }>;
@@ -194,9 +200,12 @@ export interface ScanCalibrationSummary {
     period_end: string;
     total: number;
     realized: number;
+    profitable: number;
     realized_rate: number;
+    profitable_rate: number;
     avg_confidence: number;
     avg_sellability: number;
+    avg_target_capture: number;
   }>;
   suggestions: Array<{
     level: string;

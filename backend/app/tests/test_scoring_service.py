@@ -248,11 +248,70 @@ def test_persistent_positive_margin_history_boosts_repeatable_flip() -> None:
 
 
 def test_evidence_gate_cap_is_graded_for_single_failures() -> None:
-    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=True, recency_ok=True) == 75.0
-    assert _evidence_gate_cap(sell_depth_ok=True, history_coverage_ok=False, recency_ok=True) == 70.0
-    assert _evidence_gate_cap(sell_depth_ok=True, history_coverage_ok=True, recency_ok=False) == 68.0
+    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=True, recency_ok=True) == 72.0
+    assert _evidence_gate_cap(sell_depth_ok=True, history_coverage_ok=False, recency_ok=True) == 68.0
+    assert _evidence_gate_cap(sell_depth_ok=True, history_coverage_ok=True, recency_ok=False) == 66.0
 
 
 def test_evidence_gate_cap_tightens_as_failures_stack() -> None:
-    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=False, recency_ok=True) == 65.0
-    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=False, recency_ok=False) == 60.0
+    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=False, recency_ok=True) == 62.0
+    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=False, recency_ok=False) == 55.0
+
+
+def test_limited_history_is_treated_as_lower_evidence_not_total_rejection() -> None:
+    item = Item(item_id=1, name="Test Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_400, quantity=7, listing_count=5)
+    sell = make_snapshot(realm="Stormrage", lowest_price=18_200, average_price=18_100, quantity=6, listing_count=4)
+
+    scored = score_opportunity(
+        item,
+        buy,
+        sell,
+        settings,
+        history=MarketHistoryContext(
+            sell_recent_prices=[18_000],
+            buy_recent_prices=[10_050],
+            freshness_gap_minutes=25,
+        ),
+    )
+
+    assert scored.sellability_score > 0
+    assert scored.final_score <= 68.0
+    assert "limited" in scored.explanation.lower()
+
+
+def test_execution_risk_penalty_reduces_spiky_market_without_stacking_extreme_final_penalties() -> None:
+    item = Item(item_id=1, name="Test Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=10_000, average_price=10_500, quantity=8, listing_count=5)
+    stable_sell = make_snapshot(realm="Stormrage", lowest_price=18_000, average_price=18_050, quantity=8, listing_count=5)
+    risky_sell = make_snapshot(realm="Zul'jin", lowest_price=26_500, average_price=18_200, quantity=2, listing_count=1)
+
+    stable = score_opportunity(
+        item,
+        buy,
+        stable_sell,
+        settings,
+        history=MarketHistoryContext(
+            sell_recent_prices=[17_900, 18_000, 18_250],
+            buy_recent_prices=[10_100, 10_200, 10_000],
+            freshness_gap_minutes=10,
+        ),
+    )
+    risky = score_opportunity(
+        item,
+        buy,
+        risky_sell,
+        settings,
+        history=MarketHistoryContext(
+            sell_recent_prices=[17_900, 18_100, 18_250],
+            buy_recent_prices=[10_100, 10_200, 10_000],
+            freshness_gap_minutes=190,
+        ),
+    )
+
+    risky_adjustments = risky.score_provenance["adjustments"]
+    assert risky.final_score < stable.final_score
+    assert risky_adjustments["execution_risk_penalty"] > 0
+    assert risky_adjustments["execution_risk_reasons"]

@@ -15,6 +15,8 @@ from app.schemas.scan import (
 
 
 HORIZONS_HOURS = [24, 48, 72]
+TARGET_REALIZATION_RATIO = 0.97
+MAX_TARGET_CAPTURE_RATIO = 1.25
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -45,6 +47,59 @@ def _sellability_band(score: float) -> str:
     if score >= 40:
         return "40-59"
     return "0-39"
+
+
+def _peak_target_capture(max_sell: float | None, predicted_sell_price: float) -> float:
+    if max_sell is None or predicted_sell_price <= 0:
+        return 0.0
+    ratio = max_sell / predicted_sell_price
+    return round(max(0.0, min(MAX_TARGET_CAPTURE_RATIO, ratio)), 4)
+
+
+def _is_profitable_follow_through(max_sell: float | None, predicted_buy_price: float) -> bool:
+    return bool(max_sell is not None and max_sell > predicted_buy_price)
+
+
+def _empty_bucket() -> dict[str, float]:
+    return {
+        "total": 0,
+        "realized": 0,
+        "profitable": 0,
+        "target_capture_sum": 0.0,
+    }
+
+
+def _apply_outcome(bucket: dict[str, float], outcome: dict[str, object]) -> None:
+    bucket["total"] += 1
+    bucket["realized"] += 1 if outcome.get("realized") else 0
+    bucket["profitable"] += 1 if outcome.get("profitable") else 0
+    bucket["target_capture_sum"] += float(outcome.get("peak_target_ratio") or 0.0)
+
+
+def _build_horizon_outcome(
+    *,
+    event_generated_at: datetime,
+    now: datetime,
+    snapshot_points: list[tuple[datetime, float]],
+    predicted_buy_price: float,
+    predicted_sell_price: float,
+    horizon_hours: int,
+) -> dict[str, object] | None:
+    if now < (event_generated_at + timedelta(hours=horizon_hours)):
+        return None
+
+    horizon_cutoff = event_generated_at + timedelta(hours=horizon_hours)
+    horizon_prices = [price for captured_at, price in snapshot_points if captured_at <= horizon_cutoff and price > 0]
+    max_sell = max(horizon_prices) if horizon_prices else None
+    peak_target_ratio = _peak_target_capture(max_sell, predicted_sell_price)
+    return {
+        "evaluated": True,
+        "realized": peak_target_ratio >= TARGET_REALIZATION_RATIO,
+        "profitable": _is_profitable_follow_through(max_sell, predicted_buy_price),
+        "max_sell": max_sell,
+        "peak_target_ratio": peak_target_ratio,
+        "snapshot_count": len(horizon_prices),
+    }
 
 
 def record_scan_predictions(
@@ -121,29 +176,22 @@ def evaluate_due_predictions(session: Session, *, limit: int = 500) -> int:
             for snapshot in snapshots
         ]
 
-        def _max_sell_until(hours: int) -> float | None:
-            horizon_cutoff = event_generated_at + timedelta(hours=hours)
-            horizon_prices = [price for captured_at, price in snapshot_points if captured_at <= horizon_cutoff and price > 0]
-            if not horizon_prices:
-                return None
-            value = max(horizon_prices)
-            return value if value > 0 else None
-
         for horizon in HORIZONS_HOURS:
             key = str(horizon)
             already_evaluated = isinstance(outcomes.get(key), dict) and bool(outcomes.get(key, {}).get("evaluated"))
             if already_evaluated:
                 continue
-            if now < (event_generated_at + timedelta(hours=horizon)):
+            outcome = _build_horizon_outcome(
+                event_generated_at=event_generated_at,
+                now=now,
+                snapshot_points=snapshot_points,
+                predicted_buy_price=float(event.predicted_buy_price),
+                predicted_sell_price=float(event.predicted_sell_price),
+                horizon_hours=horizon,
+            )
+            if outcome is None:
                 continue
-
-            max_sell = _max_sell_until(horizon)
-            realized = bool(max_sell is not None and max_sell >= (event.predicted_sell_price * 0.97))
-            outcomes[key] = {
-                "evaluated": True,
-                "realized": realized,
-                "max_sell": max_sell,
-            }
+            outcomes[key] = outcome
 
         event.horizon_outcomes_json = outcomes
 
@@ -152,17 +200,36 @@ def evaluate_due_predictions(session: Session, *, limit: int = 500) -> int:
             event.realized_outcome = bool(horizon_72.get("realized"))
             max_sell = horizon_72.get("max_sell")
             event.realized_sell_price = float(max_sell) if isinstance(max_sell, (float, int)) else None
-            event.outcome_reason = (
-                "72h horizon reached >=97% of recommended sell target."
-                if event.realized_outcome
-                else "72h horizon did not reach >=97% of recommended sell target."
-            )
+            peak_target_ratio = float(horizon_72.get("peak_target_ratio") or 0.0)
+            profitable = bool(horizon_72.get("profitable"))
+            if event.realized_outcome:
+                event.outcome_reason = f"72h peak reached {peak_target_ratio * 100:.1f}% of the recommended sell target."
+            elif profitable:
+                event.outcome_reason = (
+                    f"72h peak stayed above the buy price but only reached {peak_target_ratio * 100:.1f}% of the recommended sell target."
+                )
+            else:
+                event.outcome_reason = (
+                    f"72h peak only reached {peak_target_ratio * 100:.1f}% of the recommended sell target and never cleared the buy price."
+                )
             event.evaluated_at = now
             evaluated += 1
         elif now >= event_expires_at:
             event.realized_outcome = False
             event.realized_sell_price = None
-            event.outcome_reason = "Calibration window expired before a 72h horizon match could be confirmed."
+            outcomes.setdefault(
+                "72",
+                {
+                    "evaluated": True,
+                    "realized": False,
+                    "profitable": False,
+                    "max_sell": None,
+                    "peak_target_ratio": 0.0,
+                    "snapshot_count": 0,
+                },
+            )
+            event.horizon_outcomes_json = outcomes
+            event.outcome_reason = "Calibration window expired before later sell snapshots showed any target follow-through."
             event.evaluated_at = now
             evaluated += 1
 
@@ -183,54 +250,59 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
         .all()
     )
 
-    confidence_buckets: dict[str, dict[str, int]] = {}
-    sellability_buckets: dict[str, dict[str, int]] = {}
-    horizon_confidence: dict[int, dict[str, dict[str, int]]] = {h: {} for h in HORIZONS_HOURS}
-    horizon_sellability: dict[int, dict[str, dict[str, int]]] = {h: {} for h in HORIZONS_HOURS}
+    confidence_buckets: dict[str, dict[str, float]] = {}
+    sellability_buckets: dict[str, dict[str, float]] = {}
+    horizon_confidence: dict[int, dict[str, dict[str, float]]] = {h: {} for h in HORIZONS_HOURS}
+    horizon_sellability: dict[int, dict[str, dict[str, float]]] = {h: {} for h in HORIZONS_HOURS}
 
     for event in events:
         confidence_band = _confidence_band(event.predicted_confidence)
         sellability_band = _sellability_band(event.predicted_sellability)
-        realized = 1 if event.realized_outcome else 0
-
-        confidence_stats = confidence_buckets.setdefault(confidence_band, {"total": 0, "realized": 0})
-        confidence_stats["total"] += 1
-        confidence_stats["realized"] += realized
-
-        sellability_stats = sellability_buckets.setdefault(sellability_band, {"total": 0, "realized": 0})
-        sellability_stats["total"] += 1
-        sellability_stats["realized"] += realized
-
         outcomes = event.horizon_outcomes_json if isinstance(event.horizon_outcomes_json, dict) else {}
+        summary_outcome = outcomes.get("72") if isinstance(outcomes.get("72"), dict) else None
+        if summary_outcome is None:
+            summary_outcome = {
+                "evaluated": True,
+                "realized": bool(event.realized_outcome),
+                "profitable": _is_profitable_follow_through(event.realized_sell_price, event.predicted_buy_price),
+                "peak_target_ratio": _peak_target_capture(event.realized_sell_price, event.predicted_sell_price),
+            }
+
+        confidence_stats = confidence_buckets.setdefault(confidence_band, _empty_bucket())
+        _apply_outcome(confidence_stats, summary_outcome)
+
+        sellability_stats = sellability_buckets.setdefault(sellability_band, _empty_bucket())
+        _apply_outcome(sellability_stats, summary_outcome)
+
         for horizon in HORIZONS_HOURS:
             row = outcomes.get(str(horizon)) if isinstance(outcomes.get(str(horizon)), dict) else None
             if not row or not row.get("evaluated"):
                 continue
-            horizon_realized = 1 if row.get("realized") else 0
+            c_bucket = horizon_confidence[horizon].setdefault(confidence_band, _empty_bucket())
+            _apply_outcome(c_bucket, row)
 
-            c_bucket = horizon_confidence[horizon].setdefault(confidence_band, {"total": 0, "realized": 0})
-            c_bucket["total"] += 1
-            c_bucket["realized"] += horizon_realized
+            s_bucket = horizon_sellability[horizon].setdefault(sellability_band, _empty_bucket())
+            _apply_outcome(s_bucket, row)
 
-            s_bucket = horizon_sellability[horizon].setdefault(sellability_band, {"total": 0, "realized": 0})
-            s_bucket["total"] += 1
-            s_bucket["realized"] += horizon_realized
-
-    def _to_rows(buckets: dict[str, dict[str, int]]) -> list[CalibrationBandRead]:
+    def _to_rows(buckets: dict[str, dict[str, float]]) -> list[CalibrationBandRead]:
         order = ["85-100", "75-84", "60-74", "40-59", "0-39"]
         rows: list[CalibrationBandRead] = []
         for band in order:
             stats = buckets.get(band)
             if not stats:
                 continue
-            total = stats["total"]
-            realized = stats["realized"]
+            total = int(stats["total"])
+            realized = int(stats["realized"])
+            profitable = int(stats["profitable"])
             rows.append(
                 CalibrationBandRead(
                     band=band,
                     total=total,
                     realized=realized,
+                    profitable=profitable,
                     realized_rate=round((realized / total) if total else 0.0, 4),
+                    profitable_rate=round((profitable / total) if total else 0.0, 4),
+                    avg_target_capture=round((stats["target_capture_sum"] / total) if total else 0.0, 4),
                 )
             )
         return rows
@@ -247,10 +319,20 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
         expected = _expected_from_band(row.band)
         delta = row.realized_rate - expected
         if delta <= -0.12:
+            if row.profitable_rate >= 0.65 and row.avg_target_capture >= 0.85:
+                message = (
+                    f"Confidence band {row.band} stays above the buy price {row.profitable_rate * 100:.0f}% of the time, but only captures "
+                    f"about {row.avg_target_capture * 100:.0f}% of the sell target on average. Current sell targets look too ambitious."
+                )
+            else:
+                message = (
+                    f"Confidence band {row.band} is overconfident by about {abs(delta) * 100:.1f} points. "
+                    f"Average target capture is only {row.avg_target_capture * 100:.0f}%. Consider reducing volatility weight or increasing thin-market penalties."
+                )
             suggestions.append(
                 CalibrationSuggestionRead(
                     level="warning",
-                    message=f"Confidence band {row.band} is overconfident by about {abs(delta) * 100:.1f} points. Consider reducing volatility weight or increasing thin-market penalties.",
+                    message=message,
                     action_id="safe_calibration",
                     action_label="Apply safer tuning",
                 )
@@ -259,7 +341,10 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
             suggestions.append(
                 CalibrationSuggestionRead(
                     level="info",
-                    message=f"Confidence band {row.band} is conservative by about {delta * 100:.1f} points. You can cautiously relax penalties if this persists.",
+                    message=(
+                        f"Confidence band {row.band} is conservative by about {delta * 100:.1f} points and captures "
+                        f"{row.avg_target_capture * 100:.0f}% of the sell target on average. You can cautiously relax penalties if this persists."
+                    ),
                     action_id="balanced_default",
                     action_label="Restore balanced tuning",
                 )
@@ -274,7 +359,10 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
             suggestions.append(
                 CalibrationSuggestionRead(
                     level="warning",
-                    message=f"Sellability band {row.band} is overpredicting outcomes. Consider increasing evidence gate strictness or depth requirements.",
+                    message=(
+                        f"Sellability band {row.band} is overpredicting outcomes. It only captures about {row.avg_target_capture * 100:.0f}% of the sell target "
+                        f"on average, with profitable follow-through in {row.profitable_rate * 100:.0f}% of cases. Consider increasing evidence gate strictness or depth requirements."
+                    ),
                     action_id="safe_calibration",
                     action_label="Apply safer tuning",
                 )
@@ -285,10 +373,16 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
         confidence_rows = _to_rows(horizon_confidence[horizon])
         sellability_rows = _to_rows(horizon_sellability[horizon])
         total_horizon = sum(row.total for row in confidence_rows)
+        realized_horizon = sum(row.realized for row in confidence_rows)
+        profitable_horizon = sum(row.profitable for row in confidence_rows)
+        target_capture_sum = sum(row.avg_target_capture * row.total for row in confidence_rows)
         horizons.append(
             HorizonCalibrationRead(
                 horizon_hours=horizon,
                 total_evaluated=total_horizon,
+                realized_rate=round((realized_horizon / total_horizon) if total_horizon else 0.0, 4),
+                profitable_rate=round((profitable_horizon / total_horizon) if total_horizon else 0.0, 4),
+                avg_target_capture=round((target_capture_sum / total_horizon) if total_horizon else 0.0, 4),
                 confidence_bands=confidence_rows,
                 sellability_bands=sellability_rows,
             )
@@ -297,6 +391,7 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
     weekly_buckets: dict[tuple[datetime, datetime], dict[str, float]] = {}
     for event in events:
         event_generated_at = _as_utc(event.generated_at)
+        outcomes = event.horizon_outcomes_json if isinstance(event.horizon_outcomes_json, dict) else {}
         period_start = event_generated_at - timedelta(days=event_generated_at.weekday())
         period_start = period_start.replace(hour=0, minute=0, second=0, microsecond=0)
         period_end = period_start + timedelta(days=7)
@@ -305,29 +400,40 @@ def get_calibration_summary(session: Session, user_id: str, *, days: int = 30) -
             {
                 "total": 0,
                 "realized": 0,
+                "profitable": 0,
                 "confidence_sum": 0.0,
                 "sellability_sum": 0.0,
+                "target_capture_sum": 0.0,
             },
         )
+        summary_outcome = outcomes.get("72") if isinstance(outcomes.get("72"), dict) else None
+        target_capture = float(summary_outcome.get("peak_target_ratio") or 0.0) if summary_outcome else _peak_target_capture(event.realized_sell_price, event.predicted_sell_price)
+        profitable = bool(summary_outcome.get("profitable")) if summary_outcome else _is_profitable_follow_through(event.realized_sell_price, event.predicted_buy_price)
         bucket["total"] += 1
         bucket["realized"] += 1 if event.realized_outcome else 0
+        bucket["profitable"] += 1 if profitable else 0
         bucket["confidence_sum"] += float(event.predicted_confidence)
         bucket["sellability_sum"] += float(event.predicted_sellability)
+        bucket["target_capture_sum"] += target_capture
 
     trends: list[CalibrationTrendPointRead] = []
     for period_start, period_end in sorted(weekly_buckets.keys()):
         stats = weekly_buckets[(period_start, period_end)]
         total = int(stats["total"])
         realized = int(stats["realized"])
+        profitable = int(stats["profitable"])
         trends.append(
             CalibrationTrendPointRead(
                 period_start=period_start,
                 period_end=period_end,
                 total=total,
                 realized=realized,
+                profitable=profitable,
                 realized_rate=round((realized / total) if total else 0.0, 4),
+                profitable_rate=round((profitable / total) if total else 0.0, 4),
                 avg_confidence=round((stats["confidence_sum"] / total) if total else 0.0, 2),
                 avg_sellability=round((stats["sellability_sum"] / total) if total else 0.0, 2),
+                avg_target_capture=round((stats["target_capture_sum"] / total) if total else 0.0, 4),
             )
         )
 

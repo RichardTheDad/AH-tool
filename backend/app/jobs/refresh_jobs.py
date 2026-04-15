@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import logging
 import time
 
@@ -13,6 +14,7 @@ from app.services.listing_service import mark_stale_snapshots, refresh_from_prov
 from app.services.provider_service import get_provider_registry
 from app.services.calibration_service import evaluate_due_predictions
 from app.services.realm_service import get_all_enabled_realm_names
+from app.services.scheduler_audit_service import record_scheduler_event
 from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, try_mark_scan_started
 
 
@@ -74,24 +76,43 @@ def run_refresh_cycle() -> None:
     """
     session = get_session_factory()()
     provider_name = get_settings().default_listing_provider
+    cycle_started_at = time.time()
+
+    def _finish(status: str, message: str, *, details: dict[str, object] | None = None) -> None:
+        record_scheduler_event(
+            status=status,
+            message=message,
+            started_at=datetime.fromtimestamp(cycle_started_at, tz=timezone.utc),
+            finished_at=datetime.now(timezone.utc),
+            details=details,
+        )
+
     try:
         purge_expired_app_data(session)
         mark_stale_snapshots(session)
 
         realms = get_all_enabled_realm_names(session)
         if not realms:
-            logger.info("Skipping scheduled data refresh: no enabled realms across all users.")
+            skip_message = "Skipping scheduled data refresh: no enabled realms across all users."
+            logger.info(skip_message)
+            _finish("skipped.no_realms", skip_message, details={"realm_count": 0})
             return
 
         provider = get_provider_registry().get_listing_provider(None)
         if not provider.supports_live_fetch:
-            logger.info("Skipping scheduled data refresh: provider '%s' does not support live fetch.", provider_name)
+            skip_message = f"Skipping scheduled data refresh: provider '{provider_name}' does not support live fetch."
+            logger.info(skip_message)
+            _finish("skipped.provider_no_live_fetch", skip_message, details={"provider": provider_name, "realm_count": len(realms)})
             return
 
         if not try_mark_scan_started(provider_name):
-            logger.info("Skipping scheduled data refresh: a refresh is already running.")
+            skip_message = "Skipping scheduled data refresh: a refresh is already running."
+            logger.info(skip_message)
+            _finish("skipped.already_running", skip_message, details={"provider": provider_name, "realm_count": len(realms)})
             return
 
+        inserted = 0
+        warning = None
         try:
             inserted, warning = refresh_from_provider(session, realms, provider_name)
             if warning:
@@ -116,7 +137,25 @@ def run_refresh_cycle() -> None:
             logger.info("Updated %d calibration telemetry event(s).", evaluated)
 
         _run_system_scan(session, realms)
+        status = "success.warning" if warning else "success"
+        message = warning or "Scheduled refresh cycle completed successfully."
+        _finish(
+            status,
+            message,
+            details={
+                "provider": provider_name,
+                "realm_count": len(realms),
+                "inserted": inserted,
+                "metadata_queued": queued,
+                "calibration_evaluated": evaluated,
+            },
+        )
     except Exception:  # pragma: no cover - scheduler safety net
+        _finish(
+            "failed.exception",
+            "Scheduled refresh cycle failed unexpectedly.",
+            details={"provider": provider_name},
+        )
         logger.exception("Scheduled refresh cycle failed.")
     finally:
         session.close()

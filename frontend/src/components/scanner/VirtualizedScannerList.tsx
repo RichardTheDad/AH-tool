@@ -56,7 +56,11 @@ function summarizeMoverLikelihood(result: ScanResult) {
 }
 
 function summarizeProvenance(result: ScanResult) {
-  const provenance = result.score_provenance as { components?: Record<string, number>; evidence?: Record<string, boolean> } | null | undefined;
+  const provenance = result.score_provenance as {
+    components?: Record<string, number>;
+    evidence?: Record<string, boolean>;
+    adjustments?: Record<string, unknown>;
+  } | null | undefined;
   if (!provenance?.components) {
     return null;
   }
@@ -65,6 +69,9 @@ function summarizeProvenance(result: ScanResult) {
     volatility: provenance.components.volatility,
     antiBait: provenance.components.anti_bait,
     gateApplied: Boolean(provenance.evidence?.gate_applied),
+    executionRiskReasons: Array.isArray(provenance.adjustments?.execution_risk_reasons)
+      ? provenance.adjustments.execution_risk_reasons.filter((value): value is string => typeof value === "string")
+      : [],
   };
 }
 
@@ -102,6 +109,7 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
             <p className="mt-1 text-[11px] text-slate-500">
               Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
               {provenance.gateApplied ? " | evidence gate" : ""}
+              {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
               {onOpenProvenance ? (
                 <button
                   type="button"

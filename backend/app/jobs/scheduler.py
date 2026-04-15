@@ -65,9 +65,26 @@ class SchedulerManager:
         )
 
     def status(self) -> dict[str, object]:
+        refresh_job = self.scheduler.get_job("refresh-cycle")
+        next_run_time = refresh_job.next_run_time if refresh_job else None
+        if next_run_time is not None and next_run_time.tzinfo is None:
+            next_run_time = next_run_time.replace(tzinfo=timezone.utc)
+
+        try:
+            last_scan = _last_scan_session_at()
+        except Exception:
+            last_scan = None
+
         return {
+            "enabled": get_settings().enable_scheduler,
+            "interval_minutes": get_settings().scheduler_refresh_interval_minutes,
             "running": self.scheduler.running,
             "jobs": [job.id for job in self.scheduler.get_jobs()],
+            "refresh_cycle": {
+                "configured": refresh_job is not None,
+                "next_run_time": next_run_time.isoformat() if next_run_time else None,
+            },
+            "last_scan_session_at": last_scan.isoformat() if last_scan else None,
         }
 
 

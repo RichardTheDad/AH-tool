@@ -10,7 +10,7 @@ from app.core.config import SYSTEM_USER_ID
 from app.db.init_db import provision_new_user
 from app.db.models import AppSettings, TuningActionAudit
 from app.db.session import get_db
-from app.jobs.scheduler import manager as scheduler_manager
+from app.services.scheduler_audit_service import SCHEDULER_AUDIT_SOURCE
 from app.schemas.settings import (
     AppSettingsApplyPresetRequest,
     AppSettingsRead,
@@ -141,5 +141,14 @@ def get_tuning_action_audit(
     current_user: str = Depends(get_current_user),
 ) -> TuningActionAuditListRead:
     del current_user
-    entries = db.query(TuningActionAudit).filter(TuningActionAudit.user_id == SYSTEM_USER_ID).order_by(TuningActionAudit.applied_at.desc()).limit(limit).all()
+    entries = (
+        db.query(TuningActionAudit)
+        .filter(
+            TuningActionAudit.user_id == SYSTEM_USER_ID,
+            TuningActionAudit.source != SCHEDULER_AUDIT_SOURCE,
+        )
+        .order_by(TuningActionAudit.applied_at.desc())
+        .limit(limit)
+        .all()
+    )
     return TuningActionAuditListRead(entries=[TuningActionAuditRead.model_validate(entry) for entry in entries])
