@@ -92,7 +92,7 @@ export function Homepage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_32%,rgba(249,115,22,0.22),transparent_45%),radial-gradient(circle_at_88%_85%,rgba(37,99,235,0.2),transparent_48%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:38px_38px]" />
 
-      <PublicHeader tone="dark" subtitle="Cross-realm scanner" secondaryCtaLabel="Documentation" secondaryCtaTo="/public/docs" />
+      <PublicHeader subtitle="Cross-realm scanner" secondaryCtaLabel="Documentation" secondaryCtaTo="/public/docs" />
 
       <main className="relative mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:p-5">

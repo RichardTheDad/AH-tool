@@ -8,7 +8,7 @@ interface GoldAmountProps {
 function Coin({ type }: { type: "gold" | "silver" | "copper" }) {
   const style = {
     gold: "bg-yellow-400 border-yellow-500 shadow-sm",
-    silver: "bg-slate-300 border-slate-400",
+    silver: "bg-zinc-300 border-zinc-400",
     copper: "bg-orange-400 border-orange-500",
   }[type];
   return (

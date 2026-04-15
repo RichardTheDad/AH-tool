@@ -8,7 +8,7 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <span className="text-sm text-slate-500">Loading…</span>
+        <span className="text-sm text-zinc-400">Loading…</span>
       </div>
     );
   }

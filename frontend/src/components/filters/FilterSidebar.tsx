@@ -17,14 +17,14 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
   const categories = Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS, ...categoryOptions])).sort((left, right) => left.localeCompare(right));
 
   return (
-    <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-md xl:sticky xl:top-6 xl:self-start">
+    <aside className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 shadow-md backdrop-blur-xl xl:sticky xl:top-6 xl:self-start">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-sm font-semibold text-ink uppercase tracking-wider">Filters</h2>
+        <h2 className="font-display text-sm font-semibold text-zinc-100 uppercase tracking-wider">Filters</h2>
         {onReset && (
           <button
             type="button"
             onClick={onReset}
-            className="text-xs text-slate-500 hover:text-slate-700 transition font-medium"
+            className="text-xs text-zinc-400 hover:text-zinc-200 transition font-medium"
           >
             Reset
           </button>
@@ -32,8 +32,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
       </div>
 
       {/* Profitability Section */}
-      <div className="space-y-2 border-t border-slate-100 pt-3">
-        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Profitability</h3>
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Profitability</h3>
         <Input
           id="scanner-filter-min-profit"
           name="minProfit"
@@ -55,8 +55,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
       </div>
 
       {/* Risk Section */}
-      <div className="space-y-2 border-t border-slate-100 pt-3">
-        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Risk</h3>
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Risk</h3>
         <Input
           id="scanner-filter-max-buy-price"
           name="maxBuyPrice"
@@ -69,8 +69,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
       </div>
 
       {/* Confidence & Category Section */}
-      <div className="space-y-2 border-t border-slate-100 pt-3">
-        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Discovery</h3>
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Discovery</h3>
         <Input
           id="scanner-filter-min-confidence"
           name="minConfidence"
@@ -97,8 +97,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
       </div>
 
       {/* Sorting Section */}
-      <div className="space-y-2 border-t border-slate-100 pt-3">
-        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Sorting</h3>
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Sorting</h3>
         <Select
           id="scanner-filter-sort-by"
           name="sortBy"
@@ -124,8 +124,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
         </Select>
       </div>
 
-      <div className="space-y-2 border-t border-slate-100 pt-3">
-        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Safety</h3>
+      <div className="space-y-2 border-t border-white/10 pt-3">
+        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wide">Safety</h3>
         <Checkbox
           id="scanner-filter-hide-risky"
           name="hideRisky"

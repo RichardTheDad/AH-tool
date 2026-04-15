@@ -158,11 +158,11 @@ export function Realms() {
       <Card title="Tracked realms" subtitle="Manage your realm list.">
         <div className="space-y-2">
           {realms.map((realm) => (
-            <div key={realm.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
+            <div key={realm.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-3">
               <div>
-                <p className="font-medium text-sm text-ink">{realm.realm_name}</p>
+                <p className="font-medium text-sm text-zinc-100">{realm.realm_name}</p>
                 {!realm.enabled && (
-                  <p className="text-xs text-slate-500 mt-0.5">Disabled</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Disabled</p>
                 )}
               </div>
               <div className="flex flex-wrap gap-1.5 justify-end">
@@ -197,7 +197,7 @@ export function Realms() {
             </div>
           ))}
           {!realms.length && (
-            <p className="text-sm text-slate-500 text-center py-6">No realms tracked yet. Add one to get started.</p>
+            <p className="text-sm text-zinc-400 text-center py-6">No realms tracked yet. Add one to get started.</p>
           )}
         </div>
       </Card>

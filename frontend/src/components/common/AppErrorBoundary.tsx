@@ -39,7 +39,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
           <button
             type="button"
             onClick={this.handleRetry}
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+            className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-white/35 hover:text-zinc-100"
           >
             Retry page render
           </button>

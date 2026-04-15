@@ -52,7 +52,7 @@ function SortButton({
           sortDirection: active && sortDirection === "desc" ? "asc" : "desc",
         })
       }
-      className="text-left transition hover:text-ink"
+      className="text-left transition hover:text-zinc-100"
       aria-pressed={active}
     >
       {label}
@@ -100,13 +100,13 @@ function ItemIcon({ result }: { result: ScanResult }) {
         src={result.item_icon_url}
         alt=""
         loading="lazy"
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover"
+        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-white/15 bg-zinc-900/65 object-cover"
       />
     );
   }
 
   return (
-    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-zinc-900/65 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
       --
     </div>
   );
@@ -118,7 +118,7 @@ function Row({ index, style, results, onOpenProvenance, search }: RowComponentPr
   const gated = isEvidenceGated(result);
 
   return (
-    <div style={style} className="overflow-hidden border-b border-slate-200 px-4 py-2.5">
+    <div style={style} className="overflow-hidden border-b border-white/10 px-4 py-2.5">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
         <div className="min-w-0">
           <div className="flex gap-2.5">
@@ -133,7 +133,7 @@ function Row({ index, style, results, onOpenProvenance, search }: RowComponentPr
                     restoreItemId: result.item_id,
                     restoreIndex: index,
                   }}
-                  className="text-[14px] font-semibold leading-[1.25] text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+                  className="text-[14px] font-semibold leading-[1.25] text-zinc-100 underline-offset-4 hover:underline [overflow-wrap:anywhere]"
                 >
                   {result.item_name}
                 </Link>
@@ -142,15 +142,15 @@ function Row({ index, style, results, onOpenProvenance, search }: RowComponentPr
                     href={result.undermine_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[11px] font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                    className="text-[11px] font-semibold uppercase tracking-link text-zinc-500 underline-offset-4 hover:text-zinc-200 hover:underline"
                   >
                     Undermine
                   </a>
                 ) : null}
               </div>
-              <p className="mt-1 line-clamp-2 text-[12px] leading-[1.3] text-slate-600">{result.explanation}</p>
+              <p className="mt-1 line-clamp-2 text-[12px] leading-[1.3] text-zinc-300">{result.explanation}</p>
               {provenance ? (
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
                   <span className="min-w-0 truncate">
                     Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
                     {provenance.gateApplied ? " | evidence gate" : ""}
@@ -160,7 +160,7 @@ function Row({ index, style, results, onOpenProvenance, search }: RowComponentPr
                     <button
                       type="button"
                       onClick={() => onOpenProvenance(result)}
-                      className="shrink-0 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                      className="shrink-0 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
                     >
                       Details
                     </button>
@@ -177,20 +177,20 @@ function Row({ index, style, results, onOpenProvenance, search }: RowComponentPr
           </div>
         </div>
 
-        <div className="min-w-0 text-slate-700">
+        <div className="min-w-0 text-zinc-300">
           <div className="font-medium">{result.cheapest_buy_realm}</div>
           <div><GoldAmount value={result.cheapest_buy_price} /></div>
         </div>
 
-        <div className="min-w-0 text-slate-700">
+        <div className="min-w-0 text-zinc-300">
           <div className="font-medium">{result.best_sell_realm}</div>
           <div><GoldAmount value={result.best_sell_price} /></div>
-          {result.observed_sell_price != null ? <div className="text-xs text-slate-500">Obs <GoldAmount value={result.observed_sell_price} /></div> : null}
+          {result.observed_sell_price != null ? <div className="text-xs text-zinc-500">Obs <GoldAmount value={result.observed_sell_price} /></div> : null}
         </div>
 
         <div className="min-w-0">
           <div className="font-semibold text-emerald-700"><GoldAmount value={result.estimated_profit} /></div>
-          <div className="text-slate-700">{formatPercent(result.roi)}</div>
+          <div className="text-zinc-300">{formatPercent(result.roi)}</div>
         </div>
 
         <div className="min-w-0">
@@ -278,8 +278,8 @@ export function VirtualizedScannerList({
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-card">
-      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-label text-slate-500">
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/70 shadow-card backdrop-blur-xl">
+      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 border-b border-white/15 bg-white/5 px-4 py-3 text-[11px] uppercase tracking-label text-zinc-500">
         <div>Item</div>
         <SortButton label="Buy" column="cheapest_buy_price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
         <div>Sell</div>

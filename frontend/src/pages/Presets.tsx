@@ -183,7 +183,7 @@ export function Presets() {
             ) : null}
           </div>
           {message && (
-            <p className="text-xs text-rose-600 mt-2">{message}</p>
+            <p className="text-xs text-rose-300 mt-2">{message}</p>
           )}
         </form>
       </Card>
@@ -191,11 +191,11 @@ export function Presets() {
       <Card title="Saved presets" subtitle="Tap to apply or edit.">
         <div className="space-y-2">
           {presets.map((preset) => (
-            <div key={preset.id} className="rounded-lg bg-slate-50 px-3 py-3">
+            <div key={preset.id} className="rounded-lg border border-white/10 bg-white/5 px-3 py-3">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                  <p className="font-medium text-sm text-ink">{preset.name}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="font-medium text-sm text-zinc-100">{preset.name}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
                     {[
                       preset.min_profit !== null && `Profit ${preset.min_profit}`,
                       preset.min_roi !== null && `ROI ${preset.min_roi}%`,

@@ -69,13 +69,13 @@ function ItemIcon({ result }: { result: ScanResult }) {
         src={result.item_icon_url}
         alt=""
         loading="lazy"
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover"
+        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-white/15 bg-zinc-900/65 object-cover"
       />
     );
   }
 
   return (
-    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-zinc-900/65 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
       --
     </div>
   );
@@ -109,7 +109,7 @@ function SortableHeader({
             sortDirection: active && sortDirection === "desc" ? "asc" : "desc",
           })
         }
-        className="whitespace-nowrap text-left transition hover:text-ink"
+        className="whitespace-nowrap text-left transition hover:text-zinc-100"
         aria-pressed={active}
       >
         {label}
@@ -127,10 +127,10 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md">
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/70 shadow-md backdrop-blur-xl">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1070px] divide-y divide-slate-100 text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider font-semibold text-slate-600 border-b border-slate-200">
+        <table className="w-full min-w-[1070px] divide-y divide-white/10 text-sm">
+          <thead className="bg-white/5 text-left text-xs uppercase tracking-wider font-semibold text-zinc-400 border-b border-white/15">
             <tr>
               <th className="px-4 py-3 min-w-[11rem]">Item</th>
               <th className="px-3 py-3 whitespace-nowrap">Buy realm</th>
@@ -144,7 +144,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
               />
               <th className="px-3 py-3 whitespace-nowrap">Sell realm</th>
               <th className="px-3 py-3 whitespace-nowrap">Target sell</th>
-              <th className="px-3 py-3 whitespace-nowrap font-bold text-emerald-700">Profit</th>
+              <th className="px-3 py-3 whitespace-nowrap font-bold text-emerald-300">Profit</th>
               <SortableHeader
                 label="ROI"
                 column="roi"
@@ -172,9 +172,9 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
               <th className="px-3 py-3 min-w-[13rem]">Explanation</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody className="divide-y divide-white/10">
             {results.map((result, index) => (
-              <tr key={result.id} id={`scanner-item-${result.item_id}`} className="hover:bg-slate-50 transition">
+              <tr key={result.id} id={`scanner-item-${result.item_id}`} className="hover:bg-white/5 transition">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
                   <div className="flex gap-2.5">
                     <ItemIcon result={result} />
@@ -188,7 +188,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                             restoreItemId: result.item_id,
                             restoreIndex: index,
                           }}
-                          className="text-[14px] font-semibold leading-[1.25] text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+                          className="text-[14px] font-semibold leading-[1.25] text-zinc-100 underline-offset-4 hover:underline [overflow-wrap:anywhere]"
                         >
                           {result.item_name}
                         </Link>
@@ -197,7 +197,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                             href={result.undermine_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-[11px] font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                            className="text-[11px] font-semibold uppercase tracking-link text-zinc-500 underline-offset-4 hover:text-zinc-200 hover:underline"
                           >
                             Undermine
                           </a>
@@ -238,12 +238,12 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                       {formatGold(result.best_sell_price)}
                     </div>
                     {result.observed_sell_price != null ? (
-                      <div className="text-[11px] text-slate-500">Observed <GoldAmount value={result.observed_sell_price} /></div>
+                      <div className="text-[11px] text-zinc-500">Observed <GoldAmount value={result.observed_sell_price} /></div>
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700"><GoldAmount value={result.estimated_profit} /></td>
-                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700">{formatPercent(result.roi)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></td>
+                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   {(() => {
                     const tone = result.confidence_score >= 70
@@ -270,13 +270,13 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                   </span>
                 </td>
                 <td
-                  className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-slate-600 [overflow-wrap:anywhere]"
+                  className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-zinc-300 [overflow-wrap:anywhere]"
                   title={`Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
                 >
                   {(() => {
                     const provenance = summarizeProvenance(result);
                     return provenance ? (
-                      <div className="mb-2 rounded-2xl bg-slate-100 px-3 py-2 text-[11px] text-slate-600">
+                      <div className="mb-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-400">
                         Signals: L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
                         {provenance.gateApplied ? " | evidence gate applied" : ""}
                         {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
@@ -284,7 +284,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                           <button
                             type="button"
                             onClick={() => onOpenProvenance(result)}
-                            className="ml-2 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                            className="ml-2 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
                           >
                             Details
                           </button>
@@ -294,12 +294,12 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                   })()}
                   <div className="space-y-2">
                     <p>{result.explanation}</p>
-                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-link text-slate-500">
+                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-link text-zinc-500">
                       <span>{result.turnover_label} turnover</span>
                       <span>{summarizeLiquidity(result.liquidity_score)}</span>
                       <span>{summarizeBaitRisk(result.bait_risk_score)}</span>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-zinc-400">
                       <div>Recommended sell target: {formatGold(result.best_sell_price)}</div>
                       <div>Observed current listing: {result.observed_sell_price != null ? formatGold(result.observed_sell_price) : "--"}</div>
                       <div>

@@ -75,15 +75,15 @@ export function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/50 bg-white/80 p-8 shadow-lg backdrop-blur-md">
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/15 bg-zinc-900/60 p-8 shadow-lg backdrop-blur-xl">
         <div className="space-y-1">
           <p className="font-display text-xs uppercase tracking-display text-ember">AzerothFlip</p>
-          <h1 className="font-display text-2xl font-semibold text-ink">{title}</h1>
+          <h1 className="font-display text-2xl font-semibold text-zinc-100">{title}</h1>
         </div>
 
         <form onSubmit={handleEmailSubmit} className="space-y-4">
           <div className="space-y-1">
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="email" className="block text-sm font-medium text-zinc-200">
               Email
             </label>
             <input
@@ -93,14 +93,14 @@ export function Login() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-ember focus:ring-1 focus:ring-ember"
+              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-ember focus:ring-1 focus:ring-ember/30"
             />
           </div>
 
           {mode !== "forgot" && (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+                <label htmlFor="password" className="block text-sm font-medium text-zinc-200">
                   Password
                 </label>
                 {mode === "signin" && (
@@ -120,7 +120,7 @@ export function Login() {
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-ember focus:ring-1 focus:ring-ember"
+                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-ember focus:ring-1 focus:ring-ember/30"
               />
             </div>
           )}
@@ -131,13 +131,13 @@ export function Login() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/80 disabled:opacity-50"
+            className="w-full rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-400 disabled:opacity-50"
           >
             {loading ? submitLoadingLabel : submitLabel}
           </button>
         </form>
 
-        <p className="text-center text-sm text-slate-500">
+        <p className="text-center text-sm text-zinc-400">
           {mode === "signin" && (
             <>No account?{" "}
               <button type="button" onClick={() => switchMode("signup")} className="font-medium text-ember hover:underline">
@@ -162,15 +162,15 @@ export function Login() {
         {mode !== "forgot" && (
           <>
             <div className="relative flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-xs text-slate-400">or</span>
-              <div className="h-px flex-1 bg-slate-200" />
+              <div className="h-px flex-1 bg-white/15" />
+              <span className="text-xs text-zinc-500">or</span>
+              <div className="h-px flex-1 bg-white/15" />
             </div>
 
             <button
               type="button"
               onClick={handleDiscordLogin}
-              className="w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:bg-white/10"
             >
               Continue with Discord
             </button>

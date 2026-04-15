@@ -500,13 +500,13 @@ export function Scanner() {
         ) : calibrationUnavailable ? (
           <ErrorState message="Calibration telemetry is temporarily unavailable." />
         ) : calibration && calibration.total_evaluated > 0 ? (
-          <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
-            <h3 className="font-display text-lg font-semibold text-ink">Calibration telemetry (30d)</h3>
-            <p className="mt-1 text-sm text-slate-600">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through, above-buy durability, and peak target capture.</p>
+          <div className="rounded-3xl border border-white/15 bg-zinc-900/55 p-4 shadow-card backdrop-blur-xl">
+            <h3 className="font-display text-lg font-semibold text-zinc-100">Calibration telemetry (30d)</h3>
+            <p className="mt-1 text-sm text-zinc-300">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through, above-buy durability, and peak target capture.</p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Confidence bands</p>
-                <div className="mt-2 space-y-1 text-sm text-slate-700">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Confidence bands</p>
+                <div className="mt-2 space-y-1 text-sm text-zinc-300">
                   {calibration.confidence_bands.map((row) => (
                     <div key={`confidence-${row.band}`} className="flex items-center justify-between gap-3">
                       <span>{row.band}</span>
@@ -517,9 +517,9 @@ export function Scanner() {
                   ))}
                 </div>
               </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Sellability bands</p>
-                <div className="mt-2 space-y-1 text-sm text-slate-700">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Sellability bands</p>
+                <div className="mt-2 space-y-1 text-sm text-zinc-300">
                   {calibration.sellability_bands.map((row) => (
                     <div key={`sellability-${row.band}`} className="flex items-center justify-between gap-3">
                       <span>{row.band}</span>
@@ -532,17 +532,17 @@ export function Scanner() {
               </div>
             </div>
             {calibration.horizons?.length ? (
-              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Horizon buckets</p>
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Horizon buckets</p>
                 <div className="mt-2 grid gap-2 md:grid-cols-3">
                   {calibration.horizons.map((horizon) => (
-                    <div key={`h-${horizon.horizon_hours}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      <p className="font-semibold text-ink">{horizon.horizon_hours}h</p>
+                    <div key={`h-${horizon.horizon_hours}`} className="rounded-xl border border-white/15 bg-zinc-900/65 px-3 py-2 text-sm text-zinc-300">
+                      <p className="font-semibold text-zinc-100">{horizon.horizon_hours}h</p>
                       <p>{horizon.total_evaluated} evaluated</p>
                       <p>{Math.round(horizon.realized_rate * 100)}% hit target</p>
                       <p>{Math.round(horizon.profitable_rate * 100)}% stayed above buy</p>
                       <p>{Math.round(horizon.avg_target_capture * 100)}% avg target capture</p>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-zinc-500">
                         Top confidence band: {horizon.confidence_bands[0] ? `${horizon.confidence_bands[0].band} (${Math.round(horizon.confidence_bands[0].realized_rate * 100)}%)` : "--"}
                       </p>
                     </div>
@@ -551,30 +551,30 @@ export function Scanner() {
               </div>
             ) : null}
             {calibration.trends?.length ? (
-              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Weekly confidence vs target-capture drift overlay</p>
-                <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Weekly confidence vs target-capture drift overlay</p>
+                <div className="mt-2 rounded-xl border border-white/15 bg-zinc-900/65 p-3">
                   <svg viewBox={`0 0 ${CALIBRATION_CHART_WIDTH} ${CALIBRATION_CHART_HEIGHT}`} className="h-44 w-full">
-                    <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#cbd5e1" strokeWidth="1" />
-                    <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_WIDTH - CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#cbd5e1" strokeWidth="1" />
-                    <polyline points={confidenceLine} fill="none" stroke="#1d4ed8" strokeWidth="2" />
-                    <polyline points={sellabilityLine} fill="none" stroke="#7c3aed" strokeWidth="2" strokeDasharray="5 4" />
-                    <polyline points={realizedLine} fill="none" stroke="#059669" strokeWidth="2.2" />
+                    <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#52525b" strokeWidth="1" />
+                    <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_WIDTH - CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#52525b" strokeWidth="1" />
+                    <polyline points={confidenceLine} fill="none" stroke="#60a5fa" strokeWidth="2" />
+                    <polyline points={sellabilityLine} fill="none" stroke="#a78bfa" strokeWidth="2" strokeDasharray="5 4" />
+                    <polyline points={realizedLine} fill="none" stroke="#34d399" strokeWidth="2.2" />
                   </svg>
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-slate-600">
-                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-blue-700" />avg confidence</span>
-                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-600" />avg sellability</span>
-                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-600" />avg target capture</span>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-400">
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-blue-400" />avg confidence</span>
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-violet-400" />avg sellability</span>
+                    <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />avg target capture</span>
                   </div>
                 </div>
-                <div className="mt-3 space-y-1 text-sm text-slate-700">
+                <div className="mt-3 space-y-1 text-sm text-zinc-300">
                   {calibration.trends.map((trend) => {
                     const driftPoints = Math.round((trend.avg_target_capture - trend.avg_confidence / 100) * 1000) / 10;
                     const driftLabel = driftPoints >= 0 ? `+${driftPoints}` : `${driftPoints}`;
                     return (
                       <div key={`trend-${trend.period_start}`} className="flex items-center justify-between gap-3">
                         <span>{formatDateTime(trend.period_start)}</span>
-                        <span className={driftPoints < 0 ? "text-amber-700" : "text-emerald-700"}>
+                        <span className={driftPoints < 0 ? "text-amber-300" : "text-emerald-300"}>
                           drift {driftLabel} pts • {Math.round(trend.profitable_rate * 100)}% above buy
                         </span>
                       </div>
@@ -584,18 +584,18 @@ export function Scanner() {
               </div>
             ) : null}
             {calibration.suggestions?.length ? (
-              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Auto-tuning suggestions</p>
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Auto-tuning suggestions</p>
                 <div className="mt-2 space-y-2 text-sm">
                   {calibration.suggestions.map((suggestion, index) => (
-                    <div key={`suggestion-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className={suggestion.level === "warning" ? "text-amber-800" : "text-slate-700"}>{suggestion.message}</p>
+                    <div key={`suggestion-${index}`} className="rounded-xl border border-white/15 bg-zinc-900/65 px-3 py-2">
+                      <p className={suggestion.level === "warning" ? "text-amber-300" : "text-zinc-300"}>{suggestion.message}</p>
                       {suggestion.action_id && suggestion.action_label ? (
                         <button
                           type="button"
                           onClick={() => tuningMutation.mutate(suggestion.action_id as "safe_calibration" | "balanced_default")}
                           disabled={tuningMutation.isPending || tuningCooldownActive}
-                          className="mt-2 rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="mt-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {tuningMutation.isPending
                             ? "Applying..."
@@ -607,19 +607,19 @@ export function Scanner() {
                     </div>
                   ))}
                 </div>
-                {tuningCooldownActive ? <p className="mt-2 text-xs text-amber-700">Tuning actions unlock in {formatCooldown(tuningCooldownRemainingMs)}.</p> : null}
-                {tuningMutation.error ? <p className="mt-2 text-xs text-rose-700">{(tuningMutation.error as Error).message}</p> : null}
+                {tuningCooldownActive ? <p className="mt-2 text-xs text-amber-300">Tuning actions unlock in {formatCooldown(tuningCooldownRemainingMs)}.</p> : null}
+                {tuningMutation.error ? <p className="mt-2 text-xs text-rose-300">{(tuningMutation.error as Error).message}</p> : null}
               </div>
             ) : null}
 
             {tuningAudit.length ? (
-              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Tuning audit history</p>
-                <div className="mt-2 space-y-1 text-sm text-slate-700">
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Tuning audit history</p>
+                <div className="mt-2 space-y-1 text-sm text-zinc-300">
                   {tuningAudit.map((entry) => (
                     <div key={`audit-${entry.id}`} className="flex items-center justify-between gap-3">
                       <span>{formatDateTime(entry.applied_at)} • {entry.action_label}</span>
-                      <span className={entry.blocked ? "text-amber-700" : "text-emerald-700"}>{entry.blocked ? (entry.blocked_reason ?? "blocked") : "applied"}</span>
+                      <span className={entry.blocked ? "text-amber-300" : "text-emerald-300"}>{entry.blocked ? (entry.blocked_reason ?? "blocked") : "applied"}</span>
                     </div>
                   ))}
                 </div>
@@ -662,53 +662,53 @@ export function Scanner() {
         ) : previousScanUnavailable ? (
           <ErrorState message="Previous scan comparison is temporarily unavailable." />
         ) : diffSummary ? (
-          <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
+          <div className="rounded-3xl border border-white/15 bg-zinc-900/55 p-4 shadow-card backdrop-blur-xl">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h3 className="font-display text-lg font-semibold text-ink">Since last scan</h3>
-                <p className="mt-1 text-sm text-slate-600">
+                <h3 className="font-display text-lg font-semibold text-zinc-100">Since last scan</h3>
+                <p className="mt-1 text-sm text-zinc-300">
                   Comparing {formatDateTime(diffSummary.currentGeneratedAt)} to {formatDateTime(diffSummary.previousGeneratedAt)}.
                 </p>
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-zinc-500">
                 Compared {diffSummary.totalCurrent} current vs {diffSummary.totalPrevious} previous opportunities.
               </p>
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-emerald-700">New opportunities</p>
-                <p className="mt-1 text-2xl font-semibold text-emerald-900">{diffSummary.newItems.length}</p>
-                <p className="text-xs text-emerald-700">{diffSummary.newShareOfCurrent.toFixed(1)}% of current results</p>
+              <div className="rounded-2xl border border-emerald-400/35 bg-emerald-500/15 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-emerald-300">New opportunities</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-200">{diffSummary.newItems.length}</p>
+                <p className="text-xs text-emerald-300">{diffSummary.newShareOfCurrent.toFixed(1)}% of current results</p>
               </div>
 
-              <div className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-rose-700">Dropped off</p>
-                <p className="mt-1 text-2xl font-semibold text-rose-900">{diffSummary.droppedItems.length}</p>
-                <p className="text-xs text-rose-700">{diffSummary.droppedShareOfPrevious.toFixed(1)}% of previous results</p>
+              <div className="rounded-2xl border border-rose-400/35 bg-rose-500/15 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-rose-300">Dropped off</p>
+                <p className="mt-1 text-2xl font-semibold text-rose-200">{diffSummary.droppedItems.length}</p>
+                <p className="text-xs text-rose-300">{diffSummary.droppedShareOfPrevious.toFixed(1)}% of previous results</p>
               </div>
 
-              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-amber-700">Rank movers</p>
-                <p className="mt-1 text-2xl font-semibold text-amber-900">{diffSummary.movers.length}</p>
-                <p className="text-xs text-amber-700">
+              <div className="rounded-2xl border border-amber-400/35 bg-amber-500/15 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-amber-300">Rank movers</p>
+                <p className="mt-1 text-2xl font-semibold text-amber-200">{diffSummary.movers.length}</p>
+                <p className="text-xs text-amber-300">
                   {diffSummary.moverShareOfShared.toFixed(1)}% of shared • avg shift {diffSummary.averageMoverShift.toFixed(1)}
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-sky-700">Materially changed</p>
-                <p className="mt-1 text-2xl font-semibold text-sky-900">{diffSummary.materiallyChangedCount}</p>
-                <p className="text-xs text-sky-700">{diffSummary.changedShare.toFixed(1)}% of compared universe</p>
+              <div className="rounded-2xl border border-sky-400/35 bg-sky-500/15 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-sky-300">Materially changed</p>
+                <p className="mt-1 text-2xl font-semibold text-sky-200">{diffSummary.materiallyChangedCount}</p>
+                <p className="text-xs text-sky-300">{diffSummary.changedShare.toFixed(1)}% of compared universe</p>
               </div>
             </div>
 
             <div className="mt-4 grid gap-3 xl:grid-cols-[1.2fr_1fr]">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Change composition</p>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-zinc-500">Change composition</p>
                 {diffSummary.totalComparedUniverse > 0 ? (
                   <>
-                    <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
                       <div
                         className="bg-emerald-500"
                         style={{ width: `${(diffSummary.newItems.length / diffSummary.totalComparedUniverse) * 100}%` }}
@@ -725,51 +725,51 @@ export function Scanner() {
                         aria-label="Share of rank movers"
                       />
                       <div
-                        className="bg-slate-400"
+                        className="bg-zinc-500"
                         style={{ width: `${Math.max(0, (diffSummary.totalComparedUniverse - diffSummary.materiallyChangedCount) / diffSummary.totalComparedUniverse) * 100}%` }}
                         aria-label="Share with no material change"
                       />
                     </div>
-                    <div className="mt-2 grid gap-1 text-xs text-slate-700 sm:grid-cols-2">
+                    <div className="mt-2 grid gap-1 text-xs text-zinc-300 sm:grid-cols-2">
                       <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" />new ({diffSummary.newItems.length})</div>
                       <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500" />dropped ({diffSummary.droppedItems.length})</div>
                       <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />rank moved ({diffSummary.movers.length})</div>
-                      <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-400" />stable ({Math.max(0, diffSummary.totalComparedUniverse - diffSummary.materiallyChangedCount)})</div>
+                      <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-zinc-500" />stable ({Math.max(0, diffSummary.totalComparedUniverse - diffSummary.materiallyChangedCount)})</div>
                     </div>
                   </>
                 ) : (
-                  <p className="mt-2 text-sm text-slate-600">No comparable items yet.</p>
+                  <p className="mt-2 text-sm text-zinc-400">No comparable items yet.</p>
                 )}
 
-                <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
-                    <p className="uppercase tracking-label text-slate-500">Net opportunity delta</p>
+                <div className="mt-3 grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
+                  <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
+                    <p className="uppercase tracking-label text-zinc-500">Net opportunity delta</p>
                     <p className={diffSummary.netOpportunityDelta >= 0 ? "mt-1 font-semibold text-emerald-700" : "mt-1 font-semibold text-rose-700"}>
                       {diffSummary.netOpportunityDelta >= 0 ? `+${diffSummary.netOpportunityDelta}` : diffSummary.netOpportunityDelta}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
-                    <p className="uppercase tracking-label text-slate-500">Mover direction split</p>
-                    <p className="mt-1 font-semibold text-slate-800">
+                  <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
+                    <p className="uppercase tracking-label text-zinc-500">Mover direction split</p>
+                    <p className="mt-1 font-semibold text-zinc-200">
                       <span className="text-emerald-700">↑ {diffSummary.improvedRank.length}</span>
-                      <span className="mx-2 text-slate-400">/</span>
+                      <span className="mx-2 text-zinc-500">/</span>
                       <span className="text-rose-700">↓ {diffSummary.declinedRank.length}</span>
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
-                    <p className="uppercase tracking-label text-slate-500">Profit deltas</p>
-                    <p className="mt-1 font-semibold text-slate-800">{diffSummary.profitChanged.length} changed</p>
+                  <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
+                    <p className="uppercase tracking-label text-zinc-500">Profit deltas</p>
+                    <p className="mt-1 font-semibold text-zinc-200">{diffSummary.profitChanged.length} changed</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
-                    <p className="uppercase tracking-label text-slate-500">Score / ROI deltas</p>
-                    <p className="mt-1 font-semibold text-slate-800">{diffSummary.scoreChanged.length} / {diffSummary.roiChanged.length}</p>
+                  <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
+                    <p className="uppercase tracking-label text-zinc-500">Score / ROI deltas</p>
+                    <p className="mt-1 font-semibold text-zinc-200">{diffSummary.scoreChanged.length} / {diffSummary.roiChanged.length}</p>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                  <p className="text-xs uppercase tracking-label text-slate-500">Top movers</p>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+                  <p className="text-xs uppercase tracking-label text-zinc-500">Top movers</p>
                   <div className="mt-2 space-y-2 text-sm">
                     {diffSummary.topMovers.length ? diffSummary.topMovers.map((entry) => {
                       const maxShift = Math.max(1, Math.max(...diffSummary.topMovers.map((row) => Math.abs(row.rankDelta))));
@@ -777,12 +777,12 @@ export function Scanner() {
                       return (
                         <div key={`move-${entry.result.id}`}>
                           <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-slate-800">{entry.result.item_name}</span>
+                            <span className="truncate text-zinc-200">{entry.result.item_name}</span>
                             <span className={entry.rankDelta > 0 ? "shrink-0 font-semibold text-emerald-700" : "shrink-0 font-semibold text-rose-700"}>
                               {entry.rankDelta > 0 ? `↑ ${entry.rankDelta}` : `↓ ${Math.abs(entry.rankDelta)}`}
                             </span>
                           </div>
-                          <div className="mt-1 h-1.5 rounded-full bg-slate-200">
+                          <div className="mt-1 h-1.5 rounded-full bg-zinc-800">
                             <div
                               className={entry.rankDelta > 0 ? "h-1.5 rounded-full bg-emerald-500" : "h-1.5 rounded-full bg-rose-500"}
                               style={{ width: `${widthPct}%` }}
@@ -790,24 +790,24 @@ export function Scanner() {
                           </div>
                         </div>
                       );
-                    }) : <p className="text-slate-600">No rank movement yet.</p>}
+                    }) : <p className="text-zinc-400">No rank movement yet.</p>}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                  <p className="text-xs uppercase tracking-label text-slate-500">In / out highlights</p>
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+                  <p className="text-xs uppercase tracking-label text-zinc-500">In / out highlights</p>
                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
                     <div>
                       <p className="mb-1 text-xs uppercase tracking-label text-emerald-700">New</p>
                       {diffSummary.topNewItems.length ? diffSummary.topNewItems.map((entry) => (
-                        <div key={`new-${entry.result.id}`} className="truncate text-slate-700">{entry.result.item_name}</div>
-                      )) : <div className="text-slate-600">No new ranked items.</div>}
+                        <div key={`new-${entry.result.id}`} className="truncate text-zinc-300">{entry.result.item_name}</div>
+                      )) : <div className="text-zinc-400">No new ranked items.</div>}
                     </div>
                     <div>
                       <p className="mb-1 text-xs uppercase tracking-label text-rose-700">Dropped</p>
                       {diffSummary.topDroppedItems.length ? diffSummary.topDroppedItems.map((entry) => (
-                        <div key={`drop-${entry.result.id}`} className="truncate text-slate-700">{entry.result.item_name}</div>
-                      )) : <div className="text-slate-600">No items dropped off.</div>}
+                        <div key={`drop-${entry.result.id}`} className="truncate text-zinc-300">{entry.result.item_name}</div>
+                      )) : <div className="text-zinc-400">No items dropped off.</div>}
                     </div>
                   </div>
                 </div>
@@ -816,9 +816,9 @@ export function Scanner() {
 
             {(diffSummary.classDeltas.length || diffSummary.realmDeltas.length) ? (
               <div className="mt-3 grid gap-2 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-label text-slate-500">Class mix shift</p>
-                  <div className="mt-1 space-y-1 text-xs text-slate-700">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-xs uppercase tracking-label text-zinc-500">Class mix shift</p>
+                  <div className="mt-1 space-y-1 text-xs text-zinc-300">
                     {diffSummary.classDeltas.length ? diffSummary.classDeltas.map((entry) => (
                       <div key={`class-${entry.name}`} className="flex items-center justify-between gap-2">
                         <span className="truncate">{entry.name}</span>
@@ -830,9 +830,9 @@ export function Scanner() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-                  <p className="text-xs uppercase tracking-label text-slate-500">Cheapest-buy realm shift</p>
-                  <div className="mt-1 space-y-1 text-xs text-slate-700">
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                  <p className="text-xs uppercase tracking-label text-zinc-500">Cheapest-buy realm shift</p>
+                  <div className="mt-1 space-y-1 text-xs text-zinc-300">
                     {diffSummary.realmDeltas.length ? diffSummary.realmDeltas.map((entry) => (
                       <div key={`realm-${entry.realm}`} className="flex items-center justify-between gap-2">
                         <span className="truncate">{entry.realm}</span>
@@ -849,14 +849,14 @@ export function Scanner() {
         ) : null}
 
         {recentScans.length ? (
-          <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
-            <h3 className="font-display text-lg font-semibold text-ink">Recent scans</h3>
+          <div className="rounded-3xl border border-white/15 bg-zinc-900/55 p-4 shadow-card backdrop-blur-xl">
+            <h3 className="font-display text-lg font-semibold text-zinc-100">Recent scans</h3>
             <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
               {recentScans.map((scan) => (
-                <div key={scan.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
-                  <div className="font-semibold text-ink">{scan.provider_name}</div>
+                <div key={scan.id} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-zinc-300">
+                  <div className="font-semibold text-zinc-100">{scan.provider_name}</div>
                   <div className="mt-1">{formatDateTime(scan.generated_at)}</div>
-                  <div className="mt-1 text-slate-500">{scan.result_count} ranked results</div>
+                  <div className="mt-1 text-zinc-500">{scan.result_count} ranked results</div>
                 </div>
               ))}
             </div>
@@ -864,17 +864,17 @@ export function Scanner() {
         ) : null}
 
         {selectedProvenanceResult ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
-            <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/70 bg-white p-5 shadow-card">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/75 p-4">
+            <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/15 bg-zinc-900/95 p-5 shadow-card backdrop-blur-xl">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-display text-xl font-semibold text-ink">Score provenance drilldown</h3>
-                  <p className="mt-1 text-sm text-slate-600">{selectedProvenanceResult.item_name} • {selectedProvenanceResult.cheapest_buy_realm} → {selectedProvenanceResult.best_sell_realm}</p>
+                  <h3 className="font-display text-xl font-semibold text-zinc-100">Score provenance drilldown</h3>
+                  <p className="mt-1 text-sm text-zinc-300">{selectedProvenanceResult.item_name} • {selectedProvenanceResult.cheapest_buy_realm} → {selectedProvenanceResult.best_sell_realm}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedProvenanceResult(null)}
-                  className="rounded-full border border-slate-300 px-3 py-1 text-sm font-semibold text-slate-700"
+                  className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-sm font-semibold text-zinc-200"
                 >
                   Close
                 </button>
@@ -902,17 +902,17 @@ export function Scanner() {
                 return (
                   <div className="mt-4 space-y-4">
                     <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-label text-slate-500">Components</p>
-                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p className="text-xs uppercase tracking-label text-zinc-500">Components</p>
+                        <div className="mt-2 space-y-1 text-sm text-zinc-300">
                           <p>Liquidity: {(components.liquidity ?? 0).toFixed(2)}</p>
                           <p>Volatility: {(components.volatility ?? 0).toFixed(2)}</p>
                           <p>Anti-bait: {(components.anti_bait ?? 0).toFixed(2)}</p>
                         </div>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-label text-slate-500">Confidence components</p>
-                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p className="text-xs uppercase tracking-label text-zinc-500">Confidence components</p>
+                        <div className="mt-2 space-y-1 text-sm text-zinc-300">
                           {Object.entries(confidenceComponents).map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
                           ))}
@@ -921,17 +921,17 @@ export function Scanner() {
                     </div>
 
                     <div className="grid gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-label text-slate-500">Final components</p>
-                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p className="text-xs uppercase tracking-label text-zinc-500">Final components</p>
+                        <div className="mt-2 space-y-1 text-sm text-zinc-300">
                           {Object.entries(finalComponents).map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
                           ))}
                         </div>
                       </div>
-                      <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-label text-slate-500">Adjustments</p>
-                        <div className="mt-2 space-y-1 text-sm text-slate-700">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                        <p className="text-xs uppercase tracking-label text-zinc-500">Adjustments</p>
+                        <div className="mt-2 space-y-1 text-sm text-zinc-300">
                           {numericAdjustments.map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
                           ))}
@@ -940,9 +940,9 @@ export function Scanner() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                      <p className="text-xs uppercase tracking-label text-slate-500">Evidence gate</p>
-                      <div className="mt-2 space-y-1 text-sm text-slate-700">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-xs uppercase tracking-label text-zinc-500">Evidence gate</p>
+                      <div className="mt-2 space-y-1 text-sm text-zinc-300">
                         <p>Applied: {String(Boolean(evidence.gate_applied))}</p>
                         <p>Sell depth OK: {String(Boolean(evidence.sell_depth_ok))}</p>
                         <p>History coverage OK: {String(Boolean(evidence.history_coverage_ok))}</p>

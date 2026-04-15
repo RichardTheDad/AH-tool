@@ -22,13 +22,13 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
   }, [selectedRealm, sortedHistory]);
 
   if (!sortedHistory.length) {
-    return <p className="text-sm text-slate-500">Not enough local snapshot history yet. Run more scans over time to build auction history.</p>;
+    return <p className="text-sm text-zinc-400">Not enough local snapshot history yet. Run more scans over time to build auction history.</p>;
   }
 
   const activeHistory = sortedHistory.find((entry) => entry.realm === selectedRealm) ?? sortedHistory[0];
   const chartPoints = activeHistory.points.filter((point) => point.lowest_price !== null || point.average_price !== null);
   if (!chartPoints.length) {
-    return <p className="text-sm text-slate-500">No chartable price points were found for this realm yet.</p>;
+    return <p className="text-sm text-zinc-400">No chartable price points were found for this realm yet.</p>;
   }
 
   const width = 760;
@@ -69,9 +69,11 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
             key={entry.realm}
             type="button"
             onClick={() => setSelectedRealm(entry.realm)}
-            className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-              entry.realm === activeHistory.realm ? "border-ink bg-ink text-white" : "border-slate-200 bg-white text-slate-700"
-            }`}
+            className={
+              entry.realm === activeHistory.realm
+                ? "rounded-full border border-orange-500 bg-orange-500 px-3 py-1.5 text-sm font-semibold text-white transition"
+                : "rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-300 transition"
+            }
           >
             {entry.realm}
           </button>
@@ -79,31 +81,31 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
       </div>
 
       <div className="grid gap-3 md:grid-cols-4">
-        <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-detail text-slate-500">Snapshots</p>
-          <p className="mt-1 font-semibold text-ink">{activeHistory.points.length}</p>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+          <p className="text-xs uppercase tracking-detail text-zinc-500">Snapshots</p>
+          <p className="mt-1 font-semibold text-zinc-100">{activeHistory.points.length}</p>
         </div>
-        <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-detail text-slate-500">First observed</p>
-          <p className="mt-1 font-semibold text-ink"><GoldAmount value={firstPoint.lowest_price} /></p>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+          <p className="text-xs uppercase tracking-detail text-zinc-500">First observed</p>
+          <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={firstPoint.lowest_price} /></p>
         </div>
-        <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-detail text-slate-500">Latest observed</p>
-          <p className="mt-1 font-semibold text-ink"><GoldAmount value={latestPoint.lowest_price} /></p>
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+          <p className="text-xs uppercase tracking-detail text-zinc-500">Latest observed</p>
+          <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={latestPoint.lowest_price} /></p>
         </div>
-        <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-detail text-slate-500">Latest depth</p>
-          <p className="mt-1 font-semibold text-ink">
+        <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
+          <p className="text-xs uppercase tracking-detail text-zinc-500">Latest depth</p>
+          <p className="mt-1 font-semibold text-zinc-100">
             {latestPoint.quantity ?? "--"} qty / {latestPoint.listing_count ?? "--"} listings
           </p>
         </div>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4">
+      <div className="rounded-3xl border border-white/10 bg-gradient-to-b from-zinc-900/80 to-zinc-950/90 p-4">
         <svg viewBox={`0 0 ${width} ${height}`} className="h-[260px] w-full" role="img" aria-label={`${activeHistory.realm} auction history`}>
           {[0, 1, 2, 3].map((row) => {
             const y = paddingTop + ((height - paddingTop - paddingBottom) / 3) * row;
-            return <line key={row} x1={paddingLeft} x2={width - paddingRight} y1={y} y2={y} stroke="#e2e8f0" strokeDasharray="4 6" />;
+            return <line key={row} x1={paddingLeft} x2={width - paddingRight} y1={y} y2={y} stroke="#3f3f46" strokeDasharray="4 6" />;
           })}
           {chartPoints.map((point, index) => {
             const x = paddingLeft + stepX * index - barWidth / 2;
@@ -137,7 +139,7 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
           {[minValue, minValue + range / 2, maxValue].map((labelValue, index) => {
             const y = height - paddingBottom - ((labelValue - minValue) / range) * (height - paddingTop - paddingBottom);
             return (
-              <text key={index} x={paddingLeft - 5} y={y + 4} textAnchor="end" fontSize="11" fill="#64748b">
+              <text key={index} x={paddingLeft - 5} y={y + 4} textAnchor="end" fontSize="11" fill="#a1a1aa">
                 {formatGoldChartLabel(labelValue)}
               </text>
             );
@@ -175,7 +177,7 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
                   y={height - 12}
                   textAnchor={index === 0 ? "start" : index === chartPoints.length - 1 ? "end" : "middle"}
                   fontSize="10"
-                  fill="#64748b"
+                  fill="#a1a1aa"
                 >
                   {label}
                 </text>
@@ -184,7 +186,7 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
           })()}
         </svg>
 
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-zinc-400">
           <span className="inline-flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-teal-700" />
             Lowest listing
@@ -198,7 +200,7 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
             Quantity trend
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-3 w-3 rounded bg-slate-400/50" />
+            <span className="h-3 w-3 rounded bg-zinc-500/50" />
             Listing-count trend
           </span>
           <span>History reflects local snapshot data collected by this app, not completed sales.</span>

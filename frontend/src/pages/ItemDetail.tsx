@@ -59,7 +59,7 @@ export function ItemDetail() {
             }
             navigate("/");
           }}
-          className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-ink hover:text-ink"
+          className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-300 transition hover:border-orange-400/45 hover:text-zinc-100"
         >
           Back to scanner
         </button>
@@ -75,7 +75,7 @@ export function ItemDetail() {
               href={item.undermine_url}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-ink hover:text-ink"
+              className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-300 transition hover:border-orange-400/45 hover:text-zinc-100"
             >
               View on Undermine Exchange
             </a>
@@ -83,20 +83,20 @@ export function ItemDetail() {
         </div>
         <div className="grid gap-4 lg:grid-cols-4">
           <div>
-            <p className="text-xs uppercase tracking-detail text-slate-500">Quality</p>
-            <p className="mt-1 font-semibold text-ink">{item.quality ?? "Unknown"}</p>
+            <p className="text-xs uppercase tracking-detail text-zinc-500">Quality</p>
+            <p className="mt-1 font-semibold text-zinc-100">{item.quality ?? "Unknown"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-detail text-slate-500">Commodity</p>
-            <p className="mt-1 font-semibold text-ink">{item.is_commodity ? "Yes" : "No"}</p>
+            <p className="text-xs uppercase tracking-detail text-zinc-500">Commodity</p>
+            <p className="mt-1 font-semibold text-zinc-100">{item.is_commodity ? "Yes" : "No"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-detail text-slate-500">Best buy</p>
-            <p className="mt-1 font-semibold text-ink">{item.recent_scan?.cheapest_buy_realm ?? "-"}</p>
+            <p className="text-xs uppercase tracking-detail text-zinc-500">Best buy</p>
+            <p className="mt-1 font-semibold text-zinc-100">{item.recent_scan?.cheapest_buy_realm ?? "-"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-detail text-slate-500">Best sell</p>
-            <p className="mt-1 font-semibold text-ink">{item.recent_scan?.best_sell_realm ?? "-"}</p>
+            <p className="text-xs uppercase tracking-detail text-zinc-500">Best sell</p>
+            <p className="mt-1 font-semibold text-zinc-100">{item.recent_scan?.best_sell_realm ?? "-"}</p>
           </div>
         </div>
       </Card>
@@ -105,20 +105,20 @@ export function ItemDetail() {
         <Card title="Recent scan result" subtitle="The latest ranked opportunity for this item across your enabled realms.">
           <div className="grid gap-4 lg:grid-cols-4">
             <div>
-              <p className="text-xs uppercase tracking-detail text-slate-500">Profit</p>
-              <p className="mt-1 font-semibold text-emerald-700"><GoldAmount value={item.recent_scan.estimated_profit} /></p>
+              <p className="text-xs uppercase tracking-detail text-zinc-500">Profit</p>
+              <p className="mt-1 font-semibold text-emerald-300"><GoldAmount value={item.recent_scan.estimated_profit} /></p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-detail text-slate-500">ROI</p>
-              <p className="mt-1 font-semibold text-ink">{formatPercent(item.recent_scan.roi)}</p>
+              <p className="text-xs uppercase tracking-detail text-zinc-500">ROI</p>
+              <p className="mt-1 font-semibold text-zinc-100">{formatPercent(item.recent_scan.roi)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-detail text-slate-500">Confidence</p>
-              <p className="mt-1 font-semibold text-ink">{formatScore(item.recent_scan.confidence_score)}</p>
+              <p className="text-xs uppercase tracking-detail text-zinc-500">Confidence</p>
+              <p className="mt-1 font-semibold text-zinc-100">{formatScore(item.recent_scan.confidence_score)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-detail text-slate-500">Explanation</p>
-              <p className="mt-1 text-sm text-slate-600">{item.recent_scan.explanation}</p>
+              <p className="text-xs uppercase tracking-detail text-zinc-500">Explanation</p>
+              <p className="mt-1 text-sm text-zinc-300">{item.recent_scan.explanation}</p>
             </div>
           </div>
         </Card>
@@ -133,10 +133,10 @@ export function ItemDetail() {
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
               item.tsm_status === "available"
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-emerald-500/20 text-emerald-300"
                 : item.tsm_status === "error"
-                  ? "bg-rose-100 text-rose-700"
-                  : "bg-slate-100 text-slate-700"
+                  ? "bg-rose-500/20 text-rose-300"
+                  : "bg-white/10 text-zinc-300"
             }`}
           >
             {item.tsm_status === "available" ? "TSM market data available" : item.tsm_status === "error" ? "TSM market data error" : "TSM market data unavailable"}
@@ -144,10 +144,10 @@ export function ItemDetail() {
           <span
             className={`rounded-full px-3 py-1 text-xs font-semibold ${
               item.tsm_ledger_status === "available"
-                ? "bg-emerald-100 text-emerald-700"
+                ? "bg-emerald-500/20 text-emerald-300"
                 : item.tsm_ledger_status === "error"
-                  ? "bg-rose-100 text-rose-700"
-                  : "bg-slate-100 text-slate-700"
+                  ? "bg-rose-500/20 text-rose-300"
+                  : "bg-white/10 text-zinc-300"
             }`}
           >
             {item.tsm_ledger_status === "available"
@@ -160,26 +160,26 @@ export function ItemDetail() {
 
         <div className="space-y-6">
           <div>
-            <p className="text-xs uppercase tracking-detail text-slate-500">Region market view</p>
-            {item.tsm_message ? <p className="mt-2 text-sm text-slate-600">{item.tsm_message}</p> : null}
+            <p className="text-xs uppercase tracking-detail text-zinc-500">Region market view</p>
+            {item.tsm_message ? <p className="mt-2 text-sm text-zinc-300">{item.tsm_message}</p> : null}
             {item.tsm_region_stats ? (
               <div className="mt-3 grid gap-4 lg:grid-cols-5">
                 <div>
-                  <p className="text-xs uppercase tracking-detail text-slate-500">Region market avg</p>
-                  <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_region_stats.db_region_market_avg} /></p>
+                  <p className="text-xs uppercase tracking-detail text-zinc-500">Region market avg</p>
+                  <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={item.tsm_region_stats.db_region_market_avg} /></p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-detail text-slate-500">Region historical</p>
-                  <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_region_stats.db_region_historical} /></p>
+                  <p className="text-xs uppercase tracking-detail text-zinc-500">Region historical</p>
+                  <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={item.tsm_region_stats.db_region_historical} /></p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-detail text-slate-500">Region sale avg</p>
-                  <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_region_stats.db_region_sale_avg} /></p>
+                  <p className="text-xs uppercase tracking-detail text-zinc-500">Region sale avg</p>
+                  <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={item.tsm_region_stats.db_region_sale_avg} /></p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-detail text-slate-500">Region sale rate</p>
+                  <p className="text-xs uppercase tracking-detail text-zinc-500">Region sale rate</p>
                   <p
-                    className="mt-1 font-semibold text-ink"
+                    className="mt-1 font-semibold text-zinc-100"
                     title={
                       item.tsm_region_stats.db_region_sale_rate === null || item.tsm_region_stats.db_region_sale_rate === undefined
                         ? "No TSM sale-rate data available."
@@ -190,9 +190,9 @@ export function ItemDetail() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-detail text-slate-500">Region sold / day</p>
+                  <p className="text-xs uppercase tracking-detail text-zinc-500">Region sold / day</p>
                   <p
-                    className="mt-1 font-semibold text-ink"
+                    className="mt-1 font-semibold text-zinc-100"
                     title={
                       item.tsm_region_stats.db_region_sold_per_day === null || item.tsm_region_stats.db_region_sold_per_day === undefined
                         ? "No TSM sold-per-day data available."
@@ -204,16 +204,16 @@ export function ItemDetail() {
                 </div>
               </div>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">TSM region market stats are unavailable for this item right now.</p>
+              <p className="mt-2 text-sm text-zinc-400">TSM region market stats are unavailable for this item right now.</p>
             )}
           </div>
 
           {item.tsm_realm_stats.length ? (
             <div>
-              <p className="text-xs uppercase tracking-detail text-slate-500">Tracked realm AuctionDB context</p>
+              <p className="text-xs uppercase tracking-detail text-zinc-500">Tracked realm AuctionDB context</p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-slate-200 text-xs uppercase tracking-detail text-slate-500">
+                  <thead className="border-b border-white/15 text-xs uppercase tracking-detail text-zinc-500">
                     <tr>
                       <th className="px-3 py-2">Realm</th>
                       <th className="px-3 py-2">TSM recent</th>
@@ -224,12 +224,12 @@ export function ItemDetail() {
                   </thead>
                   <tbody>
                     {item.tsm_realm_stats.map((row) => (
-                      <tr key={row.realm} className="border-b border-slate-100 last:border-b-0">
-                        <td className="px-3 py-2 font-semibold text-ink">{row.realm}</td>
-                        <td className="px-3 py-2 text-slate-700"><GoldAmount value={row.market_value_recent} /></td>
-                        <td className="px-3 py-2 text-slate-700"><GoldAmount value={row.historical} /></td>
-                        <td className="px-3 py-2 text-slate-700"><GoldAmount value={row.min_buyout} /></td>
-                        <td className="px-3 py-2 text-slate-700">{row.num_auctions?.toFixed(0) ?? "--"}</td>
+                      <tr key={row.realm} className="border-b border-white/10 last:border-b-0">
+                        <td className="px-3 py-2 font-semibold text-zinc-100">{row.realm}</td>
+                        <td className="px-3 py-2 text-zinc-300"><GoldAmount value={row.market_value_recent} /></td>
+                        <td className="px-3 py-2 text-zinc-300"><GoldAmount value={row.historical} /></td>
+                        <td className="px-3 py-2 text-zinc-300"><GoldAmount value={row.min_buyout} /></td>
+                        <td className="px-3 py-2 text-zinc-300">{row.num_auctions?.toFixed(0) ?? "--"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -239,67 +239,67 @@ export function ItemDetail() {
           ) : null}
 
           <div>
-            <p className="text-xs uppercase tracking-detail text-slate-500">Personal TSM ledger</p>
-            {item.tsm_ledger_message ? <p className="mt-2 text-sm text-slate-600">{item.tsm_ledger_message}</p> : null}
+            <p className="text-xs uppercase tracking-detail text-zinc-500">Personal TSM ledger</p>
+            {item.tsm_ledger_message ? <p className="mt-2 text-sm text-zinc-300">{item.tsm_ledger_message}</p> : null}
             {item.tsm_ledger_summary ? (
               <div className="mt-3 space-y-6">
                 <div className="grid gap-4 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Auction sales</p>
-                    <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_sale_count}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Auction sales</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{item.tsm_ledger_summary.auction_sale_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Units sold</p>
-                    <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_units_sold}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Units sold</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{item.tsm_ledger_summary.auction_units_sold}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Avg unit sold</p>
-                    <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_ledger_summary.auction_avg_unit_sale_price} /></p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Avg unit sold</p>
+                    <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={item.tsm_ledger_summary.auction_avg_unit_sale_price} /></p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Last sale</p>
-                    <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_auction_sale_at)}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Last sale</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{formatDateTime(item.tsm_ledger_summary.last_auction_sale_at)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Auction buys</p>
-                    <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_buy_count}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Auction buys</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{item.tsm_ledger_summary.auction_buy_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Units bought</p>
-                    <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_units_bought}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Units bought</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{item.tsm_ledger_summary.auction_units_bought}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Avg unit bought</p>
-                    <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_ledger_summary.auction_avg_unit_buy_price} /></p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Avg unit bought</p>
+                    <p className="mt-1 font-semibold text-zinc-100"><GoldAmount value={item.tsm_ledger_summary.auction_avg_unit_buy_price} /></p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Last buy</p>
-                    <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_auction_buy_at)}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Last buy</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{formatDateTime(item.tsm_ledger_summary.last_auction_buy_at)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Cancels</p>
-                    <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.cancel_count}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Cancels</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{item.tsm_ledger_summary.cancel_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Expired</p>
-                    <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.expired_count}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Expired</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{item.tsm_ledger_summary.expired_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Last cancel</p>
-                    <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_cancel_at)}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Last cancel</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{formatDateTime(item.tsm_ledger_summary.last_cancel_at)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Last expired</p>
-                    <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_expired_at)}</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Last expired</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{formatDateTime(item.tsm_ledger_summary.last_expired_at)}</p>
                   </div>
                 </div>
 
                 {item.tsm_ledger_summary.recent_sales.length ? (
                   <div>
-                    <p className="text-xs uppercase tracking-detail text-slate-500">Recent personal auction sales</p>
+                    <p className="text-xs uppercase tracking-detail text-zinc-500">Recent personal auction sales</p>
                     <div className="mt-3 overflow-x-auto">
                       <table className="min-w-full text-left text-sm">
-                        <thead className="border-b border-slate-200 text-xs uppercase tracking-detail text-slate-500">
+                        <thead className="border-b border-white/15 text-xs uppercase tracking-detail text-zinc-500">
                           <tr>
                             <th className="px-3 py-2">Realm</th>
                             <th className="px-3 py-2">Quantity</th>
@@ -310,12 +310,12 @@ export function ItemDetail() {
                         </thead>
                         <tbody>
                           {item.tsm_ledger_summary.recent_sales.map((sale, index) => (
-                            <tr key={`${sale.realm}-${sale.time ?? "unknown"}-${index}`} className="border-b border-slate-100 last:border-b-0">
-                              <td className="px-3 py-2 font-semibold text-ink">{sale.realm}</td>
-                              <td className="px-3 py-2 text-slate-700">{sale.quantity ?? "--"}</td>
-                              <td className="px-3 py-2 text-slate-700"><GoldAmount value={sale.price} /></td>
-                              <td className="px-3 py-2 text-slate-700">{sale.other_player ?? "Unknown"}</td>
-                              <td className="px-3 py-2 text-slate-700">{formatDateTime(sale.time)}</td>
+                            <tr key={`${sale.realm}-${sale.time ?? "unknown"}-${index}`} className="border-b border-white/10 last:border-b-0">
+                              <td className="px-3 py-2 font-semibold text-zinc-100">{sale.realm}</td>
+                              <td className="px-3 py-2 text-zinc-300">{sale.quantity ?? "--"}</td>
+                              <td className="px-3 py-2 text-zinc-300"><GoldAmount value={sale.price} /></td>
+                              <td className="px-3 py-2 text-zinc-300">{sale.other_player ?? "Unknown"}</td>
+                              <td className="px-3 py-2 text-zinc-300">{formatDateTime(sale.time)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -325,7 +325,7 @@ export function ItemDetail() {
                 ) : null}
               </div>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">No local TSM ledger history was found for this item yet.</p>
+              <p className="mt-2 text-sm text-zinc-400">No local TSM ledger history was found for this item yet.</p>
             )}
           </div>
         </div>

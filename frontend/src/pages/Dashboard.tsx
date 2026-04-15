@@ -50,7 +50,7 @@ export function Dashboard() {
             {readiness.message}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-xs font-medium text-slate-700">
+            <div className="px-2.5 py-1.5 rounded-lg bg-white/10 text-xs font-medium text-zinc-200 border border-white/15">
               {realms.filter((realm) => realm.enabled).length} enabled
             </div>
             {readiness.realms_with_fresh_data > 0 && (
@@ -61,21 +61,21 @@ export function Dashboard() {
                 label={`${readiness.realms_with_fresh_data} fresh`}
               />
             )}
-            <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-xs font-medium text-slate-700">
+            <div className="px-2.5 py-1.5 rounded-lg bg-white/10 text-xs font-medium text-zinc-200 border border-white/15">
               {readiness.unique_item_count} items
             </div>
-            <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-xs font-medium text-slate-700">
+            <div className="px-2.5 py-1.5 rounded-lg bg-white/10 text-xs font-medium text-zinc-200 border border-white/15">
               {latest?.result_count ?? 0} ranked
             </div>
           </div>
-          <p className="mt-4 text-sm text-slate-600">
-            <span className="font-medium text-ink block mb-1">Next step:</span>
+          <p className="mt-4 text-sm text-zinc-300">
+            <span className="font-medium text-zinc-100 block mb-1">Next step:</span>
             {nextStep}
           </p>
         </Card>
         <Card title="Live readiness">
-          <p className="text-3xl font-bold text-ink">{liveProviderCount}/{liveProviders.length || 1}</p>
-          <p className="mt-2 text-xs text-slate-500">of live providers ready</p>
+          <p className="text-3xl font-bold text-zinc-100">{liveProviderCount}/{liveProviders.length || 1}</p>
+          <p className="mt-2 text-xs text-zinc-400">of live providers ready</p>
           {primaryListingProvider ? (
             <div className="mt-3">
               {primaryListingProvider.available ? (
@@ -87,8 +87,8 @@ export function Dashboard() {
           ) : null}
         </Card>
         <Card title="Data coverage">
-          <p className="text-3xl font-bold text-ink">{readiness.missing_realms.length}</p>
-          <p className="mt-2 text-xs text-slate-500">realms with gaps</p>
+          <p className="text-3xl font-bold text-zinc-100">{readiness.missing_realms.length}</p>
+          <p className="mt-2 text-xs text-zinc-400">realms with gaps</p>
           {staleCount > 0 && (
             <div className="mt-3">
               <StatusIndicator status="warning" size="sm" variant="pill" label={`${staleCount} stale results`} />
@@ -98,7 +98,7 @@ export function Dashboard() {
       </div>
 
       <Card title="Where to work" subtitle="Dashboard stays light; details on Scanner.">
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-zinc-300">
           Use the{" "}
           <Link to="/scanner" variant="default">
             Scanner
@@ -124,10 +124,10 @@ export function Dashboard() {
         <Card title="Realm coverage" subtitle="Freshness and item coverage.">
           <div className="space-y-2">
             {readiness.realms.map((realm) => (
-              <div key={realm.realm} className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 px-3 py-2">
+              <div key={realm.realm} className="flex items-center justify-between gap-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
                 <div className="min-w-0">
-                  <p className="font-semibold text-sm text-ink">{realm.realm}</p>
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="font-semibold text-sm text-zinc-100">{realm.realm}</p>
+                  <p className="mt-0.5 text-xs text-zinc-400">
                     {realm.latest_item_count ? `${realm.fresh_item_count} fresh / ${realm.stale_item_count} stale` : "No data yet"}
                   </p>
                 </div>

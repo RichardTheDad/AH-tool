@@ -9,9 +9,9 @@ type ItemListingRow = Pick<ListingSnapshot, "realm" | "lowest_price" | "average_
 
 export function ItemListingsTable({ listings }: { listings: Array<ListingSnapshot | LiveListingRow | ItemListingRow> }) {
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-card">
-      <table className="min-w-full divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-xs uppercase tracking-detail text-slate-500">
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/70 shadow-card backdrop-blur-xl">
+      <table className="min-w-full divide-y divide-white/10 text-sm">
+        <thead className="bg-white/5 text-left text-xs uppercase tracking-detail text-zinc-500">
           <tr>
             <th className="px-4 py-3">Realm</th>
             <th className="px-4 py-3">Lowest</th>
@@ -21,7 +21,7 @@ export function ItemListingsTable({ listings }: { listings: Array<ListingSnapsho
             <th className="px-4 py-3">Captured</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-white/10 text-zinc-300">
           {listings.map((listing, index) => (
             <tr key={"id" in listing && listing.id !== undefined ? listing.id : `${listing.realm}-${listing.captured_at}-${index}`}>
               <td className="px-4 py-3">

@@ -13,14 +13,14 @@ export const FormField = forwardRef<HTMLDivElement, PropsWithChildren<FormFieldP
     if (horizontal) {
       return (
         <div ref={ref} className="grid grid-cols-3 gap-4 items-start">
-          <label className="text-sm font-medium text-slate-700 pt-2">
+          <label className="text-sm font-medium text-zinc-200 pt-2">
             {label}
             {required && <span className="text-rose-500 ml-1">*</span>}
           </label>
           <div className="col-span-2 space-y-1">
             {children}
-            {error && <p className="text-xs text-rose-600">{error}</p>}
-            {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+            {error && <p className="text-xs text-rose-300">{error}</p>}
+            {hint && !error && <p className="text-xs text-zinc-400">{hint}</p>}
           </div>
         </div>
       );
@@ -28,13 +28,13 @@ export const FormField = forwardRef<HTMLDivElement, PropsWithChildren<FormFieldP
 
     return (
       <div ref={ref} className="space-y-1">
-        <label className="text-sm font-medium text-slate-700">
+        <label className="text-sm font-medium text-zinc-200">
           {label}
           {required && <span className="text-rose-500 ml-1">*</span>}
         </label>
         {children}
-        {error && <p className="text-xs text-rose-600">{error}</p>}
-        {hint && !error && <p className="text-xs text-slate-500">{hint}</p>}
+        {error && <p className="text-xs text-rose-300">{error}</p>}
+        {hint && !error && <p className="text-xs text-zinc-400">{hint}</p>}
       </div>
     );
   }
