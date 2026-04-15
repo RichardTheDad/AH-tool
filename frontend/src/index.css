@@ -3,19 +3,22 @@
 @tailwind utilities;
 
 :root {
-  color: #201816;
+  --text-primary: #f4f4f5;
+  --text-secondary: #d4d4d8;
+  --text-tertiary: #a1a1aa;
+  color: var(--text-primary);
   background:
-    radial-gradient(circle at top left, rgba(213, 173, 109, 0.28), transparent 28%),
-    radial-gradient(circle at top right, rgba(86, 98, 79, 0.2), transparent 30%),
-    linear-gradient(180deg, #fff6e7 0%, #f0e4ce 48%, #e6d7bd 100%);
-  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    radial-gradient(circle at 14% 18%, rgba(249, 115, 22, 0.22), transparent 40%),
+    radial-gradient(circle at 86% 82%, rgba(37, 99, 235, 0.2), transparent 46%),
+    linear-gradient(180deg, #09090b 0%, #0f172a 52%, #09090b 100%);
+  font-family: "Sora", "Segoe UI", sans-serif;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  color: #201816;
+  color: var(--text-primary);
 }
 
 #root {
@@ -31,8 +34,8 @@ body {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(213, 173, 109, 0.5), rgba(255, 255, 255, 0.1));
-  opacity: 0.55;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.35), rgba(255, 255, 255, 0.05));
+  opacity: 0.7;
   pointer-events: none;
 }
 

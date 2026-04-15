@@ -10,8 +10,8 @@ interface LinkProps extends Omit<RouterLinkProps, "to"> {
 export const Link = forwardRef<HTMLAnchorElement, PropsWithChildren<LinkProps>>(
   ({ variant = "default", external = false, className = "", ...props }, ref) => {
     const variantClasses = {
-      default: "text-ink hover:text-ember underline-offset-2 hover:underline transition",
-      muted: "text-slate-500 hover:text-slate-700 underline-offset-2 hover:underline transition",
+      default: "text-zinc-100 hover:text-ember underline-offset-2 hover:underline transition",
+      muted: "text-zinc-400 hover:text-zinc-200 underline-offset-2 hover:underline transition",
     };
 
     if (external) {

@@ -15,74 +15,74 @@
 // ============================================================================
 
 export const colors = {
-  // Brand palette - subtle Azeroth warmth
-  ink: "#201816",           // Primary text, dark backgrounds
-  ember: "#b8582a",         // Warm accent, energy, profit indicators
-  brass: "#d5ad6d",         // Gold/secondary accent, interactive states
-  moss: "#56624f",          // Muted green, stable/calm states
+  // Brand palette - dark glass baseline
+  ink: "#f4f4f5",           // Primary text on dark surfaces
+  ember: "#f97316",         // Primary accent and CTA energy
+  brass: "#f59e0b",         // Secondary accent and highlights
+  moss: "#34d399",          // Success/positive signal accent
   slate: {
-    50: "#f8fafc",
-    100: "#f1f5f9",
-    200: "#e2e8f0",
-    300: "#cbd5e1",
-    400: "#94a3b8",
-    500: "#64748b",
-    600: "#475569",
-    700: "#334155",
+    50: "#27272a",
+    100: "#3f3f46",
+    200: "#52525b",
+    300: "#71717a",
+    400: "#a1a1aa",
+    500: "#d4d4d8",
+    600: "#e4e4e7",
+    700: "#f4f4f5",
   },
 
   // Semantic status colors
   status: {
     success: {
-      bg: "#dcfce7",        // emerald-100
-      text: "#166534",      // emerald-700
-      border: "#bbf7d0",    // emerald-200
+      bg: "rgba(52, 211, 153, 0.12)",
+      text: "#34d399",
+      border: "rgba(52, 211, 153, 0.35)",
     },
     warning: {
-      bg: "#fef3c7",        // amber-100
-      text: "#92400e",      // amber-800
-      border: "#fde68a",    // amber-200
+      bg: "rgba(251, 146, 60, 0.12)",
+      text: "#fb923c",
+      border: "rgba(251, 146, 60, 0.35)",
     },
     danger: {
-      bg: "#ffe4e6",        // rose-100
-      text: "#be185d",      // rose-700
-      border: "#fbcfe8",    // rose-200
+      bg: "rgba(251, 113, 133, 0.12)",
+      text: "#fb7185",
+      border: "rgba(251, 113, 133, 0.35)",
     },
     info: {
-      bg: "#ecf0ff",        // blue-100
-      text: "#1e3a8a",      // blue-800
-      border: "#dbeafe",    // blue-200
+      bg: "rgba(59, 130, 246, 0.12)",
+      text: "#60a5fa",
+      border: "rgba(96, 165, 250, 0.35)",
     },
     muted: {
-      bg: "#f1f5f9",        // slate-100
-      text: "#475569",      // slate-600
-      border: "#cbd5e1",    // slate-200
+      bg: "rgba(255, 255, 255, 0.05)",
+      text: "#a1a1aa",
+      border: "rgba(255, 255, 255, 0.15)",
     },
   },
 
   // Surface hierarchy
   surface: {
-    background: "#fff6e7",  // App background color
-    card: "#ffffff",        // Card/panel background
-    cardOverlay: "rgba(255, 255, 255, 0.85)", // Card with backdrop blur
-    cardHover: "#f8fafc",   // Card hover state
-    inputBg: "#ffffff",
-    elevated: "rgba(255, 255, 255, 0.95)",
+    background: "#09090b",
+    card: "#0f172a",
+    cardOverlay: "rgba(255, 255, 255, 0.03)",
+    cardHover: "rgba(255, 255, 255, 0.06)",
+    inputBg: "rgba(255, 255, 255, 0.04)",
+    elevated: "rgba(255, 255, 255, 0.05)",
   },
 
   // Semantic text
   text: {
-    primary: "#201816",     // ink
-    secondary: "#64748b",   // slate-500
-    tertiary: "#94a3b8",    // slate-400 (muted/helper text)
-    interactive: "#b8582a", // ember (links, active states)
-    disabled: "#cbd5e1",    // slate-300
+    primary: "#f4f4f5",
+    secondary: "#d4d4d8",
+    tertiary: "#a1a1aa",
+    interactive: "#fb923c",
+    disabled: "#71717a",
   },
 
   // Borders & dividers
-  border: "#e2e8f0",        // slate-200, subtle dividers
-  borderLight: "#f1f5f9",   // slate-100, very subtle
-  borderStrong: "#cbd5e1",  // slate-300, stronger emphasis
+  border: "rgba(255, 255, 255, 0.15)",
+  borderLight: "rgba(255, 255, 255, 0.08)",
+  borderStrong: "rgba(255, 255, 255, 0.24)",
 } as const;
 
 // ============================================================================
@@ -92,8 +92,8 @@ export const colors = {
 export const typography = {
   // Font families
   font: {
-    display: '"Trebuchet MS", "Gill Sans", sans-serif',  // Brand headings
-    body: '"Segoe UI", "Trebuchet MS", sans-serif',      // Body text
+    display: '"Sora", "Segoe UI", sans-serif',
+    body: '"Sora", "Segoe UI", sans-serif',
   },
 
   // Font sizes with line heights
@@ -105,6 +105,8 @@ export const typography = {
     xl: { size: "1.25rem", lineHeight: "1.75rem", weight: 600 },   // 20px
     "2xl": { size: "1.5rem", lineHeight: "2rem", weight: 600 },    // 24px
     "3xl": { size: "1.875rem", lineHeight: "2.25rem", weight: 700 }, // 30px
+    "4xl": { size: "2rem", lineHeight: "2.5rem", weight: 700 },    // 32px
+    "5xl": { size: "2.75rem", lineHeight: "3rem", weight: 700 },    // 44px
   },
 
   // Semantic text styles (combine font family + size + weight)
@@ -114,7 +116,7 @@ export const typography = {
       fontSize: "1.875rem",
       fontWeight: 700,
       lineHeight: "2.25rem",
-      letterSpacing: "0.3em",
+      letterSpacing: "0.02em",
     },
     sectionTitle: {
       fontFamily: "var(--font-display)",
@@ -122,12 +124,14 @@ export const typography = {
       fontWeight: 600,
       lineHeight: "1.75rem",
       letterSpacing: "0.16em",
+      color: "var(--text-primary)",
     },
     cardTitle: {
       fontFamily: "var(--font-display)",
       fontSize: "1rem",
       fontWeight: 600,
       lineHeight: "1.5rem",
+      color: "var(--text-primary)",
     },
     tableHeader: {
       fontFamily: "var(--font-body)",
@@ -136,24 +140,28 @@ export const typography = {
       lineHeight: "1rem",
       letterSpacing: "0.16em",
       textTransform: "uppercase" as const,
+      color: "var(--text-tertiary)",
     },
     tableCell: {
       fontFamily: "var(--font-body)",
       fontSize: "0.875rem",
       fontWeight: 400,
       lineHeight: "1.25rem",
+      color: "var(--text-secondary)",
     },
     tableEmphasis: {
       fontFamily: "var(--font-body)",
       fontSize: "0.875rem",
       fontWeight: 600,
       lineHeight: "1.25rem",
+      color: "var(--text-primary)",
     },
     label: {
       fontFamily: "var(--font-body)",
       fontSize: "0.875rem",
       fontWeight: 500,
       lineHeight: "1.25rem",
+      color: "var(--text-secondary)",
     },
     labelMini: {
       fontFamily: "var(--font-body)",
@@ -161,6 +169,7 @@ export const typography = {
       fontWeight: 600,
       lineHeight: "1rem",
       letterSpacing: "0.05em",
+      color: "var(--text-tertiary)",
     },
     meta: {
       fontFamily: "var(--font-body)",
@@ -234,11 +243,11 @@ export const shape = {
 
   shadow: {
     none: "none",
-    sm: "0 1px 2px 0 rgba(32, 24, 22, 0.05)",
-    base: "0 4px 6px -1px rgba(32, 24, 22, 0.1)",
-    md: "0 10px 15px -3px rgba(32, 24, 22, 0.1)",
-    lg: "0 18px 40px rgba(32, 24, 22, 0.12)",  // card shadow
-    xl: "0 25px 50px -12px rgba(32, 24, 22, 0.15)",
+    sm: "0 1px 2px 0 rgba(0, 0, 0, 0.25)",
+    base: "0 4px 12px -2px rgba(0, 0, 0, 0.35)",
+    md: "0 12px 24px -6px rgba(0, 0, 0, 0.45)",
+    lg: "0 22px 50px rgba(0, 0, 0, 0.5)",
+    xl: "0 30px 60px -15px rgba(0, 0, 0, 0.55)",
   },
 
   border: {
@@ -261,8 +270,8 @@ export const states = {
 
   // Focus states for accessibility
   focus: {
-    outline: `0 0 0 3px rgba(184, 88, 42, 0.1)`, // ember with transparency
-    ring: "0 0 0 2px white, 0 0 0 4px var(--color-ember)",
+    outline: `0 0 0 3px rgba(249, 115, 22, 0.25)`,
+    ring: "0 0 0 2px rgba(9, 9, 11, 0.95), 0 0 0 4px var(--color-ember)",
   },
 
   // Transition helpers
@@ -281,43 +290,43 @@ export const variants = {
   // Button variants
   button: {
     primary: {
-      bg: "bg-ink",
+      bg: "bg-orange-500",
       text: "text-white",
-      border: "border border-ink",
-      hover: "hover:bg-slate-700",
-      active: "active:bg-slate-800",
+      border: "border border-orange-500",
+      hover: "hover:bg-orange-400",
+      active: "active:bg-orange-600",
       disabled: "disabled:opacity-50 disabled:cursor-not-allowed",
     },
     secondary: {
-      bg: "bg-white",
-      text: "text-ink",
-      border: "border border-slate-200",
-      hover: "hover:bg-slate-50",
-      active: "active:bg-slate-100",
+      bg: "bg-white/5",
+      text: "text-zinc-100",
+      border: "border border-white/15",
+      hover: "hover:bg-white/10",
+      active: "active:bg-white/15",
       disabled: "disabled:opacity-50 disabled:cursor-not-allowed",
     },
     accent: {
-      bg: "bg-ember",
+      bg: "bg-emerald-500/20",
       text: "text-white",
-      border: "border border-ember",
-      hover: "hover:bg-orange-700",
-      active: "active:bg-orange-800",
+      border: "border border-emerald-400/35",
+      hover: "hover:bg-emerald-500/30",
+      active: "active:bg-emerald-500/40",
       disabled: "disabled:opacity-50 disabled:cursor-not-allowed",
     },
     ghost: {
       bg: "bg-transparent",
-      text: "text-ink",
+      text: "text-zinc-300",
       border: "border border-transparent",
-      hover: "hover:bg-slate-100",
-      active: "active:bg-slate-200",
+      hover: "hover:bg-white/10 hover:text-zinc-100",
+      active: "active:bg-white/15",
       disabled: "disabled:opacity-50 disabled:cursor-not-allowed",
     },
     danger: {
-      bg: "bg-rose-50",
-      text: "text-rose-700",
-      border: "border border-rose-200",
-      hover: "hover:bg-rose-100",
-      active: "active:bg-rose-200",
+      bg: "bg-rose-500/15",
+      text: "text-rose-300",
+      border: "border border-rose-400/35",
+      hover: "hover:bg-rose-500/25",
+      active: "active:bg-rose-500/35",
       disabled: "disabled:opacity-50 disabled:cursor-not-allowed",
     },
   },
@@ -325,24 +334,24 @@ export const variants = {
   // Badge variants (semantic, not just color)
   badge: {
     neutral: {
-      bg: "bg-slate-100",
-      text: "text-slate-700",
-      border: "border-slate-200",
+      bg: "bg-white/10",
+      text: "text-zinc-200",
+      border: "border-white/20",
     },
     success: {
-      bg: "bg-emerald-100",
-      text: "text-emerald-700",
-      border: "border-emerald-200",
+      bg: "bg-emerald-500/20",
+      text: "text-emerald-300",
+      border: "border-emerald-400/35",
     },
     warning: {
-      bg: "bg-amber-100",
-      text: "text-amber-800",
-      border: "border-amber-200",
+      bg: "bg-amber-500/20",
+      text: "text-amber-300",
+      border: "border-amber-400/35",
     },
     danger: {
-      bg: "bg-rose-100",
-      text: "text-rose-700",
-      border: "border-rose-200",
+      bg: "bg-rose-500/20",
+      text: "text-rose-300",
+      border: "border-rose-400/35",
     },
   },
 } as const;

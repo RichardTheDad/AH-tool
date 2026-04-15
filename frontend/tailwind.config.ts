@@ -5,10 +5,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        ink: "#201816",
-        ember: "#b8582a",
-        brass: "#d5ad6d",
-        parchment: "#f4ecd8",
+        ink: "#f4f4f5",
+        ember: "#f97316",
+        brass: "#f59e0b",
+        parchment: "#09090b",
       },
       letterSpacing: {
         display: "0.3em",   // page/brand headings (AzerothFlip wordmark)
@@ -17,11 +17,11 @@ export default {
         link: "0.12em",     // inline action links
       },
       boxShadow: {
-        card: "0 18px 40px rgba(32, 24, 22, 0.12)",
+        card: "0 22px 50px rgba(0, 0, 0, 0.5)",
       },
       fontFamily: {
-        display: ['"Trebuchet MS"', '"Gill Sans"', "sans-serif"],
-        body: ['"Segoe UI"', '"Trebuchet MS"', "sans-serif"],
+        display: ['"Sora"', '"Segoe UI"', "sans-serif"],
+        body: ['"Sora"', '"Segoe UI"', "sans-serif"],
       },
     },
   },

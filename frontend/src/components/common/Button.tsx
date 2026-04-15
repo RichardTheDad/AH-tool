@@ -1,5 +1,5 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
-import { type ButtonVariant, shape, variants } from "../../theme/design-system";
+import { type ButtonVariant, variants } from "../../theme/design-system";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -29,7 +29,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const v = variants.button[variant];
-    const baseClasses = `rounded-full inline-flex items-center justify-center transition ${v.bg} ${v.text} ${v.border} ${v.hover} ${v.active} ${v.disabled}`;
+    const baseClasses = `rounded-full inline-flex items-center justify-center transition focus:outline-none focus:ring-2 focus:ring-ember/30 ${v.bg} ${v.text} ${v.border} ${v.hover} ${v.active} ${v.disabled}`;
     const sizeClass = sizeClasses[size];
     const widthClass = fullWidth ? "w-full" : "";
 

@@ -11,34 +11,34 @@ interface StatusIndicatorProps {
 
 const statusStyles: Record<StatusType, { bg: string; text: string; border: string; dot: string }> = {
   success: {
-    bg: "bg-emerald-100",
-    text: "text-emerald-700",
-    border: "border-emerald-200",
-    dot: "bg-emerald-500",
+    bg: "bg-emerald-500/20",
+    text: "text-emerald-300",
+    border: "border-emerald-400/35",
+    dot: "bg-emerald-400",
   },
   warning: {
-    bg: "bg-amber-100",
-    text: "text-amber-800",
-    border: "border-amber-200",
-    dot: "bg-amber-500",
+    bg: "bg-amber-500/20",
+    text: "text-amber-300",
+    border: "border-amber-400/35",
+    dot: "bg-amber-400",
   },
   danger: {
-    bg: "bg-rose-100",
-    text: "text-rose-700",
-    border: "border-rose-200",
-    dot: "bg-rose-500",
+    bg: "bg-rose-500/20",
+    text: "text-rose-300",
+    border: "border-rose-400/35",
+    dot: "bg-rose-400",
   },
   info: {
-    bg: "bg-sky-100",
-    text: "text-sky-700",
-    border: "border-sky-200",
-    dot: "bg-sky-500",
+    bg: "bg-sky-500/20",
+    text: "text-sky-300",
+    border: "border-sky-400/35",
+    dot: "bg-sky-400",
   },
   muted: {
-    bg: "bg-slate-100",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-slate-400",
+    bg: "bg-white/10",
+    text: "text-zinc-300",
+    border: "border-white/15",
+    dot: "bg-zinc-400",
   },
 };
 
@@ -80,7 +80,7 @@ export function StatusIndicator({
       return (
         <span className="inline-flex items-center gap-1.5">
           <span className={`${style.dot} rounded-full ${sizes.dot}`} />
-          {label && <span className="text-sm text-slate-700">{label}</span>}
+          {label && <span className="text-sm text-zinc-300">{label}</span>}
         </span>
       );
 

@@ -19,7 +19,7 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     ref
   ) => {
     const baseClasses =
-      "rounded border border-slate-300 bg-white text-ember focus:ring-2 focus:ring-ember/20 focus:outline-none transition cursor-pointer";
+      "rounded border border-white/20 bg-white/5 text-ember focus:ring-2 focus:ring-ember/30 focus:outline-none transition cursor-pointer";
     const sizeClasses = compact ? "h-4 w-4" : "h-5 w-5";
     const labelContainerClass = compact ? "gap-2" : "gap-3";
 
@@ -33,9 +33,9 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
           {...props}
         />
         {label && (
-          <label htmlFor={id} className={`${compact ? "text-sm" : "text-base"} font-medium text-slate-700 cursor-pointer`}>
+          <label htmlFor={id} className={`${compact ? "text-sm" : "text-base"} font-medium text-zinc-200 cursor-pointer`}>
             {label}
-            {description && <p className="mt-1 text-xs text-slate-500">{description}</p>}
+            {description && <p className="mt-1 text-xs text-zinc-400">{description}</p>}
           </label>
         )}
       </div>

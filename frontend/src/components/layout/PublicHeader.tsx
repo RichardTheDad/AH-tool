@@ -9,7 +9,7 @@ type PublicHeaderProps = {
   tone?: "light" | "dark";
 };
 
-export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo, tone = "light" }: PublicHeaderProps) {
+export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo, tone = "dark" }: PublicHeaderProps) {
   const navigate = useNavigate();
   const { user, session } = useAuth();
 

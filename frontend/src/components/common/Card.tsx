@@ -17,9 +17,9 @@ export function Card({
   ...props
 }: PropsWithChildren<CardProps>) {
   const variantClasses = {
-    default: "border-white/70 bg-white/85 backdrop-blur-sm shadow-card",
-    elevated: "border-white/80 bg-white/95 backdrop-blur-md shadow-lg",
-    flat: "border border-slate-200 bg-white shadow-sm",
+    default: "border-white/10 bg-white/3 backdrop-blur-sm shadow-card",
+    elevated: "border-white/15 bg-white/5 backdrop-blur-xl shadow-lg",
+    flat: "border border-white/10 bg-zinc-900/35 shadow-sm",
   };
 
   const paddingClass = noPadding ? "" : "p-5";
@@ -29,8 +29,8 @@ export function Card({
       <div className={`rounded-2xl border ${variantClasses[variant]} ${paddingClass}`}>
         {(title || subtitle) && (
           <header className={noPadding ? "p-5 pb-0" : "mb-4"}>
-            {title ? <h2 className="font-display text-lg font-semibold text-ink">{title}</h2> : null}
-            {subtitle ? <p className="mt-1 text-sm text-slate-600">{subtitle}</p> : null}
+            {title ? <h2 className="font-display text-lg font-semibold text-zinc-100">{title}</h2> : null}
+            {subtitle ? <p className="mt-1 text-sm text-zinc-400">{subtitle}</p> : null}
           </header>
         )}
         {children}

@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from "react";
 
 const badgeStyles = {
-  neutral: "bg-slate-100 text-slate-700 border-slate-200",
-  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  warning: "bg-amber-100 text-amber-800 border-amber-200",
-  danger: "bg-rose-100 text-rose-700 border-rose-200",
+  neutral: "bg-white/10 text-zinc-200 border-white/20",
+  success: "bg-emerald-500/20 text-emerald-300 border-emerald-400/35",
+  warning: "bg-amber-500/20 text-amber-300 border-amber-400/35",
+  danger: "bg-rose-500/20 text-rose-300 border-rose-400/35",
 };
 
 interface BadgeProps {
