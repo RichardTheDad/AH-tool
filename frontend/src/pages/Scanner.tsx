@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
-import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../api/scans";
+import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../api/scans";
 import { applyTuningPreset, getTuningAudit } from "../api/settings";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
@@ -70,52 +70,12 @@ function matchesPreset(filters: ReturnType<typeof applyPresetToFilterState> & { 
   );
 }
 
-function exportResultsAsCsv(rows: ReturnType<typeof filterScanResults>) {
-  if (!rows.length) {
-    return;
-  }
-
-  const header = [
-    "Item",
-    "Buy Realm",
-    "Buy Price",
-    "Sell Realm",
-    "Sell Price",
-    "Profit",
-    "ROI",
-    "Confidence",
-    "Explanation",
-  ];
-  const csvRows = rows.map((row) => [
-    row.item_name,
-    row.cheapest_buy_realm,
-    row.cheapest_buy_price,
-    row.best_sell_realm,
-    row.best_sell_price,
-    row.estimated_profit,
-    row.roi,
-    row.confidence_score,
-    row.explanation,
-  ]);
-  const csv = [header, ...csvRows]
-    .map((line) => line.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(","))
-    .join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "azerothfliplocal-scan-results.csv";
-  link.click();
-  window.URL.revokeObjectURL(url);
-}
-
 export function Scanner() {
   const queryClient = useQueryClient();
   const scanRefreshIntervalMs = 60000;
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [scanStartedAt, setScanStartedAt] = useState<number | null>(null);
   const { filters, updateFilters } = useScannerFilters();
 
   const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan(), refetchInterval: scanRefreshIntervalMs });
@@ -123,7 +83,7 @@ export function Scanner() {
   const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
   const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
-  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanStartedAt != null ? 4000 : false });
+  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanRefreshIntervalMs });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
@@ -140,29 +100,6 @@ export function Scanner() {
     queryKey: ["scans", fallbackScanId, "persisted", 2000],
     queryFn: () => getScan(fallbackScanId as number, 2000),
     enabled: typeof fallbackScanId === "number",
-  });
-  const scanMutation = useMutation({
-    mutationFn: runScan,
-    onSettled: () => setScanStartedAt(null),
-    onSuccess: (scanSession) => {
-      queryClient.setQueryData(["scans", "latest"], { latest: scanSession });
-      queryClient.setQueryData(["scans", "history"], (current: { scans?: Array<{ id: number; generated_at: string; provider_name: string; result_count: number }> } | undefined) => {
-        const nextEntry = {
-          id: scanSession.id,
-          generated_at: scanSession.generated_at,
-          provider_name: scanSession.provider_name,
-          result_count: scanSession.result_count,
-        };
-        const remaining = (current?.scans ?? []).filter((scan) => scan.id !== scanSession.id);
-        return { scans: [nextEntry, ...remaining] };
-      });
-      window.setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
-        queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
-        queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
-        queryClient.invalidateQueries({ queryKey: ["scans", "status"] });
-      }, 2500);
-    },
   });
   const tuningMutation = useMutation({
     mutationFn: applyTuningPreset,
@@ -208,10 +145,7 @@ export function Scanner() {
   const noUsableListingData = readinessLoaded && readiness.enabled_realm_count > 0 && readiness.realms_with_data === 0;
   const notEnoughRealmCoverage = readinessLoaded && readiness.enabled_realm_count > 0 && readiness.realms_with_data < 2;
   const canBootstrapFromLiveProvider = !!activeProvider?.supports_live_fetch && activeProvider.available;
-  const scanBlocked = noEnabledRealms || (readinessLoaded && !readiness.ready_for_scan && !canBootstrapFromLiveProvider);
   const scanRunning = scanStatus?.status === "running";
-  const isActivelyScanning = scanMutation.isPending || scanRunning;
-  const elapsedSeconds = scanStartedAt != null ? Math.floor((nowMs - scanStartedAt) / 1000) : 0;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -250,7 +184,7 @@ export function Scanner() {
   const showGuidedEmptyState =
     !loadingPersistedScan &&
     (!persistedScan || persistedScan.result_count === 0) &&
-    ((scanBlocked && !canBootstrapFromLiveProvider) || latestWarningText.includes("no listing data found"));
+    (noEnabledRealms || noUsableListingData || latestWarningText.includes("no listing data found"));
 
   const emptyState = noEnabledRealms
     ? {
@@ -326,18 +260,18 @@ export function Scanner() {
             <p className={`mt-2 text-sm ${readinessTextColor(readiness.status)}`}>
               {readiness.message}
             </p>
-            {isActivelyScanning ? (
+            {scanRunning ? (
               <div className="mt-2 flex items-start gap-2">
                 <span className="mt-0.5 inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
                 <div>
-                  <p className="text-sm font-medium text-sky-700">Scanning{elapsedSeconds > 0 ? ` — ${elapsedSeconds}s` : ""}…</p>
-                  {scanRunning && scanStatus.message ? (
+                  <p className="text-sm font-medium text-sky-700">Scanning…</p>
+                  {scanStatus.message ? (
                     <p className="mt-0.5 text-xs text-sky-600">{scanStatus.message}</p>
                   ) : null}
                 </div>
               </div>
             ) : null}
-            {!isActivelyScanning && scanStatus.finished_at ? (
+            {!scanRunning && scanStatus.finished_at ? (
               <p className="mt-2 text-sm text-slate-500">Last scan update: {formatDateTime(scanStatus.finished_at)}</p>
             ) : null}
             {activeProvider ? (
@@ -356,31 +290,6 @@ export function Scanner() {
                 </span>
               ) : null}
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setScanStartedAt(Date.now());
-                scanMutation.mutate({
-                  refresh_live: true,
-                  include_losers: false,
-                });
-              }}
-              disabled={scanBlocked || scanMutation.isPending || scanRunning}
-                className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-            >
-                Run scan
-            </button>
-            <button
-              type="button"
-              onClick={() => exportResultsAsCsv(results)}
-              disabled={!results.length}
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Export CSV
-            </button>
           </div>
         </div>
 

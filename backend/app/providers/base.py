@@ -12,6 +12,14 @@ from app.schemas.provider import ProviderStatus
 logger = logging.getLogger(__name__)
 
 
+class ItemNotFoundError(Exception):
+    """Raised when the upstream metadata API confirms an item does not exist (HTTP 404)."""
+
+    def __init__(self, item_id: int) -> None:
+        super().__init__(f"Item {item_id} does not exist in the Blizzard API (HTTP 404).")
+        self.item_id = item_id
+
+
 class BaseProvider(ABC):
     name: str = "base"
     provider_type: str = "unknown"

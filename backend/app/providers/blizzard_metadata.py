@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 
 from app.core.config import Settings
-from app.providers.base import ItemMetadataProvider
+from app.providers.base import ItemMetadataProvider, ItemNotFoundError
 from app.schemas.item import ItemRead, ItemSearchResult
 
 
@@ -61,7 +61,10 @@ class BlizzardMetadataProvider(ItemMetadataProvider):
             return []
 
         if query_text.isdigit():
-            item = self.fetch_item(int(query_text))
+            try:
+                item = self.fetch_item(int(query_text))
+            except ItemNotFoundError:
+                return []
             if item is None:
                 return []
             return [ItemSearchResult.model_validate(item.model_dump())]
@@ -119,6 +122,12 @@ class BlizzardMetadataProvider(ItemMetadataProvider):
                     return None
             self.mark_success()
             return item
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                logger.info("Item %s not found in Blizzard API (HTTP 404); will be marked as permanently unavailable.", item_id)
+                raise ItemNotFoundError(item_id) from exc
+            self.mark_failure(f"Metadata fetch failed: {exc}")
+            return None
         except Exception as exc:  # pragma: no cover - network failure path
             self.mark_failure(f"Metadata fetch failed: {exc}")
             return None

@@ -21,6 +21,7 @@ from app.schemas.item import (
 from app.schemas.listing import LiveListingLookupResponse, LiveListingLookupRow, ListingSnapshotRead
 from app.schemas.scan import ScanResultRead
 from app.services.listing_service import get_latest_snapshots_for_item, get_recent_snapshot_history_for_item
+from app.providers.base import ItemNotFoundError
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
 from app.services.tsm_service import TsmMarketService
@@ -37,6 +38,8 @@ def _build_search_filter(query: str):
 
 def item_has_missing_metadata(item: Item) -> bool:
     metadata = item.metadata_json
+    if isinstance(metadata, dict) and metadata.get("metadata_status") == "not_found":
+        return False
     if isinstance(metadata, dict) and metadata.get("metadata_status") == "missing":
         return True
     return item.name.endswith("(metadata unavailable)")
@@ -138,7 +141,11 @@ def refresh_metadata(session: Session, item_ids: list[int]) -> dict[str, object]
     warnings: list[str] = []
 
     for item_id in _dedupe_item_ids(item_ids):
-        item = provider.fetch_item(item_id)
+        try:
+            item = provider.fetch_item(item_id)
+        except ItemNotFoundError:
+            warnings.append(f"Item {item_id} does not exist in the Blizzard API (HTTP 404).")
+            continue
         if item is None:
             warnings.append(f"Metadata unavailable for item {item_id}; cached values kept.")
             continue
@@ -156,18 +163,34 @@ def refresh_missing_metadata(session: Session, item_ids: list[int]) -> dict[str,
 
     refreshed_items: list[ItemRead] = []
     warnings: list[str] = []
+    not_found_item_ids: list[int] = []
 
     for item_id in _dedupe_item_ids(item_ids):
         item = session.get(Item, item_id)
         if item is not None and not item_has_missing_metadata(item):
             continue
-        remote_item = provider.fetch_item(item_id)
+        try:
+            remote_item = provider.fetch_item(item_id)
+        except ItemNotFoundError:
+            not_found_item_ids.append(item_id)
+            continue
         if remote_item is None:
             warnings.append(f"Metadata unavailable for item {item_id}; cached values kept.")
             continue
         refreshed_items.append(remote_item)
 
-    refreshed = upsert_items(session, refreshed_items) if refreshed_items else 0
+    for item_id in not_found_item_ids:
+        db_item = session.get(Item, item_id)
+        if db_item is not None:
+            existing = db_item.metadata_json if isinstance(db_item.metadata_json, dict) else {}
+            db_item.metadata_json = {**existing, "metadata_status": "not_found"}
+
+    if refreshed_items:
+        refreshed = upsert_items(session, refreshed_items)
+    else:
+        refreshed = 0
+        if not_found_item_ids:
+            session.commit()
     return {"refreshed_count": refreshed, "warnings": warnings}
 
 
@@ -185,6 +208,7 @@ def get_missing_metadata_item_ids(session: Session, *, limit: int = 250) -> list
             .limit(limit)
             .all()
         )
+        if not (isinstance(item.metadata_json, dict) and item.metadata_json.get("metadata_status") == "not_found")
     ]
 
 
@@ -234,7 +258,10 @@ def get_item_detail(session: Session, item_id: int, user_id: str, *, refresh_met
     metadata_message: str | None = None
 
     if item is None and refresh_metadata_if_missing:
-        remote_item = get_provider_registry().metadata_provider.fetch_item(item_id)
+        try:
+            remote_item = get_provider_registry().metadata_provider.fetch_item(item_id)
+        except ItemNotFoundError:
+            remote_item = None
         if remote_item is not None:
             item = upsert_item(session, remote_item)
             metadata_status = "live"
@@ -244,7 +271,10 @@ def get_item_detail(session: Session, item_id: int, user_id: str, *, refresh_met
         return None
 
     if refresh_metadata_if_missing and item_has_missing_metadata(item):
-        remote_item = get_provider_registry().metadata_provider.fetch_item(item_id)
+        try:
+            remote_item = get_provider_registry().metadata_provider.fetch_item(item_id)
+        except ItemNotFoundError:
+            remote_item = None
         if remote_item is not None:
             item = upsert_item(session, remote_item)
             metadata_status = "live"
