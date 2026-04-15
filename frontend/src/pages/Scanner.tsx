@@ -53,7 +53,6 @@ function applyPresetToFilterState(preset: ScanPreset) {
     maxBuyPrice: preset.max_buy_price?.toString() ?? "",
     minConfidence: preset.min_confidence?.toString() ?? "",
     category: preset.category_filter ?? "",
-    allowStale: preset.allow_stale,
     hideRisky: preset.hide_risky,
   };
 }
@@ -66,7 +65,6 @@ function matchesPreset(filters: ReturnType<typeof applyPresetToFilterState> & { 
     filters.maxBuyPrice === presetFilters.maxBuyPrice &&
     filters.minConfidence === presetFilters.minConfidence &&
     filters.category === presetFilters.category &&
-    filters.allowStale === presetFilters.allowStale &&
     filters.hideRisky === presetFilters.hideRisky
   );
 }
@@ -309,21 +307,11 @@ export function Scanner() {
             {nextScheduledScanLabel ? (
               <p className="mt-2 text-sm text-slate-500">Next scheduled scan: {nextScheduledScanLabel}</p>
             ) : null}
-            {activeProvider ? (
-              <p className={`mt-2 text-sm ${activeProvider.status === "error" ? "text-rose-700" : activeProvider.status === "cached_only" ? "text-amber-700" : "text-slate-600"}`}>
-                {activeProvider.message}
-              </p>
-            ) : null}
             <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
               <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms with data</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_fresh_data} realms with fresh listings</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.unique_item_count} items in local coverage</span>
               <span className="rounded-full bg-slate-100 px-3 py-1">{recentScans.length} recent scans saved</span>
-              {readiness.items_missing_metadata ? (
-                <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-700">
-                  {readiness.items_missing_metadata} items missing metadata; automatic sweep active
-                </span>
-              ) : null}
             </div>
           </div>
         </div>
@@ -351,12 +339,6 @@ export function Scanner() {
             <span className="self-center text-sm text-slate-600">Applied preset: {activePreset.name}</span>
           ) : null}
         </div>
-
-        {(latest?.results?.length ?? 0) ? (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            Filter controls now reprioritize the list instead of removing rows, so weaker matches stay visible lower in the rankings.
-          </div>
-        ) : null}
 
         {calibrationQuery.isLoading ? (
           <LoadingState label="Loading calibration telemetry..." />

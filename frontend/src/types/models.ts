@@ -396,7 +396,6 @@ export interface ScannerFilters {
   maxBuyPrice: string;
   minConfidence: string;
   category: string;
-  allowStale: boolean;
   hideRisky: boolean;
   sortBy: "final_score" | "estimated_profit" | "cheapest_buy_price" | "roi" | "confidence_score" | "sellability_score";
   sortDirection: "asc" | "desc";

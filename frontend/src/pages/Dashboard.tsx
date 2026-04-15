@@ -37,9 +37,7 @@ export function Dashboard() {
     ? "Add tracked realms so the app can build coverage."
     : readiness.realms_with_data < 2
       ? "Run a live Blizzard scan to build enough realm coverage for cross-realm comparisons."
-      : readiness.items_missing_metadata > 0
-        ? "Let the automatic metadata sweeper keep filling missing item details while you keep scanning."
-        : latest
+      : latest
           ? "Open Scanner to review the latest ranked opportunities and sort by sellability or confidence."
           : "Run a live scan to populate the first ranked board.";
 
@@ -70,9 +68,9 @@ export function Dashboard() {
           ) : null}
         </Card>
         <Card title="Data gaps">
-          <p className="text-3xl font-semibold text-ink">{readiness.items_missing_metadata + readiness.missing_realms.length}</p>
+          <p className="text-3xl font-semibold text-ink">{readiness.missing_realms.length}</p>
           <p className="mt-2 text-sm text-slate-600">
-            {readiness.items_missing_metadata} metadata gaps, {readiness.missing_realms.length} realms without listings
+            {readiness.missing_realms.length} realms without listings
           </p>
           <p className="mt-3 text-sm text-slate-500">{staleCount} stale results in the latest board</p>
           {readiness.latest_snapshot_at ? <p className="mt-2 text-xs text-slate-500">Latest listing {formatDateTime(readiness.latest_snapshot_at)}</p> : null}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { createPreset, deletePreset, getPresets, updatePreset } from "../api/presets";
+import { DEFAULT_CATEGORY_OPTIONS } from "../components/filters/FilterSidebar";
 import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -13,7 +14,6 @@ const baseForm = {
   min_roi: "",
   max_buy_price: "",
   min_confidence: "",
-  allow_stale: false,
   hide_risky: true,
   category_filter: "",
 };
@@ -25,10 +25,11 @@ function presetToScannerLink(preset: ScanPreset) {
   if (preset.max_buy_price != null) params.set("maxBuyPrice", String(preset.max_buy_price));
   if (preset.min_confidence != null) params.set("minConfidence", String(preset.min_confidence));
   if (preset.category_filter) params.set("category", preset.category_filter);
-  if (preset.allow_stale) params.set("allowStale", "true");
   if (!preset.hide_risky) params.set("hideRisky", "false");
   return `/scanner?${params.toString()}`;
 }
+
+const PRESET_CATEGORY_OPTIONS = ["", ...DEFAULT_CATEGORY_OPTIONS];
 
 export function Presets() {
   const queryClient = useQueryClient();
@@ -89,7 +90,7 @@ export function Presets() {
               min_roi: form.min_roi ? Number(form.min_roi) : null,
               max_buy_price: form.max_buy_price ? Number(form.max_buy_price) : null,
               min_confidence: form.min_confidence ? Number(form.min_confidence) : null,
-              allow_stale: form.allow_stale,
+              allow_stale: false,
               hide_risky: form.hide_risky,
               category_filter: form.category_filter || null,
             };
@@ -100,31 +101,68 @@ export function Presets() {
             }
           }}
         >
-          {Object.entries(baseForm).map(([key]) => {
-            if (key === "allow_stale" || key === "hide_risky") {
-              return (
-                <label key={key} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                  {key.replace(/_/g, " ")}
-                  <input
-                    type="checkbox"
-                    checked={Boolean(form[key as keyof typeof form])}
-                    onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.checked }))}
-                  />
-                </label>
-              );
-            }
-
-            return (
-              <label key={key} className="block text-sm text-slate-700">
-                {key.replace(/_/g, " ")}
-                <input
-                  value={String(form[key as keyof typeof form] ?? "")}
-                  onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-                />
-              </label>
-            );
-          })}
+          <label className="block text-sm text-slate-700">
+            name
+            <input
+              value={form.name}
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm text-slate-700">
+            min profit
+            <input
+              value={form.min_profit}
+              onChange={(event) => setForm((current) => ({ ...current, min_profit: event.target.value }))}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm text-slate-700">
+            min roi
+            <input
+              value={form.min_roi}
+              onChange={(event) => setForm((current) => ({ ...current, min_roi: event.target.value }))}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm text-slate-700">
+            max buy price
+            <input
+              value={form.max_buy_price}
+              onChange={(event) => setForm((current) => ({ ...current, max_buy_price: event.target.value }))}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm text-slate-700">
+            min confidence
+            <input
+              value={form.min_confidence}
+              onChange={(event) => setForm((current) => ({ ...current, min_confidence: event.target.value }))}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            />
+          </label>
+          <label className="block text-sm text-slate-700">
+            category filter
+            <select
+              value={form.category_filter}
+              onChange={(event) => setForm((current) => ({ ...current, category_filter: event.target.value }))}
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+            >
+              {PRESET_CATEGORY_OPTIONS.map((category) => (
+                <option key={category || "all"} value={category}>
+                  {category || "All categories"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            hide risky
+            <input
+              type="checkbox"
+              checked={form.hide_risky}
+              onChange={(event) => setForm((current) => ({ ...current, hide_risky: event.target.checked }))}
+            />
+          </label>
           <div className="flex gap-2">
             <button type="submit" className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">
               {editingId ? "Save preset" : "Create preset"}
@@ -171,7 +209,6 @@ export function Presets() {
                         min_roi: preset.min_roi?.toString() ?? "",
                         max_buy_price: preset.max_buy_price?.toString() ?? "",
                         min_confidence: preset.min_confidence?.toString() ?? "",
-                        allow_stale: preset.allow_stale,
                         hide_risky: preset.hide_risky,
                         category_filter: preset.category_filter ?? "",
                       });

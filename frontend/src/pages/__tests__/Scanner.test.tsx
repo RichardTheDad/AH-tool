@@ -1,13 +1,20 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { Scanner } from "../Scanner";
 import { renderWithProviders } from "../../test/test-utils";
 
 vi.mock("../../api/scans", () => ({
   getLatestScan: vi.fn(),
+  getScan: vi.fn(),
+  getScanCalibration: vi.fn(),
   getScanHistory: vi.fn(),
   getScanReadiness: vi.fn(),
   getScanStatus: vi.fn(),
   runScan: vi.fn(),
+}));
+
+vi.mock("../../api/settings", () => ({
+  applyTuningPreset: vi.fn(),
+  getTuningAudit: vi.fn(),
 }));
 
 vi.mock("../../api/items", () => ({
@@ -26,11 +33,12 @@ vi.mock("../../api/presets", () => ({
   getPresets: vi.fn(),
 }));
 
-import { getLatestScan, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../../api/scans";
+import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../../api/scans";
 import { refreshMissingMetadata } from "../../api/items";
 import { getProviderStatus } from "../../api/providers";
 import { getRealms } from "../../api/realms";
 import { getPresets } from "../../api/presets";
+import { applyTuningPreset, getTuningAudit } from "../../api/settings";
 
 const providerResponse = {
   providers: [
@@ -107,17 +115,42 @@ describe("Scanner page", () => {
     vi.mocked(getProviderStatus).mockResolvedValue(providerResponse);
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
     vi.mocked(getPresets).mockResolvedValue([]);
+    vi.mocked(getScan).mockResolvedValue({
+      id: 2,
+      provider_name: "file_import",
+      generated_at: new Date().toISOString(),
+      result_count: 0,
+      results: [],
+    });
+    vi.mocked(getScanCalibration).mockResolvedValue({
+      total_evaluated: 0,
+      confidence_bands: [],
+      sellability_bands: [],
+      horizons: [],
+      trends: [],
+      suggestions: [],
+    });
     vi.mocked(getScanHistory).mockResolvedValue({ scans: [] });
     vi.mocked(getScanReadiness).mockResolvedValue(readinessResponse);
     vi.mocked(getScanStatus).mockResolvedValue(scanStatusResponse);
+    vi.mocked(getTuningAudit).mockResolvedValue({ entries: [] });
+    vi.mocked(applyTuningPreset).mockResolvedValue({
+      id: 1,
+      ah_cut_percent: 0.05,
+      flat_buffer: 50,
+      refresh_interval_minutes: 65,
+      stale_after_minutes: 90,
+      scoring_preset: "balanced",
+      non_commodity_only: true,
+    });
   });
 
-  it("renders failure state when scanner data fails", async () => {
+  it("renders scanner shell when latest scan request fails", async () => {
     vi.mocked(getLatestScan).mockRejectedValue(new Error("boom"));
 
     renderWithProviders(<Scanner />, "/scanner");
 
-    expect(await screen.findByText("Scanner data could not be loaded.")).toBeInTheDocument();
+    expect(await screen.findByText("Current opportunities")).toBeInTheDocument();
   });
 
   it("renders scan results and only offers scan-usable providers", async () => {
@@ -162,12 +195,6 @@ describe("Scanner page", () => {
 
     expect(await screen.findByText("Staff of Jordan")).toBeInTheDocument();
     expect(screen.getByText("Enabled realms have enough local listing coverage for a trustworthy scan.")).toBeInTheDocument();
-    expect(screen.getByText("Import CSV or JSON listing snapshots to provide scanner data.")).toBeInTheDocument();
-
-    const selector = screen.getByDisplayValue("file_import");
-    const options = within(selector).getAllByRole("option");
-    expect(options).toHaveLength(1);
-    expect(options[0]).toHaveTextContent("file_import");
   });
 
   it("renders import-required state when enabled realms have no listing data", async () => {
@@ -186,8 +213,7 @@ describe("Scanner page", () => {
     renderWithProviders(<Scanner />, "/scanner");
 
     expect(await screen.findByText("No listing data found")).toBeInTheDocument();
-    expect(screen.getByText(/Import listing snapshots for your enabled realms/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Run scan" })).toBeDisabled();
+    expect(screen.getByText(/Live Blizzard listing refresh is not available right now/)).toBeInTheDocument();
   });
 
   it("shows when a quick preset has been applied", async () => {
@@ -332,7 +358,7 @@ describe("Scanner page", () => {
     expect(button).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("supports category dropdown and clickable header sorting", async () => {
+  it("supports category and sort controls", async () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
         id: 1,
@@ -400,16 +426,82 @@ describe("Scanner page", () => {
 
     expect(await screen.findByRole("option", { name: "Weapon" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Armor" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Final score" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Highest to lowest" })).toBeInTheDocument();
+  });
 
-    const buyPriceHeader = screen.getByRole("button", { name: /Buy price/i });
-    fireEvent.click(buyPriceHeader);
-    expect(buyPriceHeader).toHaveTextContent("Buy price v");
+  it("applies hard filters that remove non-matching rows", async () => {
+    vi.mocked(getLatestScan).mockResolvedValue({
+      latest: {
+        id: 1,
+        provider_name: "file_import",
+        generated_at: new Date().toISOString(),
+        result_count: 2,
+        results: [
+          {
+            id: 10,
+            item_id: 873,
+            item_name: "Staff of Jordan",
+            item_class_name: "Weapon",
+            cheapest_buy_realm: "Area 52",
+            cheapest_buy_price: 12900,
+            best_sell_realm: "Zul'jin",
+            best_sell_price: 23900,
+            observed_sell_price: 24500,
+            estimated_profit: 9805,
+            roi: 0.76,
+            confidence_score: 92,
+            sellability_score: 88,
+            liquidity_score: 88,
+            volatility_score: 86,
+            bait_risk_score: 18,
+            final_score: 90,
+            turnover_label: "steady",
+            explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
+            sell_history_prices: [23900, 23000, 22000],
+            generated_at: new Date().toISOString(),
+            has_stale_data: false,
+            is_risky: false,
+            has_missing_metadata: false,
+          },
+          {
+            id: 11,
+            item_id: 874,
+            item_name: "Commander Helm",
+            item_class_name: "Armor",
+            cheapest_buy_realm: "Stormrage",
+            cheapest_buy_price: 7200,
+            best_sell_realm: "Zul'jin",
+            best_sell_price: 12900,
+            observed_sell_price: 13000,
+            estimated_profit: 5055,
+            roi: 0.702,
+            confidence_score: 98,
+            sellability_score: 91,
+            liquidity_score: 88,
+            volatility_score: 86,
+            bait_risk_score: 18,
+            final_score: 95,
+            turnover_label: "fast",
+            explanation: "Cheapest on Stormrage, strongest sell on Zul'jin, with acceptable liquidity.",
+            sell_history_prices: [12900, 12000],
+            generated_at: new Date().toISOString(),
+            has_stale_data: false,
+            is_risky: false,
+            has_missing_metadata: false,
+          },
+        ],
+      },
+    });
 
-    fireEvent.click(buyPriceHeader);
-    expect(buyPriceHeader).toHaveTextContent("Buy price ^");
+    renderWithProviders(<Scanner />, "/scanner");
 
-    const sellabilityHeader = screen.getByRole("button", { name: /Sellability/i });
-    fireEvent.click(sellabilityHeader);
-    expect(sellabilityHeader).toHaveTextContent("Sellability v");
+    expect(await screen.findByText("Staff of Jordan")).toBeInTheDocument();
+    expect(screen.getByText("Commander Helm")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Min profit"), { target: { value: "9000" } });
+
+    expect(screen.getByText("Staff of Jordan")).toBeInTheDocument();
+    expect(screen.queryByText("Commander Helm")).not.toBeInTheDocument();
   });
 });

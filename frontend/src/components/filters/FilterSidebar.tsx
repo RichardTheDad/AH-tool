@@ -6,7 +6,7 @@ interface FilterSidebarProps {
   categoryOptions: string[];
 }
 
-const DEFAULT_CATEGORY_OPTIONS = ["Armor", "Weapon", "Recipe", "Consumable", "Trade Good", "Container", "Gem", "Glyph", "Miscellaneous"];
+export const DEFAULT_CATEGORY_OPTIONS = ["Armor", "Weapon", "Recipe", "Consumable", "Trade Good", "Container", "Gem", "Glyph", "Miscellaneous"];
 
 export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSidebarProps) {
   const categories = Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS, ...categoryOptions])).sort((left, right) => left.localeCompare(right));
@@ -103,10 +103,6 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
           <option value="desc">Highest to lowest</option>
           <option value="asc">Lowest to highest</option>
         </select>
-      </label>
-      <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-        Include stale data
-        <input id="scanner-filter-allow-stale" name="allowStale" type="checkbox" checked={filters.allowStale} onChange={(event) => onChange({ allowStale: event.target.checked })} />
       </label>
       <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
         Hide risky flips

@@ -1,6 +1,6 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
-import { getItem, getLiveItemListings, refreshMetadata } from "../api/items";
+import { getItem, getLiveItemListings } from "../api/items";
 import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -11,7 +11,6 @@ import { formatDateTime, formatGold, formatMarketPerDay, formatMarketPercent, fo
 export function ItemDetail() {
   const params = useParams();
   const itemId = Number(params.itemId);
-  const queryClient = useQueryClient();
   const itemQuery = useQuery({
     queryKey: ["items", itemId],
     queryFn: () => getItem(itemId),
@@ -22,13 +21,6 @@ export function ItemDetail() {
     queryFn: () => getLiveItemListings(itemId),
     enabled: false,
   });
-  const refreshMetadataMutation = useMutation({
-    mutationFn: () => refreshMetadata([itemId]),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["items", itemId] });
-    },
-  });
-
   if (itemQuery.isLoading) {
     return <LoadingState label="Loading item detail..." />;
   }
@@ -56,27 +48,7 @@ export function ItemDetail() {
               View on Undermine Exchange
             </a>
           ) : null}
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              item.metadata_status === "live"
-                ? "bg-sky-100 text-sky-700"
-                : item.metadata_status === "missing"
-                  ? "bg-amber-100 text-amber-700"
-                  : "bg-slate-100 text-slate-700"
-            }`}
-          >
-            {item.metadata_status === "live" ? "Live metadata" : item.metadata_status === "missing" ? "Metadata missing" : "Cached metadata"}
-          </span>
-          <button
-            type="button"
-            onClick={() => refreshMetadataMutation.mutate()}
-            disabled={refreshMetadataMutation.isPending}
-            className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {refreshMetadataMutation.isPending ? "Refreshing..." : "Refresh live metadata"}
-          </button>
         </div>
-        {item.metadata_message ? <p className="mb-4 text-sm text-slate-600">{item.metadata_message}</p> : null}
         <div className="grid gap-4 lg:grid-cols-4">
           <div>
             <p className="text-xs uppercase tracking-detail text-slate-500">Quality</p>

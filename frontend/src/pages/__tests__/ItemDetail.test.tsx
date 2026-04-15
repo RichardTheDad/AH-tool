@@ -6,13 +6,12 @@ import { ItemDetail } from "../ItemDetail";
 vi.mock("../../api/items", () => ({
   getItem: vi.fn(),
   getLiveItemListings: vi.fn(),
-  refreshMetadata: vi.fn(),
 }));
 
-import { getItem, getLiveItemListings, refreshMetadata } from "../../api/items";
+import { getItem, getLiveItemListings } from "../../api/items";
 
 describe("ItemDetail page", () => {
-  it("renders metadata status and live lookup controls", async () => {
+  it("renders item detail and live lookup controls", async () => {
     vi.mocked(getItem).mockResolvedValue({
       item_id: 873,
       name: "Staff of Jordan",
@@ -110,8 +109,6 @@ describe("ItemDetail page", () => {
         },
       ],
     });
-    vi.mocked(refreshMetadata).mockResolvedValue({ refreshed_count: 1, warnings: [] });
-
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -130,8 +127,6 @@ describe("ItemDetail page", () => {
     );
 
     expect(await screen.findByText("Staff of Jordan")).toBeInTheDocument();
-    expect(screen.getByText("Cached metadata")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh live metadata" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Check live Blizzard listings" })).toBeInTheDocument();
     expect(screen.getByText("Auction history")).toBeInTheDocument();
     expect(screen.getByText("TSM market context")).toBeInTheDocument();
