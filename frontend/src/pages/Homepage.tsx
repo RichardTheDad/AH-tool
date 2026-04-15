@@ -99,9 +99,6 @@ export function Homepage() {
           <div className="grid items-start gap-6 lg:grid-cols-[0.95fr_1.2fr]">
             <div className="space-y-4">
               <div className="space-y-3">
-                <span className="inline-flex items-center rounded-full border border-orange-400/35 bg-orange-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-orange-300">
-                  Live scanner active
-                </span>
                 <h1 className="max-w-xl font-display text-[2.15rem] font-bold leading-[1.05] text-zinc-100 sm:text-[3.1rem]">
                   Compare buy and sell realms, <span className="text-orange-400">rank better flips.</span>
                 </h1>
@@ -117,22 +114,7 @@ export function Homepage() {
                 <span className="rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 font-semibold text-zinc-200">Confidence scoring</span>
               </div>
 
-              <div className="flex flex-wrap gap-2 pt-1">
-                <Link to="/login" variant="default" className="no-underline">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="border-orange-500 bg-orange-500 text-white shadow-[0_0_28px_rgba(249,115,22,0.45)] hover:bg-orange-400"
-                  >
-                    Open Scanner
-                  </Button>
-                </Link>
-                <Link to="/public/docs" variant="default" className="no-underline">
-                  <Button variant="secondary" size="lg" className="border-white/15 bg-white/[0.05] text-zinc-100 hover:bg-white/[0.1] hover:text-white">
-                    Read Documentation
-                  </Button>
-                </Link>
-              </div>
+
 
               <div className="rounded-xl border border-orange-400/25 bg-orange-500/8 px-3 py-2 text-sm text-orange-100">
                 <p>
@@ -243,14 +225,7 @@ export function Homepage() {
             ))}
           </div>
 
-          <div className="mt-3 rounded-lg border border-white/10 bg-zinc-900/25 px-3 py-2">
-            <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2 lg:grid-cols-4">
-              <p><span className="font-semibold text-zinc-100">Capability:</span> Compare buy vs. sell realms</p>
-              <p><span className="font-semibold text-zinc-100">Coverage:</span> Scheduled scans</p>
-              <p><span className="font-semibold text-zinc-100">Ranking:</span> Confidence-aware scoring</p>
-              <p><span className="font-semibold text-zinc-100">Control:</span> Filter by profit, ROI, and risk</p>
-            </div>
-          </div>
+
         </section>
       </main>
     </div>
