@@ -9,12 +9,12 @@ from app.schemas.scan import ScanResultRead
 
 
 class ItemSearchRequest(BaseModel):
-    query: str = Field(min_length=1)
+    query: str = Field(min_length=1, max_length=200)
     limit: int = Field(default=25, ge=1, le=100)
 
 
 class ItemRefreshRequest(BaseModel):
-    item_ids: list[int] = Field(min_length=1)
+    item_ids: list[int] = Field(min_length=1, max_length=50)
 
 
 class ItemRead(BaseModel):

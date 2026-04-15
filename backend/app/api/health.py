@@ -5,7 +5,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.jobs.scheduler import manager as scheduler_manager
 
 
 router = APIRouter(tags=["health"])
@@ -21,6 +20,5 @@ def health_check(db: Session = Depends(get_db)) -> dict[str, object]:
     return {
         "status": "ok",
         "database": db_status,
-        "scheduler": scheduler_manager.status(),
     }
 

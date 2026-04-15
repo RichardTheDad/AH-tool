@@ -14,6 +14,18 @@ logger = logging.getLogger(__name__)
 
 _jwks_lock = threading.Lock()
 _jwks_cache: dict[str, dict] = {}  # keyed by JWKS URL
+_JWKS_CACHE_MAX_ENTRIES = 5
+
+
+def _assert_trusted_issuer(issuer: str) -> str:
+    trusted_supabase_url = get_settings().supabase_url
+    if not trusted_supabase_url:
+        raise JWTError("Auth not configured: AZEROTHFLIPLOCAL_SUPABASE_URL is not set.")
+
+    normalized_issuer = issuer.rstrip("/")
+    if normalized_issuer != trusted_supabase_url:
+        raise JWTError("Token issuer is not trusted.")
+    return normalized_issuer
 
 
 def _fetch_jwks(jwks_url: str) -> dict:
@@ -26,6 +38,8 @@ def _fetch_jwks(jwks_url: str) -> dict:
         logger.info("Fetching JWKS from %s", jwks_url)
         with urllib.request.urlopen(jwks_url, timeout=5) as resp:  # noqa: S310
             data = json.loads(resp.read())
+        if len(_jwks_cache) >= _JWKS_CACHE_MAX_ENTRIES:
+            _jwks_cache.pop(next(iter(_jwks_cache)))
         _jwks_cache[jwks_url] = data
         return data
 
@@ -58,9 +72,10 @@ def get_current_user(authorization: str | None = Header(None, alias="Authorizati
         else:
             # Asymmetric algorithm (ES256, RS256) — verify via Supabase JWKS
             unverified_claims = jwt.get_unverified_claims(token)
-            iss = unverified_claims.get("iss", "").rstrip("/")
-            if not iss:
+            issuer = unverified_claims.get("iss", "")
+            if not issuer:
                 raise JWTError("Token missing 'iss' claim")
+            iss = _assert_trusted_issuer(str(issuer))
             jwks_url = f"{iss}/.well-known/jwks.json"
             kid = header.get("kid")
             jwks = _fetch_jwks(jwks_url)

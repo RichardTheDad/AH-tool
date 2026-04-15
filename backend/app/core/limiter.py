@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+import binascii
 import base64
 import json
+import re
 
 from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+
+UUID_PATTERN = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+)
 
 
 def _user_key(request: Request) -> str:
@@ -26,9 +33,9 @@ def _user_key(request: Request) -> str:
                 payload_bytes = base64.urlsafe_b64decode(parts[1] + "=" * padding)
                 payload = json.loads(payload_bytes)
                 sub: str | None = payload.get("sub")
-                if sub:
+                if sub and UUID_PATTERN.fullmatch(sub):
                     return sub
-    except Exception:  # noqa: BLE001
+    except (binascii.Error, json.JSONDecodeError, UnicodeDecodeError, ValueError, TypeError):
         pass
     return get_remote_address(request)
 

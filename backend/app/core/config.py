@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     blizzard_locale: str = "en_US"
     tsm_api_key: str = ""
     tsm_region_id: int | None = None
+    supabase_url: str = ""
     supabase_jwt_secret: str = ""
     scheduler_refresh_interval_minutes: int = 60
 
@@ -114,6 +115,12 @@ class Settings(BaseSettings):
         if value is None or value == "":
             return None
         return int(value)
+
+    @field_validator("supabase_url", mode="before")
+    @classmethod
+    def normalize_supabase_url(cls, value: object) -> str:
+        raw = str(value or "").strip().rstrip("/")
+        return raw
 
 
 @lru_cache(maxsize=1)

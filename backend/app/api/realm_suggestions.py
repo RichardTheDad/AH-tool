@@ -14,13 +14,15 @@ router = APIRouter(tags=["realm-suggestions"])
 def _parse_target_realms(raw_target_realms: str | None) -> list[str] | None:
     if raw_target_realms is None:
         return None
-    realms = [realm.strip() for realm in raw_target_realms.split(",") if realm.strip()]
+    realms = [realm.strip() for realm in raw_target_realms.split(",", 50) if realm.strip()]
+    if len(realms) > 50:
+        realms = realms[:50]
     return realms
 
 
 @router.get("/realm-suggestions/latest", response_model=SuggestedRealmLatestResponse)
 def latest_realm_suggestions(
-    target_realms: str | None = Query(default=None),
+    target_realms: str | None = Query(default=None, max_length=500),
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user),
 ) -> SuggestedRealmLatestResponse:
