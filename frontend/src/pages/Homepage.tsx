@@ -1,11 +1,10 @@
-import { useNavigate } from "react-router-dom";
 import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
+import { Link } from "../components/common/Link";
+import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function Homepage() {
-  const navigate = useNavigate();
-  
   // This is a public page, not noindex
   useDocumentTitle("/", { 
     title: "Azeroth Flip - WoW Market Flipping Tool",
@@ -51,18 +50,7 @@ export function Homepage() {
 
   return (
     <div className="min-h-screen">
-      <nav className="sticky top-0 z-20 border-b border-white/70 bg-white/85 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <div>
-            <p className="font-display text-xs uppercase tracking-display text-ember">Azeroth Flip</p>
-            <p className="text-xs text-slate-500">Cross-realm scanner</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate("/public/docs")}>Documentation</Button>
-            <Button variant="primary" size="sm" onClick={() => navigate("/login")}>Sign in</Button>
-          </div>
-        </div>
-      </nav>
+      <PublicHeader subtitle="Cross-realm scanner" secondaryCtaLabel="Documentation" secondaryCtaTo="/public/docs" />
 
       <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <Card
@@ -84,8 +72,12 @@ export function Homepage() {
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Realm comparison</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button variant="primary" onClick={() => navigate("/login")}>Open scanner</Button>
-                <Button variant="secondary" onClick={() => navigate("/public/docs")}>Read docs</Button>
+                <Link to="/login" variant="default">
+                  <Button variant="primary">Open scanner</Button>
+                </Link>
+                <Link to="/public/docs" variant="default">
+                  <Button variant="secondary">Read docs</Button>
+                </Link>
               </div>
             </div>
 
@@ -135,17 +127,11 @@ export function Homepage() {
           </div>
         </Card>
 
-        <Card variant="flat" className="border-slate-300" noPadding>
-          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="font-display text-base font-semibold text-ink">Start scanning with your existing realm setup</h2>
-              <p className="mt-1 text-sm text-slate-600">Sign in to continue, or review public documentation first.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => navigate("/public/docs")}>Documentation</Button>
-              <Button variant="accent" onClick={() => navigate("/login")}>Sign in</Button>
-            </div>
-          </div>
+        <Card variant="flat" className="border-slate-300" title="Designed for repeatable execution">
+          <p className="text-sm text-slate-700">
+            Public pages explain what the platform does. The authenticated workspace focuses on doing the work:
+            scan, compare, decide, and post. No duplicated marketing layers after login.
+          </p>
         </Card>
       </main>
     </div>

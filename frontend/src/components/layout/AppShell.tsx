@@ -4,11 +4,10 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../common/Button";
 
 const navItems = [
-  { to: "/home", label: "Home" },
-  { to: "/", label: "Scanner" },
-  { to: "/realms", label: "Realms" },
-  { to: "/suggested-realms", label: "Suggested Realms" },
-  { to: "/presets", label: "Presets" },
+  { to: "/app", label: "Scanner" },
+  { to: "/app/realms", label: "Realms" },
+  { to: "/app/suggested-realms", label: "Suggested Realms" },
+  { to: "/app/presets", label: "Presets" },
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -29,7 +28,7 @@ export function AppShell({ children }: PropsWithChildren) {
                 <NavLink
                   key={item.to}
                   to={item.to}
-                  end={item.to === "/"}
+                  end={item.to === "/app"}
                   className={({ isActive }) =>
                     `px-3 py-1.5 text-sm font-medium rounded-lg transition ${
                       isActive 
@@ -65,7 +64,7 @@ export function AppShell({ children }: PropsWithChildren) {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/"}
+              end={item.to === "/app"}
               className={({ isActive }) =>
                 `px-3 py-1 text-xs font-medium rounded whitespace-nowrap transition ${
                   isActive 

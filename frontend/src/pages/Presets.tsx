@@ -30,7 +30,8 @@ function presetToScannerLink(preset: ScanPreset) {
   if (preset.min_confidence != null) params.set("minConfidence", String(preset.min_confidence));
   if (preset.category_filter) params.set("category", preset.category_filter);
   if (!preset.hide_risky) params.set("hideRisky", "false");
-  return `/scanner?${params.toString()}`;
+  const query = params.toString();
+  return query ? `/app?${query}` : "/app";
 }
 
 const PRESET_CATEGORY_OPTIONS = ["", ...DEFAULT_CATEGORY_OPTIONS];

@@ -1,11 +1,8 @@
-import { useNavigate } from "react-router-dom";
-import { Button } from "../components/common/Button";
 import { Card } from "../components/common/Card";
+import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function PublicDocs() {
-  const navigate = useNavigate();
-
   // This is a public docs page, not noindex
   useDocumentTitle("/public/docs", {
     title: "Documentation - Azeroth Flip",
@@ -61,18 +58,7 @@ export function PublicDocs() {
 
   return (
     <div className="min-h-screen">
-      <nav className="sticky top-0 z-20 border-b border-white/70 bg-white/85 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <div>
-            <p className="font-display text-xs uppercase tracking-display text-ember">Azeroth Flip</p>
-            <p className="text-xs text-slate-500">Public documentation</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => navigate("/")}>Home</Button>
-            <Button variant="primary" size="sm" onClick={() => navigate("/login")}>Sign in</Button>
-          </div>
-        </div>
-      </nav>
+      <PublicHeader subtitle="Public documentation" secondaryCtaLabel="Home" secondaryCtaTo="/home" />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <Card
@@ -99,58 +85,54 @@ export function PublicDocs() {
           </ul>
         </Card>
 
-        <Card title="Data freshness and update frequency" variant="default">
-          <p className="mb-3 text-sm text-slate-700">
-            Azeroth Flip maintains data freshness through scheduled market scans tied to user realm configurations. Here's our typical update schedule:
-          </p>
-          <div className="grid gap-2">
-            {freshnessRows.map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                <p className="font-medium text-ink">{label}</p>
-                <p className="text-slate-600">{value}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-sm text-slate-700">
-            Users can view the last scan timestamp for each realm in the app to understand data freshness at decision time.
-          </p>
-        </Card>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="Trust boundaries and security">
-            <p className="mb-3 text-sm text-slate-700">
-            All user data is private and account-protected. Azeroth Flip does not share, sell, or expose user information.
-            </p>
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 mb-2">
-              Public data: documentation and product overview only.
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="text-xs uppercase tracking-label text-slate-500">Private data</p>
-              <ul className="mt-1 space-y-1 text-sm text-slate-700">
-                {privateDataItems.map((item) => (
-                  <li key={item}>• {item}</li>
+        <Card
+          title="Data, freshness, and privacy"
+          subtitle="How data enters the system, how fresh it is, and what remains private."
+        >
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-ink">Freshness schedule</h3>
+              <div className="space-y-2">
+                {freshnessRows.map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                    <p className="font-medium text-ink">{label}</p>
+                    <p className="text-slate-600">{value}</p>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
-            <p className="mt-3 text-sm text-slate-700">
-            All private data is accessed only through authenticated API calls with per-user rate limiting to prevent abuse.
-            </p>
-          </Card>
 
-          <Card title="Data sources">
-            <div className="space-y-2">
-              {dataSources.map(([label, value]) => (
-                <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                  <p className="font-medium text-ink">{label}</p>
-                  <p className="text-slate-600">{value}</p>
-                </div>
-              ))}
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-ink">Data sources</h3>
+              <div className="space-y-2">
+                {dataSources.map(([label, value]) => (
+                  <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                    <p className="font-medium text-ink">{label}</p>
+                    <p className="text-slate-600">{value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="mt-3 text-sm text-slate-700">
-            All external data is sourced from official Blizzard APIs. Internal data is generated by legitimate market analysis and is retained with privacy guarantees.
-            </p>
-          </Card>
-        </div>
+
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-ink">Privacy boundaries</h3>
+              <div className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 mb-2">
+                Public data: documentation and product overview only.
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs uppercase tracking-label text-slate-500">Private data</p>
+                <ul className="mt-1 space-y-1 text-sm text-slate-700">
+                  {privateDataItems.map((item) => (
+                    <li key={item}>• {item}</li>
+                  ))}
+                </ul>
+              </div>
+              <p className="mt-2 text-sm text-slate-700">
+                Private data is accessible only through authenticated API calls with per-user rate limiting.
+              </p>
+            </div>
+          </div>
+        </Card>
 
         <Card title="Known limitations" variant="flat">
           <div className="space-y-2">
@@ -177,12 +159,6 @@ export function PublicDocs() {
           </div>
           <p className="text-sm text-slate-700 mt-3">
             All API endpoints are rate-limited and require authentication via Supabase JWT tokens. Documentation available upon account creation.
-          </p>
-        </Card>
-
-        <Card title="Support and feedback" variant="flat">
-          <p className="text-sm text-slate-700">
-            Found an issue or have a feature request? We'd love to hear from you. Issues and feature ideas are tracked internally and prioritized based on user impact.
           </p>
         </Card>
       </main>
