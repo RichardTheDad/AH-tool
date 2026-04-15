@@ -92,7 +92,7 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
                 href={result.undermine_url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                className="text-[11px] font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
               >
                 Undermine
               </a>
@@ -175,7 +175,7 @@ export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortC
 
   return (
     <div className="overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-card">
-      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-[11px] uppercase tracking-label text-slate-500">
         <div>Item</div>
         <SortButton label="Buy" column="cheapest_buy_price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
         <div>Sell</div>

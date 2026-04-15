@@ -79,19 +79,19 @@ export function ItemDetail() {
         {item.metadata_message ? <p className="mb-4 text-sm text-slate-600">{item.metadata_message}</p> : null}
         <div className="grid gap-4 lg:grid-cols-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Quality</p>
+            <p className="text-xs uppercase tracking-detail text-slate-500">Quality</p>
             <p className="mt-1 font-semibold text-ink">{item.quality ?? "Unknown"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Commodity</p>
+            <p className="text-xs uppercase tracking-detail text-slate-500">Commodity</p>
             <p className="mt-1 font-semibold text-ink">{item.is_commodity ? "Yes" : "No"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Best buy</p>
+            <p className="text-xs uppercase tracking-detail text-slate-500">Best buy</p>
             <p className="mt-1 font-semibold text-ink">{item.recent_scan?.cheapest_buy_realm ?? "-"}</p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Best sell</p>
+            <p className="text-xs uppercase tracking-detail text-slate-500">Best sell</p>
             <p className="mt-1 font-semibold text-ink">{item.recent_scan?.best_sell_realm ?? "-"}</p>
           </div>
         </div>
@@ -101,19 +101,19 @@ export function ItemDetail() {
         <Card title="Recent scan result" subtitle="The latest ranked opportunity for this item across your enabled realms.">
           <div className="grid gap-4 lg:grid-cols-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Profit</p>
+              <p className="text-xs uppercase tracking-detail text-slate-500">Profit</p>
               <p className="mt-1 font-semibold text-emerald-700">{formatGold(item.recent_scan.estimated_profit)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">ROI</p>
+              <p className="text-xs uppercase tracking-detail text-slate-500">ROI</p>
               <p className="mt-1 font-semibold text-ink">{formatPercent(item.recent_scan.roi)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Confidence</p>
+              <p className="text-xs uppercase tracking-detail text-slate-500">Confidence</p>
               <p className="mt-1 font-semibold text-ink">{formatScore(item.recent_scan.confidence_score)}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Explanation</p>
+              <p className="text-xs uppercase tracking-detail text-slate-500">Explanation</p>
               <p className="mt-1 text-sm text-slate-600">{item.recent_scan.explanation}</p>
             </div>
           </div>
@@ -156,24 +156,24 @@ export function ItemDetail() {
 
         <div className="space-y-6">
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region market view</p>
+            <p className="text-xs uppercase tracking-detail text-slate-500">Region market view</p>
             {item.tsm_message ? <p className="mt-2 text-sm text-slate-600">{item.tsm_message}</p> : null}
             {item.tsm_region_stats ? (
               <div className="mt-3 grid gap-4 lg:grid-cols-5">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region market avg</p>
+                  <p className="text-xs uppercase tracking-detail text-slate-500">Region market avg</p>
                   <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_market_avg)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region historical</p>
+                  <p className="text-xs uppercase tracking-detail text-slate-500">Region historical</p>
                   <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_historical)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sale avg</p>
+                  <p className="text-xs uppercase tracking-detail text-slate-500">Region sale avg</p>
                   <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_sale_avg)}</p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sale rate</p>
+                  <p className="text-xs uppercase tracking-detail text-slate-500">Region sale rate</p>
                   <p
                     className="mt-1 font-semibold text-ink"
                     title={
@@ -186,7 +186,7 @@ export function ItemDetail() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Region sold / day</p>
+                  <p className="text-xs uppercase tracking-detail text-slate-500">Region sold / day</p>
                   <p
                     className="mt-1 font-semibold text-ink"
                     title={
@@ -206,10 +206,10 @@ export function ItemDetail() {
 
           {item.tsm_realm_stats.length ? (
             <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Tracked realm AuctionDB context</p>
+              <p className="text-xs uppercase tracking-detail text-slate-500">Tracked realm AuctionDB context</p>
               <div className="mt-3 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-slate-200 text-xs uppercase tracking-[0.18em] text-slate-500">
+                  <thead className="border-b border-slate-200 text-xs uppercase tracking-detail text-slate-500">
                     <tr>
                       <th className="px-3 py-2">Realm</th>
                       <th className="px-3 py-2">TSM recent</th>
@@ -235,67 +235,67 @@ export function ItemDetail() {
           ) : null}
 
           <div>
-            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Personal TSM ledger</p>
+            <p className="text-xs uppercase tracking-detail text-slate-500">Personal TSM ledger</p>
             {item.tsm_ledger_message ? <p className="mt-2 text-sm text-slate-600">{item.tsm_ledger_message}</p> : null}
             {item.tsm_ledger_summary ? (
               <div className="mt-3 space-y-6">
                 <div className="grid gap-4 lg:grid-cols-4">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Auction sales</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Auction sales</p>
                     <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_sale_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Units sold</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Units sold</p>
                     <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_units_sold}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Avg unit sold</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Avg unit sold</p>
                     <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_ledger_summary.auction_avg_unit_sale_price)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Last sale</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Last sale</p>
                     <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_auction_sale_at)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Auction buys</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Auction buys</p>
                     <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_buy_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Units bought</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Units bought</p>
                     <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.auction_units_bought}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Avg unit bought</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Avg unit bought</p>
                     <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_ledger_summary.auction_avg_unit_buy_price)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Last buy</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Last buy</p>
                     <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_auction_buy_at)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Cancels</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Cancels</p>
                     <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.cancel_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Expired</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Expired</p>
                     <p className="mt-1 font-semibold text-ink">{item.tsm_ledger_summary.expired_count}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Last cancel</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Last cancel</p>
                     <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_cancel_at)}</p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Last expired</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Last expired</p>
                     <p className="mt-1 font-semibold text-ink">{formatDateTime(item.tsm_ledger_summary.last_expired_at)}</p>
                   </div>
                 </div>
 
                 {item.tsm_ledger_summary.recent_sales.length ? (
                   <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Recent personal auction sales</p>
+                    <p className="text-xs uppercase tracking-detail text-slate-500">Recent personal auction sales</p>
                     <div className="mt-3 overflow-x-auto">
                       <table className="min-w-full text-left text-sm">
-                        <thead className="border-b border-slate-200 text-xs uppercase tracking-[0.18em] text-slate-500">
+                        <thead className="border-b border-slate-200 text-xs uppercase tracking-detail text-slate-500">
                           <tr>
                             <th className="px-3 py-2">Realm</th>
                             <th className="px-3 py-2">Quantity</th>

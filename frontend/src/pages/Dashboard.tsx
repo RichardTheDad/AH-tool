@@ -9,6 +9,7 @@ import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { formatDateTime } from "../utils/format";
+import { readinessTextColor, realmFreshnessBadge } from "../utils/statusStyles";
 
 export function Dashboard() {
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
@@ -46,7 +47,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <Card title="Today's state" subtitle="A quick read on whether the board is ready to trust.">
-          <p className={`text-sm font-semibold ${readiness.status === "blocked" ? "text-rose-700" : readiness.status === "caution" ? "text-amber-700" : "text-emerald-700"}`}>
+          <p className={`text-sm font-semibold ${readinessTextColor(readiness.status)}`}>
             {readiness.message}
           </p>
           <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
@@ -114,13 +115,7 @@ export function Dashboard() {
                   {realm.freshest_captured_at ? <p className="mt-1 text-xs text-slate-500">Latest listing {formatDateTime(realm.freshest_captured_at)}</p> : null}
                 </div>
                 <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    !realm.has_data
-                      ? "bg-rose-100 text-rose-700"
-                      : realm.fresh_item_count > 0
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
-                  }`}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${realmFreshnessBadge(realm.has_data, realm.fresh_item_count)}`}
                 >
                   {!realm.has_data ? "Missing data" : realm.fresh_item_count > 0 ? "Fresh" : "Stale only"}
                 </span>

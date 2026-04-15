@@ -32,9 +32,9 @@ export function ResetPassword() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/50 bg-white/60 p-8 shadow-lg backdrop-blur-md">
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/50 bg-white/80 p-8 shadow-lg backdrop-blur-md">
         <div className="space-y-1">
-          <p className="font-display text-xs uppercase tracking-[0.3em] text-ember">AzerothFlip</p>
+          <p className="font-display text-xs uppercase tracking-display text-ember">AzerothFlip</p>
           <h1 className="font-display text-2xl font-semibold text-ink">Set new password</h1>
         </div>
 
@@ -50,7 +50,7 @@ export function ResetPassword() {
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-ember focus:ring-1 focus:ring-ember"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-ember focus:ring-1 focus:ring-ember"
             />
           </div>
 
@@ -65,7 +65,7 @@ export function ResetPassword() {
               autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-ember focus:ring-1 focus:ring-ember"
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-ember focus:ring-1 focus:ring-ember"
             />
           </div>
 

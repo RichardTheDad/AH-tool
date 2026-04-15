@@ -15,6 +15,7 @@ import { useScannerFilters } from "../hooks/useScannerFilters";
 import type { ScanPreset, ScanResult } from "../types/models";
 import { filterScanResults } from "../utils/filters";
 import { formatDateTime } from "../utils/format";
+import { readinessTextColor } from "../utils/statusStyles";
 
 const CALIBRATION_CHART_WIDTH = 640;
 const CALIBRATION_CHART_HEIGHT = 180;
@@ -292,7 +293,7 @@ export function Scanner() {
           change: previous.rank - (index + 1),
         };
       })
-      .filter((entry): entry is { result: (typeof latest.results)[number]; change: number } => entry !== null && entry.change !== 0)
+      .filter((entry): entry is { result: (typeof persistedScan.results)[number]; change: number } => entry !== null && entry.change !== 0)
       .sort((left, right) => Math.abs(right.change) - Math.abs(left.change))
       .slice(0, 4);
 
@@ -322,7 +323,7 @@ export function Scanner() {
             <p className="mt-1 text-sm text-slate-600">{persistedScan ? `Showing results from ${formatDateTime(persistedScan.generated_at)}` : "No scan recorded yet"}</p>
             {showingPersistedResults ? <p className="mt-2 text-sm text-slate-500">Newest scan is still saved, but it returned no listings, so the last populated scan remains visible.</p> : null}
             {latest?.warning_text ? <p className="mt-2 text-sm text-amber-700">{latest.warning_text}</p> : null}
-            <p className={`mt-2 text-sm ${readiness.status === "blocked" ? "text-rose-700" : readiness.status === "caution" ? "text-amber-700" : "text-emerald-700"}`}>
+            <p className={`mt-2 text-sm ${readinessTextColor(readiness.status)}`}>
               {readiness.message}
             </p>
             {isActivelyScanning ? (
@@ -423,7 +424,7 @@ export function Scanner() {
             <p className="mt-1 text-sm text-slate-600">{calibration.total_evaluated} evaluated predictions based on sell-realm follow-through.</p>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Confidence bands</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Confidence bands</p>
                 <div className="mt-2 space-y-1 text-sm text-slate-700">
                   {calibration.confidence_bands.map((row) => (
                     <div key={`confidence-${row.band}`} className="flex items-center justify-between gap-3">
@@ -434,7 +435,7 @@ export function Scanner() {
                 </div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Sellability bands</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Sellability bands</p>
                 <div className="mt-2 space-y-1 text-sm text-slate-700">
                   {calibration.sellability_bands.map((row) => (
                     <div key={`sellability-${row.band}`} className="flex items-center justify-between gap-3">
@@ -447,7 +448,7 @@ export function Scanner() {
             </div>
             {calibration.horizons?.length ? (
               <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Horizon buckets</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Horizon buckets</p>
                 <div className="mt-2 grid gap-2 md:grid-cols-3">
                   {calibration.horizons.map((horizon) => (
                     <div key={`h-${horizon.horizon_hours}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
@@ -463,7 +464,7 @@ export function Scanner() {
             ) : null}
             {calibration.trends?.length ? (
               <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Weekly confidence vs realized drift overlay</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Weekly confidence vs realized drift overlay</p>
                 <div className="mt-2 rounded-xl border border-slate-200 bg-white p-3">
                   <svg viewBox={`0 0 ${CALIBRATION_CHART_WIDTH} ${CALIBRATION_CHART_HEIGHT}`} className="h-44 w-full">
                     <line x1={CALIBRATION_CHART_PADDING} y1={CALIBRATION_CHART_PADDING} x2={CALIBRATION_CHART_PADDING} y2={CALIBRATION_CHART_HEIGHT - CALIBRATION_CHART_PADDING} stroke="#cbd5e1" strokeWidth="1" />
@@ -494,7 +495,7 @@ export function Scanner() {
             ) : null}
             {calibration.suggestions?.length ? (
               <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Auto-tuning suggestions</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Auto-tuning suggestions</p>
                 <div className="mt-2 space-y-2 text-sm">
                   {calibration.suggestions.map((suggestion, index) => (
                     <div key={`suggestion-${index}`} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
@@ -523,7 +524,7 @@ export function Scanner() {
 
             {tuningAudit.length ? (
               <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Tuning audit history</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Tuning audit history</p>
                 <div className="mt-2 space-y-1 text-sm text-slate-700">
                   {tuningAudit.map((entry) => (
                     <div key={`audit-${entry.id}`} className="flex items-center justify-between gap-3">
@@ -573,7 +574,7 @@ export function Scanner() {
             </p>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">New opportunities</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">New opportunities</p>
                 <div className="mt-2 space-y-2 text-sm text-slate-700">
                   {diffSummary.newItems.length ? diffSummary.newItems.map((item) => (
                     <div key={`new-${item.id}`}>{item.item_name}</div>
@@ -581,7 +582,7 @@ export function Scanner() {
                 </div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Biggest movers</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Biggest movers</p>
                 <div className="mt-2 space-y-2 text-sm text-slate-700">
                   {diffSummary.movers.length ? diffSummary.movers.map(({ result, change }) => (
                     <div key={`move-${result.id}`}>
@@ -591,7 +592,7 @@ export function Scanner() {
                 </div>
               </div>
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Dropped off</p>
+                <p className="text-xs uppercase tracking-label text-slate-500">Dropped off</p>
                 <div className="mt-2 space-y-2 text-sm text-slate-700">
                   {diffSummary.droppedItems.length ? diffSummary.droppedItems.map((item) => (
                     <div key={`drop-${item.id}`}>{item.item_name}</div>
@@ -653,7 +654,7 @@ export function Scanner() {
                   <div className="mt-4 space-y-4">
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Components</p>
+                        <p className="text-xs uppercase tracking-label text-slate-500">Components</p>
                         <div className="mt-2 space-y-1 text-sm text-slate-700">
                           <p>Liquidity: {(components.liquidity ?? 0).toFixed(2)}</p>
                           <p>Volatility: {(components.volatility ?? 0).toFixed(2)}</p>
@@ -662,7 +663,7 @@ export function Scanner() {
                         </div>
                       </div>
                       <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Confidence components</p>
+                        <p className="text-xs uppercase tracking-label text-slate-500">Confidence components</p>
                         <div className="mt-2 space-y-1 text-sm text-slate-700">
                           {Object.entries(confidenceComponents).map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
@@ -673,7 +674,7 @@ export function Scanner() {
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Final components</p>
+                        <p className="text-xs uppercase tracking-label text-slate-500">Final components</p>
                         <div className="mt-2 space-y-1 text-sm text-slate-700">
                           {Object.entries(finalComponents).map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
@@ -681,7 +682,7 @@ export function Scanner() {
                         </div>
                       </div>
                       <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Adjustments</p>
+                        <p className="text-xs uppercase tracking-label text-slate-500">Adjustments</p>
                         <div className="mt-2 space-y-1 text-sm text-slate-700">
                           {Object.entries(adjustments).map(([key, value]) => (
                             <p key={key}>{key}: {Number(value ?? 0).toFixed(2)}</p>
@@ -691,7 +692,7 @@ export function Scanner() {
                     </div>
 
                     <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Evidence gate</p>
+                      <p className="text-xs uppercase tracking-label text-slate-500">Evidence gate</p>
                       <div className="mt-2 space-y-1 text-sm text-slate-700">
                         <p>Applied: {String(Boolean(evidence.gate_applied))}</p>
                         <p>Sell depth OK: {String(Boolean(evidence.sell_depth_ok))}</p>

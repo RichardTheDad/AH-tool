@@ -79,19 +79,19 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
 
       <div className="grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Snapshots</p>
+          <p className="text-xs uppercase tracking-detail text-slate-500">Snapshots</p>
           <p className="mt-1 font-semibold text-ink">{activeHistory.points.length}</p>
         </div>
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">First observed</p>
+          <p className="text-xs uppercase tracking-detail text-slate-500">First observed</p>
           <p className="mt-1 font-semibold text-ink">{formatGold(firstPoint.lowest_price)}</p>
         </div>
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Latest observed</p>
+          <p className="text-xs uppercase tracking-detail text-slate-500">Latest observed</p>
           <p className="mt-1 font-semibold text-ink">{formatGold(latestPoint.lowest_price)}</p>
         </div>
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Latest depth</p>
+          <p className="text-xs uppercase tracking-detail text-slate-500">Latest depth</p>
           <p className="mt-1 font-semibold text-ink">
             {latestPoint.quantity ?? "--"} qty / {latestPoint.listing_count ?? "--"} listings
           </p>

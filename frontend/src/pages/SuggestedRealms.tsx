@@ -186,28 +186,28 @@ export function SuggestedRealms() {
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Average profit</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Average profit</p>
                     <p className="mt-1 font-semibold text-emerald-700">{formatGold(realm.average_profit)}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Average ROI</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Average ROI</p>
                     <p className="mt-1 font-semibold text-ink">{formatPercent(realm.average_roi)}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Average confidence</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Average confidence</p>
                     <p className="mt-1 font-semibold text-ink">{Math.round(realm.average_confidence)}/100</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Average sellability</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Average sellability</p>
                     <p className="mt-1 font-semibold text-ink">{Math.round(realm.average_sellability)}/100</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Appeared recently</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Appeared recently</p>
                     <p className="mt-1 font-semibold text-ink">{realm.appearance_count}/{realm.window_size || 1} eligible runs</p>
                     <p className="mt-1 text-xs text-slate-500">Across {realm.recent_run_count || 1} recent discovery runs.</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Cheapest recently</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Cheapest recently</p>
                     <p className="mt-1 font-semibold text-ink">{realm.cheap_run_count}/{realm.window_size || 1} eligible runs</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {realm.last_seen_cheapest_at
@@ -216,11 +216,11 @@ export function SuggestedRealms() {
                     </p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Freshness</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Freshness</p>
                     <p className="mt-1 font-semibold text-ink">{formatDateTime(realm.latest_captured_at ?? report.generated_at ?? null)}</p>
                   </div>
                   <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Median source buy</p>
+                    <p className="text-xs uppercase tracking-label text-slate-500">Median source buy</p>
                     <p className="mt-1 font-semibold text-ink">{realm.median_buy_price != null ? formatGold(realm.median_buy_price) : "--"}</p>
                     <p className="mt-1 text-xs text-slate-500">
                       {realm.best_target_realm ? `Usually routes best into ${realm.best_target_realm}.` : "No clear target realm winner yet."}
@@ -229,7 +229,7 @@ export function SuggestedRealms() {
                 </div>
 
                 <div className="mt-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Supporting items</p>
+                  <p className="text-xs uppercase tracking-label text-slate-500">Supporting items</p>
                   <div className="mt-2 space-y-2">
                     {realm.top_items.map((item) => (
                       <div key={`${realm.realm}-${item.item_id}`} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
@@ -243,7 +243,7 @@ export function SuggestedRealms() {
                                 href={item.undermine_url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                                className="text-xs font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
                               >
                                 Undermine
                               </a>

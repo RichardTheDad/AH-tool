@@ -18,7 +18,7 @@ export function AppShell({ children }: PropsWithChildren) {
       <header className="border-b border-white/50 bg-white/50 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1680px] flex-col gap-4 px-4 py-5 lg:flex-row lg:items-end lg:justify-between lg:px-8 2xl:px-10">
           <div>
-            <p className="font-display text-xs uppercase tracking-[0.3em] text-ember">AzerothFlip</p>
+            <p className="font-display text-xs uppercase tracking-display text-ember">AzerothFlip</p>
             <h1 className="mt-1 font-display text-3xl font-semibold text-ink">WoW cross-realm flipping</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">

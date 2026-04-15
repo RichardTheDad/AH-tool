@@ -102,7 +102,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
     <div className="overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-card">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1070px] divide-y divide-slate-200 text-[13px]">
-          <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.16em] text-slate-500">
+          <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-label text-slate-500">
             <tr>
               <th className="px-3 py-3 min-w-[10rem]">Item</th>
               <th className="px-4 py-3 whitespace-nowrap">Buy realm</th>
@@ -158,7 +158,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                           href={result.undermine_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                          className="text-xs font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
                         >
                           Undermine
                         </a>
@@ -261,7 +261,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                   })()}
                   <div className="space-y-2">
                     <p>{result.explanation}</p>
-                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-link text-slate-500">
                       <span>{result.turnover_label} turnover</span>
                       <span>{summarizeLiquidity(result.liquidity_score)}</span>
                       <span>{summarizeBaitRisk(result.bait_risk_score)}</span>
