@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { createPreset, deletePreset, getPresets, updatePreset } from "../api/presets";
+import { getRealms } from "../api/realms";
 import { DEFAULT_CATEGORY_OPTIONS } from "../components/filters/FilterSidebar";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
@@ -20,7 +21,21 @@ const baseForm = {
   min_confidence: "",
   hide_risky: true,
   category_filter: "",
+  buy_realms: "",
+  sell_realms: "",
 };
+
+function parseRealmCsv(value: string): string[] | null {
+  const cleaned = value
+    .split(",")
+    .map((realm) => realm.trim())
+    .filter(Boolean);
+  return cleaned.length ? cleaned : null;
+}
+
+function formatRealmCsv(value: string[] | null | undefined): string {
+  return Array.isArray(value) ? value.join(", ") : "";
+}
 
 function presetToScannerLink(preset: ScanPreset) {
   const params = new URLSearchParams();
@@ -29,6 +44,8 @@ function presetToScannerLink(preset: ScanPreset) {
   if (preset.max_buy_price != null) params.set("maxBuyPrice", String(preset.max_buy_price));
   if (preset.min_confidence != null) params.set("minConfidence", String(preset.min_confidence));
   if (preset.category_filter) params.set("category", preset.category_filter);
+  if (preset.buy_realms && preset.buy_realms.length === 1) params.set("buyRealm", preset.buy_realms[0]);
+  if (preset.sell_realms && preset.sell_realms.length === 1) params.set("sellRealm", preset.sell_realms[0]);
   if (!preset.hide_risky) params.set("hideRisky", "false");
   const query = params.toString();
   return query ? `/app?${query}` : "/app";
@@ -39,6 +56,7 @@ const PRESET_CATEGORY_OPTIONS = ["", ...DEFAULT_CATEGORY_OPTIONS];
 export function Presets() {
   const queryClient = useQueryClient();
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
+  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000 });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(baseForm);
   const [message, setMessage] = useState<string | null>(null);
@@ -98,6 +116,8 @@ export function Presets() {
               allow_stale: false,
               hide_risky: form.hide_risky,
               category_filter: form.category_filter || null,
+              buy_realms: parseRealmCsv(form.buy_realms),
+              sell_realms: parseRealmCsv(form.sell_realms),
             };
             if (editingId) {
               updateMutation.mutate({ id: editingId, payload });
@@ -165,6 +185,22 @@ export function Presets() {
             onChange={(event) => setForm((current) => ({ ...current, hide_risky: event.target.checked }))}
             compact
           />
+          <Input
+            id="preset-buy-realms"
+            label="Buy realms (comma separated, optional)"
+            value={form.buy_realms}
+            onChange={(event) => setForm((current) => ({ ...current, buy_realms: event.target.value }))}
+            placeholder={(realmsQuery.data ?? []).filter((realm) => realm.enabled).map((realm) => realm.realm_name).slice(0, 3).join(", ") || "Area 52, Stormrage"}
+            isCompact
+          />
+          <Input
+            id="preset-sell-realms"
+            label="Sell realms (comma separated, optional)"
+            value={form.sell_realms}
+            onChange={(event) => setForm((current) => ({ ...current, sell_realms: event.target.value }))}
+            placeholder={(realmsQuery.data ?? []).filter((realm) => realm.enabled).map((realm) => realm.realm_name).slice(0, 3).join(", ") || "Zul'jin"}
+            isCompact
+          />
           <div className="flex gap-2 pt-2">
             <Button type="submit" size="md">
               {editingId ? "Save preset" : "Create preset"}
@@ -200,6 +236,8 @@ export function Presets() {
                       preset.min_profit !== null && `Profit ${preset.min_profit}`,
                       preset.min_roi !== null && `ROI ${preset.min_roi}%`,
                       preset.min_confidence !== null && `Conf ${preset.min_confidence}`,
+                      preset.buy_realms?.length ? `Buy scope ${preset.buy_realms.length}` : false,
+                      preset.sell_realms?.length ? `Sell scope ${preset.sell_realms.length}` : false,
                     ]
                       .filter(Boolean)
                       .join(" • ")}
@@ -227,6 +265,8 @@ export function Presets() {
                         min_confidence: preset.min_confidence?.toString() ?? "",
                         hide_risky: preset.hide_risky,
                         category_filter: preset.category_filter ?? "",
+                        buy_realms: formatRealmCsv(preset.buy_realms),
+                        sell_realms: formatRealmCsv(preset.sell_realms),
                       });
                     }}
                   >

@@ -90,6 +90,10 @@ def create_db_and_tables() -> None:
             row[1]
             for row in connection.execute(text("PRAGMA table_info('scan_results')")).fetchall()
         }
+        existing_scan_preset_columns = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info('scan_presets')")).fetchall()
+        }
         existing_realm_suggestion_run_columns = {
             row[1]
             for row in connection.execute(text("PRAGMA table_info('realm_suggestion_runs')")).fetchall()
@@ -100,6 +104,10 @@ def create_db_and_tables() -> None:
             connection.execute(text("ALTER TABLE scan_results ADD COLUMN turnover_label VARCHAR(24) DEFAULT 'slow'"))
         if "score_provenance_json" not in existing_scan_result_columns:
             connection.execute(text("ALTER TABLE scan_results ADD COLUMN score_provenance_json JSON"))
+        if "buy_realms" not in existing_scan_preset_columns:
+            connection.execute(text("ALTER TABLE scan_presets ADD COLUMN buy_realms JSON"))
+        if "sell_realms" not in existing_scan_preset_columns:
+            connection.execute(text("ALTER TABLE scan_presets ADD COLUMN sell_realms JSON"))
 
         existing_calibration_columns = {
             row[1]

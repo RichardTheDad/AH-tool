@@ -5,6 +5,8 @@ export interface RunScanPayload {
   preset_id?: number;
   refresh_live?: boolean;
   include_losers?: boolean;
+  buy_realms?: string[];
+  sell_realms?: string[];
 }
 
 function normalizeScanSession(session: ScanSession | null | undefined): ScanSession | null {

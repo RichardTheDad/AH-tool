@@ -8,12 +8,13 @@ interface FilterSidebarProps {
   filters: ScannerFilters;
   onChange: (next: Partial<ScannerFilters>) => void;
   categoryOptions: string[];
+  realmOptions: string[];
   onReset?: () => void;
 }
 
 export const DEFAULT_CATEGORY_OPTIONS = ["Armor", "Weapon", "Recipe", "Consumable", "Trade Good", "Container", "Gem", "Glyph", "Miscellaneous"];
 
-export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: FilterSidebarProps) {
+export function FilterSidebar({ filters, onChange, categoryOptions, realmOptions, onReset }: FilterSidebarProps) {
   const categories = Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS, ...categoryOptions])).sort((left, right) => left.localeCompare(right));
 
   return (
@@ -94,6 +95,34 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
             </option>
           ))}
         </Select>
+        <Select
+          id="scanner-filter-buy-realm"
+          name="buyRealm"
+          value={filters.buyRealm}
+          onChange={(event) => onChange({ buyRealm: event.target.value })}
+          isCompact
+        >
+          <option value="">All buy realms</option>
+          {realmOptions.map((realm) => (
+            <option key={`buy-${realm}`} value={realm}>
+              {realm}
+            </option>
+          ))}
+        </Select>
+        <Select
+          id="scanner-filter-sell-realm"
+          name="sellRealm"
+          value={filters.sellRealm}
+          onChange={(event) => onChange({ sellRealm: event.target.value })}
+          isCompact
+        >
+          <option value="">All sell realms</option>
+          {realmOptions.map((realm) => (
+            <option key={`sell-${realm}`} value={realm}>
+              {realm}
+            </option>
+          ))}
+        </Select>
       </div>
 
       {/* Sorting Section */}
@@ -110,6 +139,7 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
           <option value="estimated_profit">Profit</option>
           <option value="cheapest_buy_price">Buy price</option>
           <option value="roi">ROI</option>
+          <option value="spread_percent">Spread %</option>
           <option value="confidence_score">Confidence</option>
         </Select>
         <Select

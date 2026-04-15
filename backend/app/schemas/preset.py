@@ -12,6 +12,8 @@ class ScanPresetBase(BaseModel):
     allow_stale: bool = False
     hide_risky: bool = True
     category_filter: str | None = None
+    buy_realms: list[str] | None = None
+    sell_realms: list[str] | None = None
 
 
 class ScanPresetCreate(ScanPresetBase):
@@ -27,6 +29,8 @@ class ScanPresetUpdate(BaseModel):
     allow_stale: bool | None = None
     hide_risky: bool | None = None
     category_filter: str | None = None
+    buy_realms: list[str] | None = None
+    sell_realms: list[str] | None = None
 
 
 class ScanPresetRead(ScanPresetBase):

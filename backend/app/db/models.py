@@ -123,6 +123,8 @@ class ScanPreset(Base):
     allow_stale: Mapped[bool] = mapped_column(Boolean, default=False)
     hide_risky: Mapped[bool] = mapped_column(Boolean, default=True)
     category_filter: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    buy_realms: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    sell_realms: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
 
 class RealmSuggestionRun(Base):

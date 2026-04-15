@@ -408,6 +408,10 @@ def scan_result_to_schema(
     observed_sell_price: float | None = None,
 ) -> ScanResultRead:
     has_missing_metadata = item_has_missing_metadata(result.item) if result.item else True
+    buy_price = float(result.cheapest_buy_price or 0)
+    target_sell_price = float(result.best_sell_price or 0)
+    spread_percent = ((target_sell_price / buy_price) - 1) if buy_price > 0 else 0.0
+    observed_spread_percent = ((observed_sell_price / buy_price) - 1) if observed_sell_price and buy_price > 0 else None
     return ScanResultRead(
         id=result.id,
         item_id=result.item_id,
@@ -423,6 +427,8 @@ def scan_result_to_schema(
         observed_sell_price=observed_sell_price,
         estimated_profit=result.estimated_profit,
         roi=result.roi,
+        spread_percent=round(spread_percent, 4),
+        observed_spread_percent=round(observed_spread_percent, 4) if observed_spread_percent is not None else None,
         confidence_score=result.confidence_score,
         sellability_score=getattr(result, "sellability_score", 0),
         liquidity_score=result.liquidity_score,

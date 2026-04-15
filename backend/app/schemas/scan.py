@@ -21,6 +21,8 @@ class ScanResultRead(BaseModel):
     observed_sell_price: float | None = None
     estimated_profit: float
     roi: float
+    spread_percent: float
+    observed_spread_percent: float | None = None
     confidence_score: float
     sellability_score: float = 0
     liquidity_score: float
@@ -50,6 +52,8 @@ class ScanRunRequest(BaseModel):
     preset_id: int | None = None
     refresh_live: bool = False
     include_losers: bool = False
+    buy_realms: list[str] | None = None
+    sell_realms: list[str] | None = None
 
 
 class ScanLatestResponse(BaseModel):

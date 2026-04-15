@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import AppSettings, Item, ScanResult, ScanSession
+from app.db.models import AppSettings, Item, ScanPreset, ScanResult, ScanSession
 from app.db.init_db import provision_new_user
 from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead, ScanSessionSummary
 from app.services.metadata_backfill_service import queue_missing_metadata_refresh, queue_missing_metadata_sweep
@@ -44,8 +44,39 @@ class ScanAlreadyRunningError(RuntimeError):
     pass
 
 
-def select_cheapest_buy_snapshot(snapshots):
-    return min(snapshots, key=lambda snapshot: float(snapshot.lowest_price or 0))
+def _normalize_requested_realms(requested: list[str] | None, enabled_realms: list[str]) -> tuple[set[str] | None, list[str]]:
+    if not requested:
+        return None, []
+
+    enabled_lookup = {realm.lower(): realm for realm in enabled_realms}
+    selected: list[str] = []
+    unknown: list[str] = []
+    seen_selected: set[str] = set()
+    seen_unknown: set[str] = set()
+    for raw in requested:
+        realm = raw.strip()
+        if not realm:
+            continue
+        key = realm.lower()
+        matched = enabled_lookup.get(key)
+        if matched is None:
+            if key not in seen_unknown:
+                seen_unknown.add(key)
+                unknown.append(realm)
+            continue
+        if key in seen_selected:
+            continue
+        seen_selected.add(key)
+        selected.append(matched)
+
+    return (set(selected) if selected else None), unknown
+
+
+def select_cheapest_buy_snapshot(snapshots, buy_realms: set[str] | None = None):
+    candidates = [snapshot for snapshot in snapshots if buy_realms is None or snapshot.realm in buy_realms]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda snapshot: float(snapshot.lowest_price or 0))
 
 
 def _build_history_context(buy_snapshot, sell_snapshot, history_by_realm: dict[str, list] | None) -> MarketHistoryContext | None:
@@ -160,8 +191,13 @@ def select_best_sell_snapshot(
     settings,
     include_losers: bool,
     history_by_realm: dict[str, list] | None = None,
+    sell_realms: set[str] | None = None,
 ):
-    candidates = [snapshot for snapshot in snapshots if snapshot.realm != buy_snapshot.realm]
+    candidates = [
+        snapshot
+        for snapshot in snapshots
+        if snapshot.realm != buy_snapshot.realm and (sell_realms is None or snapshot.realm in sell_realms)
+    ]
     if not candidates:
         return None, None
 
@@ -335,6 +371,31 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
             )
 
         warning_parts: list[str] = []
+        requested_buy_realms = payload.buy_realms
+        requested_sell_realms = payload.sell_realms
+        if payload.preset_id is not None and (requested_buy_realms is None or requested_sell_realms is None):
+            preset = session.get(ScanPreset, payload.preset_id)
+            if preset is None or preset.user_id != user_id:
+                warning_parts.append("Selected preset was not found; using broad realm discovery scope.")
+            else:
+                if requested_buy_realms is None:
+                    requested_buy_realms = list(preset.buy_realms or [])
+                if requested_sell_realms is None:
+                    requested_sell_realms = list(preset.sell_realms or [])
+
+        buy_realms, unknown_buy_realms = _normalize_requested_realms(requested_buy_realms, realms)
+        sell_realms, unknown_sell_realms = _normalize_requested_realms(requested_sell_realms, realms)
+        if unknown_buy_realms:
+            warning_parts.append(
+                f"Ignored {len(unknown_buy_realms)} buy realm(s) not currently enabled: {', '.join(unknown_buy_realms[:5])}."
+            )
+        if unknown_sell_realms:
+            warning_parts.append(
+                f"Ignored {len(unknown_sell_realms)} sell realm(s) not currently enabled: {', '.join(unknown_sell_realms[:5])}."
+            )
+
+        scoped_realms = set(buy_realms or []) | set(sell_realms or [])
+        scan_realms = sorted(scoped_realms) if scoped_realms else realms
 
         mark_scan_started("blizzard_auctions")
         mark_scan_stage = _mark_stage
@@ -345,13 +406,13 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
             if not available:
                 warning_parts.append(provider_message)
             else:
-                _inserted, fetch_error = refresh_from_provider(session, realms)
+                _inserted, fetch_error = refresh_from_provider(session, scan_realms)
                 if fetch_error:
                     warning_parts.append(f"Live refresh failed: {fetch_error}")
         mark_stale_snapshots(session)
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         enforce_fixed_ah_cut(app_settings)
-        latest_snapshots = get_latest_snapshots_for_realms(session, realms)
+        latest_snapshots = get_latest_snapshots_for_realms(session, scan_realms)
         metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
 
         grouped: dict[int, list] = {}
@@ -362,7 +423,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
 
         items_by_id = _load_items_by_id(session, set(grouped.keys()))
         readiness_status, readiness_message, items_missing_metadata_count = _derive_readiness_status(
-            latest_snapshots, realms, app_settings, items_by_id, metadata_configured
+            latest_snapshots, scan_realms, app_settings, items_by_id, metadata_configured
         )
 
         if not grouped:
@@ -375,9 +436,15 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
         for item_id, snapshots in grouped.items():
             if len(snapshots) < 2:
                 continue
-            buy_snapshot = select_cheapest_buy_snapshot(snapshots)
+            buy_snapshot = select_cheapest_buy_snapshot(snapshots, buy_realms)
+            if buy_snapshot is None:
+                continue
             best_observed_sell_snapshot = max(
-                (snapshot for snapshot in snapshots if snapshot.realm != buy_snapshot.realm),
+                (
+                    snapshot
+                    for snapshot in snapshots
+                    if snapshot.realm != buy_snapshot.realm and (sell_realms is None or snapshot.realm in sell_realms)
+                ),
                 key=lambda snapshot: float(snapshot.lowest_price or 0),
                 default=None,
             )
@@ -451,7 +518,9 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
                 if len(snapshots) < 2:
                     continue
 
-                buy_snapshot = select_cheapest_buy_snapshot(snapshots)
+                buy_snapshot = select_cheapest_buy_snapshot(snapshots, buy_realms)
+                if buy_snapshot is None:
+                    continue
                 best_candidate, best_score = select_best_sell_snapshot(
                     item,
                     buy_snapshot,
@@ -459,6 +528,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
                     app_settings,
                     include_losers,
                     history_by_realm=history_by_item.get(item_id),
+                    sell_realms=sell_realms,
                 )
 
                 if best_candidate is None or best_score is None:
@@ -497,6 +567,11 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
                 warning_parts.append(
                     "No profitable flips cleared the current thresholds, so the scanner is showing the best-ranked listings instead."
                 )
+
+        if (buy_realms is not None or sell_realms is not None) and not results:
+            warning_parts.append(
+                "No opportunities matched the selected buy/sell realm scope. Clear scoped realms to return to broad discovery mode."
+            )
 
         if skipped_missing_metadata:
             warning_parts.append(
@@ -559,7 +634,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
             warning_text=scan_session.warning_text,
             generated_at=scan_session.generated_at,
             result_count=len(results),
-            results=_serialize_scan_results(results, history_by_item, latest_by_item, realms),
+            results=_serialize_scan_results(results, history_by_item, latest_by_item, scan_realms),
         )
         return response
     except Exception:

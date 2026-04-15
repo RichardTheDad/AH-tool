@@ -32,6 +32,8 @@ export function useScannerFilters() {
     maxBuyPrice: searchParams.get("maxBuyPrice") ?? "",
     minConfidence: searchParams.get("minConfidence") ?? "",
     category: searchParams.get("category") ?? "",
+    buyRealm: searchParams.get("buyRealm") ?? "",
+    sellRealm: searchParams.get("sellRealm") ?? "",
     hideRisky: toBoolean(searchParams.get("hideRisky"), false),
     sortBy: (searchParams.get("sortBy") as ScannerFilters["sortBy"]) ?? "final_score",
     sortDirection: (searchParams.get("sortDirection") as ScannerFilters["sortDirection"]) ?? "desc",

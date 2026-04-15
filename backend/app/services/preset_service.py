@@ -6,6 +6,32 @@ from app.db.models import ScanPreset
 from app.schemas.preset import ScanPresetCreate, ScanPresetUpdate
 
 
+def _normalize_realm_list(values: list[str] | None) -> list[str] | None:
+    if values is None:
+        return None
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        realm = raw.strip()
+        if not realm:
+            continue
+        key = realm.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(realm)
+    return cleaned or None
+
+
+def _normalize_payload(data: dict[str, object]) -> dict[str, object]:
+    normalized = dict(data)
+    if "buy_realms" in normalized:
+        normalized["buy_realms"] = _normalize_realm_list(normalized.get("buy_realms"))
+    if "sell_realms" in normalized:
+        normalized["sell_realms"] = _normalize_realm_list(normalized.get("sell_realms"))
+    return normalized
+
+
 def _ensure_default_presets(session: Session, user_id: str) -> None:
     if session.query(ScanPreset.id).filter(ScanPreset.user_id == user_id).first() is not None:
         return
@@ -35,7 +61,7 @@ def create_preset(session: Session, user_id: str, payload: ScanPresetCreate) -> 
     duplicate = session.query(ScanPreset).filter(ScanPreset.user_id == user_id, ScanPreset.name.ilike(payload.name)).first()
     if duplicate:
         raise ValueError("Preset name already exists.")
-    preset = ScanPreset(user_id=user_id, **payload.model_dump())
+    preset = ScanPreset(user_id=user_id, **_normalize_payload(payload.model_dump()))
     session.add(preset)
     session.commit()
     session.refresh(preset)
@@ -47,7 +73,7 @@ def update_preset(session: Session, user_id: str, preset_id: int, payload: ScanP
     if preset is None or preset.user_id != user_id:
         raise LookupError("Preset not found.")
 
-    data = payload.model_dump(exclude_unset=True)
+    data = _normalize_payload(payload.model_dump(exclude_unset=True))
     if "name" in data:
         duplicate = session.query(ScanPreset).filter(
             ScanPreset.user_id == user_id, ScanPreset.name.ilike(data["name"]), ScanPreset.id != preset_id

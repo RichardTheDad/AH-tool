@@ -154,6 +154,14 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 className="px-3 py-3 whitespace-nowrap font-bold"
               />
               <SortableHeader
+                label="Spread"
+                column="spread_percent"
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSortChange={onSortChange}
+                className="px-3 py-3 whitespace-nowrap"
+              />
+              <SortableHeader
                 label="Confidence"
                 column="confidence_score"
                 sortBy={sortBy}
@@ -244,6 +252,11 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></td>
                 <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300">{formatPercent(result.roi)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap text-zinc-200">
+                  <span title={result.observed_spread_percent != null ? `Observed spread ${formatPercent(result.observed_spread_percent)}` : undefined}>
+                    {formatPercent(result.spread_percent)}
+                  </span>
+                </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   {(() => {
                     const tone = result.confidence_score >= 70

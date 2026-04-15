@@ -49,6 +49,8 @@ export interface ScanResult {
   observed_sell_price?: number | null;
   estimated_profit: number;
   roi: number;
+  spread_percent?: number;
+  observed_spread_percent?: number | null;
   confidence_score: number;
   sellability_score: number;
   liquidity_score: number;
@@ -250,6 +252,8 @@ export interface ScanPreset {
   allow_stale: boolean;
   hide_risky: boolean;
   category_filter?: string | null;
+  buy_realms?: string[] | null;
+  sell_realms?: string[] | null;
 }
 
 export interface ItemSummary {
@@ -396,7 +400,9 @@ export interface ScannerFilters {
   maxBuyPrice: string;
   minConfidence: string;
   category: string;
+  buyRealm: string;
+  sellRealm: string;
   hideRisky: boolean;
-  sortBy: "final_score" | "estimated_profit" | "cheapest_buy_price" | "roi" | "confidence_score" | "sellability_score";
+  sortBy: "final_score" | "estimated_profit" | "cheapest_buy_price" | "roi" | "spread_percent" | "confidence_score" | "sellability_score";
   sortDirection: "asc" | "desc";
 }

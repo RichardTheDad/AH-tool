@@ -70,6 +70,38 @@ def test_scan_selects_best_buy_and_sell_realms(client) -> None:
     assert staff["sell_history_prices"] == [23900.0]
 
 
+def test_scan_includes_spread_metrics(client) -> None:
+    seed_listing_data(client)
+
+    response = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
+    assert response.status_code == 200
+
+    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    assert "spread_percent" in staff
+    assert "observed_spread_percent" in staff
+    assert staff["spread_percent"] > 0
+    assert staff["observed_spread_percent"] > 0
+
+
+def test_scan_honors_buy_and_sell_realm_scope(client) -> None:
+    seed_listing_data(client)
+
+    response = client.post(
+        "/scans/run",
+        json={
+            "refresh_live": False,
+            "include_losers": False,
+            "buy_realms": ["Stormrage"],
+            "sell_realms": ["Zul'jin"],
+        },
+    )
+    assert response.status_code == 200
+
+    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    assert staff["cheapest_buy_realm"] == "Stormrage"
+    assert staff["best_sell_realm"] == "Zul'jin"
+
+
 def test_scan_returns_no_results_when_only_one_realm_has_data(client) -> None:
     response = client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
     assert response.status_code == 201

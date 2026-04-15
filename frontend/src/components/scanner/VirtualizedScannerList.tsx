@@ -191,6 +191,7 @@ function Row({ index, style, results, onOpenProvenance, search }: RowComponentPr
         <div className="min-w-0">
           <div className="font-semibold text-emerald-700"><GoldAmount value={result.estimated_profit} /></div>
           <div className="text-zinc-300">{formatPercent(result.roi)}</div>
+          <div className="text-xs text-zinc-500">Spread {formatPercent(result.spread_percent)}</div>
         </div>
 
         <div className="min-w-0">
@@ -284,6 +285,7 @@ export function VirtualizedScannerList({
         <SortButton label="Buy" column="cheapest_buy_price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
         <div>Sell</div>
         <SortButton label="Profit / ROI" column="roi" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
+        <SortButton label="Spread" column="spread_percent" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
         <SortButton label="Confidence" column="confidence_score" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
         <SortButton label="Sellability" column="sellability_score" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
       </div>

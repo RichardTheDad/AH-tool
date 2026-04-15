@@ -62,6 +62,8 @@ function applyPresetToFilterState(preset: ScanPreset) {
     maxBuyPrice: preset.max_buy_price?.toString() ?? "",
     minConfidence: preset.min_confidence?.toString() ?? "",
     category: preset.category_filter ?? "",
+    buyRealm: preset.buy_realms?.[0] ?? "",
+    sellRealm: preset.sell_realms?.[0] ?? "",
     hideRisky: preset.hide_risky,
   };
 }
@@ -74,6 +76,8 @@ function matchesPreset(filters: ReturnType<typeof applyPresetToFilterState> & { 
     filters.maxBuyPrice === presetFilters.maxBuyPrice &&
     filters.minConfidence === presetFilters.minConfidence &&
     filters.category === presetFilters.category &&
+    filters.buyRealm === presetFilters.buyRealm &&
+    filters.sellRealm === presetFilters.sellRealm &&
     filters.hideRisky === presetFilters.hideRisky
   );
 }
@@ -237,6 +241,10 @@ export function Scanner() {
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
+  const realmOptions = asArray(realmsQuery.data)
+    .filter((realm) => realm.enabled)
+    .map((realm) => realm.realm_name)
+    .sort((left, right) => left.localeCompare(right));
   const inferredPreset = (presetsQuery.data ?? []).find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
     (presetsQuery.data ?? []).find((preset) => preset.id === selectedPresetId) ??
@@ -464,7 +472,8 @@ export function Scanner() {
         filters={filters} 
         onChange={handleFilterChange} 
         categoryOptions={categoryOptions}
-        onReset={() => updateFilters({ minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", category: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
+        realmOptions={realmOptions}
+        onReset={() => updateFilters({ minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", category: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
       />
 
       <div className="space-y-4">
