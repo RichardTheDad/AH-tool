@@ -275,26 +275,142 @@ export function Scanner() {
     if (!persistedScan || !previousScan || showingPersistedResults) {
       return null;
     }
+
     const previousByItem = new Map(previousScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
     const currentByItem = new Map(persistedScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
-    const newItems = persistedScan.results.filter((result) => !previousByItem.has(result.item_id)).slice(0, 4);
-    const droppedItems = previousScan.results.filter((result) => !currentByItem.has(result.item_id)).slice(0, 4);
-    const movers = persistedScan.results
+
+    const newItems = persistedScan.results
+      .map((result, index) => ({ result, rank: index + 1 }))
+      .filter(({ result }) => !previousByItem.has(result.item_id));
+    const droppedItems = previousScan.results
+      .map((result, index) => ({ result, rank: index + 1 }))
+      .filter(({ result }) => !currentByItem.has(result.item_id));
+
+    const sharedItems = persistedScan.results
       .map((result, index) => {
         const previous = previousByItem.get(result.item_id);
         if (!previous) {
           return null;
         }
+
+        const rank = index + 1;
+        const rankDelta = previous.rank - rank;
+        const profitDelta = result.estimated_profit - previous.result.estimated_profit;
+        const scoreDelta = result.final_score - previous.result.final_score;
+        const roiDelta = result.roi - previous.result.roi;
+
         return {
           result,
-          change: previous.rank - (index + 1),
+          rank,
+          previousRank: previous.rank,
+          rankDelta,
+          profitDelta,
+          scoreDelta,
+          roiDelta,
+          className: result.item_class_name ?? "Unknown",
+          cheapestBuyRealm: result.cheapest_buy_realm,
         };
       })
-      .filter((entry): entry is { result: (typeof persistedScan.results)[number]; change: number } => entry !== null && entry.change !== 0)
-      .sort((left, right) => Math.abs(right.change) - Math.abs(left.change))
+      .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    const movers = sharedItems
+      .filter((entry) => entry.rankDelta !== 0)
+      .sort((left, right) => Math.abs(right.rankDelta) - Math.abs(left.rankDelta));
+
+    const profitChanged = sharedItems.filter((entry) => entry.profitDelta !== 0);
+    const scoreChanged = sharedItems.filter((entry) => entry.scoreDelta !== 0);
+    const roiChanged = sharedItems.filter((entry) => entry.roiDelta !== 0);
+    const improvedRank = movers.filter((entry) => entry.rankDelta > 0);
+    const declinedRank = movers.filter((entry) => entry.rankDelta < 0);
+
+    const materiallyChanged = new Set<number>();
+    newItems.forEach((entry) => materiallyChanged.add(entry.result.item_id));
+    droppedItems.forEach((entry) => materiallyChanged.add(entry.result.item_id));
+    sharedItems
+      .filter((entry) => entry.rankDelta !== 0 || entry.profitDelta !== 0 || entry.scoreDelta !== 0 || entry.roiDelta !== 0)
+      .forEach((entry) => materiallyChanged.add(entry.result.item_id));
+
+    const classCounts = (rows: ScanResult[]) => {
+      const counts = new Map<string, number>();
+      rows.forEach((row) => {
+        const key = row.item_class_name ?? "Unknown";
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      });
+      return counts;
+    };
+
+    const realmCounts = (rows: ScanResult[]) => {
+      const counts = new Map<string, number>();
+      rows.forEach((row) => {
+        const key = row.cheapest_buy_realm;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      });
+      return counts;
+    };
+
+    const currentClassCounts = classCounts(persistedScan.results);
+    const previousClassCounts = classCounts(previousScan.results);
+    const classDeltas = Array.from(new Set([...currentClassCounts.keys(), ...previousClassCounts.keys()]))
+      .map((name) => ({
+        name,
+        delta: (currentClassCounts.get(name) ?? 0) - (previousClassCounts.get(name) ?? 0),
+      }))
+      .filter((entry) => entry.delta !== 0)
+      .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
       .slice(0, 4);
 
-    return { newItems, droppedItems, movers };
+    const currentRealmCounts = realmCounts(persistedScan.results);
+    const previousRealmCounts = realmCounts(previousScan.results);
+    const realmDeltas = Array.from(new Set([...currentRealmCounts.keys(), ...previousRealmCounts.keys()]))
+      .map((realm) => ({
+        realm,
+        delta: (currentRealmCounts.get(realm) ?? 0) - (previousRealmCounts.get(realm) ?? 0),
+      }))
+      .filter((entry) => entry.delta !== 0)
+      .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
+      .slice(0, 4);
+
+    const totalComparedUniverse = new Set([
+      ...persistedScan.results.map((result) => result.item_id),
+      ...previousScan.results.map((result) => result.item_id),
+    ]).size;
+
+    const totalCurrent = persistedScan.results.length;
+    const totalPrevious = previousScan.results.length;
+    const netOpportunityDelta = totalCurrent - totalPrevious;
+    const changedShare = totalComparedUniverse > 0 ? (materiallyChanged.size / totalComparedUniverse) * 100 : 0;
+    const newShareOfCurrent = totalCurrent > 0 ? (newItems.length / totalCurrent) * 100 : 0;
+    const droppedShareOfPrevious = totalPrevious > 0 ? (droppedItems.length / totalPrevious) * 100 : 0;
+    const moverShareOfShared = sharedItems.length > 0 ? (movers.length / sharedItems.length) * 100 : 0;
+    const averageMoverShift = movers.length > 0 ? movers.reduce((sum, entry) => sum + Math.abs(entry.rankDelta), 0) / movers.length : 0;
+
+    return {
+      currentGeneratedAt: persistedScan.generated_at,
+      previousGeneratedAt: previousScan.generated_at,
+      totalCurrent,
+      totalPrevious,
+      totalComparedUniverse,
+      netOpportunityDelta,
+      newItems,
+      droppedItems,
+      movers,
+      improvedRank,
+      declinedRank,
+      profitChanged,
+      scoreChanged,
+      roiChanged,
+      materiallyChangedCount: materiallyChanged.size,
+      changedShare,
+      newShareOfCurrent,
+      droppedShareOfPrevious,
+      moverShareOfShared,
+      averageMoverShift,
+      classDeltas,
+      realmDeltas,
+      topNewItems: newItems.slice(0, 4),
+      topDroppedItems: droppedItems.slice(0, 4),
+      topMovers: movers.slice(0, 4),
+    };
   })();
 
   const trendRows = calibration?.trends ?? [];
@@ -547,38 +663,188 @@ export function Scanner() {
           <ErrorState message="Previous scan comparison is temporarily unavailable." />
         ) : diffSummary ? (
           <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
-            <h3 className="font-display text-lg font-semibold text-ink">Since last scan</h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Comparing {formatDateTime(persistedScan!.generated_at)} to {formatDateTime(previousScan!.generated_at)}.
-            </p>
-            <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">New opportunities</p>
-                <div className="mt-2 space-y-2 text-sm text-slate-700">
-                  {diffSummary.newItems.length ? diffSummary.newItems.map((item) => (
-                    <div key={`new-${item.id}`}>{item.item_name}</div>
-                  )) : <div>No new ranked items.</div>}
-                </div>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="font-display text-lg font-semibold text-ink">Since last scan</h3>
+                <p className="mt-1 text-sm text-slate-600">
+                  Comparing {formatDateTime(diffSummary.currentGeneratedAt)} to {formatDateTime(diffSummary.previousGeneratedAt)}.
+                </p>
               </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Biggest movers</p>
-                <div className="mt-2 space-y-2 text-sm text-slate-700">
-                  {diffSummary.movers.length ? diffSummary.movers.map(({ result, change }) => (
-                    <div key={`move-${result.id}`}>
-                      {result.item_name} {change > 0 ? `up ${change}` : `down ${Math.abs(change)}`}
+              <p className="text-xs text-slate-500">
+                Compared {diffSummary.totalCurrent} current vs {diffSummary.totalPrevious} previous opportunities.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-emerald-700">New opportunities</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-900">{diffSummary.newItems.length}</p>
+                <p className="text-xs text-emerald-700">{diffSummary.newShareOfCurrent.toFixed(1)}% of current results</p>
+              </div>
+
+              <div className="rounded-2xl border border-rose-100 bg-rose-50/70 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-rose-700">Dropped off</p>
+                <p className="mt-1 text-2xl font-semibold text-rose-900">{diffSummary.droppedItems.length}</p>
+                <p className="text-xs text-rose-700">{diffSummary.droppedShareOfPrevious.toFixed(1)}% of previous results</p>
+              </div>
+
+              <div className="rounded-2xl border border-amber-100 bg-amber-50/70 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-amber-700">Rank movers</p>
+                <p className="mt-1 text-2xl font-semibold text-amber-900">{diffSummary.movers.length}</p>
+                <p className="text-xs text-amber-700">
+                  {diffSummary.moverShareOfShared.toFixed(1)}% of shared • avg shift {diffSummary.averageMoverShift.toFixed(1)}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-sky-100 bg-sky-50/70 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-sky-700">Materially changed</p>
+                <p className="mt-1 text-2xl font-semibold text-sky-900">{diffSummary.materiallyChangedCount}</p>
+                <p className="text-xs text-sky-700">{diffSummary.changedShare.toFixed(1)}% of compared universe</p>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 xl:grid-cols-[1.2fr_1fr]">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-xs uppercase tracking-label text-slate-500">Change composition</p>
+                {diffSummary.totalComparedUniverse > 0 ? (
+                  <>
+                    <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="bg-emerald-500"
+                        style={{ width: `${(diffSummary.newItems.length / diffSummary.totalComparedUniverse) * 100}%` }}
+                        aria-label="Share of new opportunities"
+                      />
+                      <div
+                        className="bg-rose-500"
+                        style={{ width: `${(diffSummary.droppedItems.length / diffSummary.totalComparedUniverse) * 100}%` }}
+                        aria-label="Share of dropped opportunities"
+                      />
+                      <div
+                        className="bg-amber-500"
+                        style={{ width: `${(diffSummary.movers.length / diffSummary.totalComparedUniverse) * 100}%` }}
+                        aria-label="Share of rank movers"
+                      />
+                      <div
+                        className="bg-slate-400"
+                        style={{ width: `${Math.max(0, (diffSummary.totalComparedUniverse - diffSummary.materiallyChangedCount) / diffSummary.totalComparedUniverse) * 100}%` }}
+                        aria-label="Share with no material change"
+                      />
                     </div>
-                  )) : <div>No rank movement yet.</div>}
+                    <div className="mt-2 grid gap-1 text-xs text-slate-700 sm:grid-cols-2">
+                      <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-500" />new ({diffSummary.newItems.length})</div>
+                      <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-rose-500" />dropped ({diffSummary.droppedItems.length})</div>
+                      <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />rank moved ({diffSummary.movers.length})</div>
+                      <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-slate-400" />stable ({Math.max(0, diffSummary.totalComparedUniverse - diffSummary.materiallyChangedCount)})</div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">No comparable items yet.</p>
+                )}
+
+                <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
+                    <p className="uppercase tracking-label text-slate-500">Net opportunity delta</p>
+                    <p className={diffSummary.netOpportunityDelta >= 0 ? "mt-1 font-semibold text-emerald-700" : "mt-1 font-semibold text-rose-700"}>
+                      {diffSummary.netOpportunityDelta >= 0 ? `+${diffSummary.netOpportunityDelta}` : diffSummary.netOpportunityDelta}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
+                    <p className="uppercase tracking-label text-slate-500">Mover direction split</p>
+                    <p className="mt-1 font-semibold text-slate-800">
+                      <span className="text-emerald-700">↑ {diffSummary.improvedRank.length}</span>
+                      <span className="mx-2 text-slate-400">/</span>
+                      <span className="text-rose-700">↓ {diffSummary.declinedRank.length}</span>
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
+                    <p className="uppercase tracking-label text-slate-500">Profit deltas</p>
+                    <p className="mt-1 font-semibold text-slate-800">{diffSummary.profitChanged.length} changed</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-2">
+                    <p className="uppercase tracking-label text-slate-500">Score / ROI deltas</p>
+                    <p className="mt-1 font-semibold text-slate-800">{diffSummary.scoreChanged.length} / {diffSummary.roiChanged.length}</p>
+                  </div>
                 </div>
               </div>
-              <div className="rounded-2xl bg-slate-50 px-4 py-3">
-                <p className="text-xs uppercase tracking-label text-slate-500">Dropped off</p>
-                <div className="mt-2 space-y-2 text-sm text-slate-700">
-                  {diffSummary.droppedItems.length ? diffSummary.droppedItems.map((item) => (
-                    <div key={`drop-${item.id}`}>{item.item_name}</div>
-                  )) : <div>No items dropped off.</div>}
+
+              <div className="space-y-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <p className="text-xs uppercase tracking-label text-slate-500">Top movers</p>
+                  <div className="mt-2 space-y-2 text-sm">
+                    {diffSummary.topMovers.length ? diffSummary.topMovers.map((entry) => {
+                      const maxShift = Math.max(1, Math.max(...diffSummary.topMovers.map((row) => Math.abs(row.rankDelta))));
+                      const widthPct = (Math.abs(entry.rankDelta) / maxShift) * 100;
+                      return (
+                        <div key={`move-${entry.result.id}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate text-slate-800">{entry.result.item_name}</span>
+                            <span className={entry.rankDelta > 0 ? "shrink-0 font-semibold text-emerald-700" : "shrink-0 font-semibold text-rose-700"}>
+                              {entry.rankDelta > 0 ? `↑ ${entry.rankDelta}` : `↓ ${Math.abs(entry.rankDelta)}`}
+                            </span>
+                          </div>
+                          <div className="mt-1 h-1.5 rounded-full bg-slate-200">
+                            <div
+                              className={entry.rankDelta > 0 ? "h-1.5 rounded-full bg-emerald-500" : "h-1.5 rounded-full bg-rose-500"}
+                              style={{ width: `${widthPct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    }) : <p className="text-slate-600">No rank movement yet.</p>}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <p className="text-xs uppercase tracking-label text-slate-500">In / out highlights</p>
+                  <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
+                    <div>
+                      <p className="mb-1 text-xs uppercase tracking-label text-emerald-700">New</p>
+                      {diffSummary.topNewItems.length ? diffSummary.topNewItems.map((entry) => (
+                        <div key={`new-${entry.result.id}`} className="truncate text-slate-700">{entry.result.item_name}</div>
+                      )) : <div className="text-slate-600">No new ranked items.</div>}
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs uppercase tracking-label text-rose-700">Dropped</p>
+                      {diffSummary.topDroppedItems.length ? diffSummary.topDroppedItems.map((entry) => (
+                        <div key={`drop-${entry.result.id}`} className="truncate text-slate-700">{entry.result.item_name}</div>
+                      )) : <div className="text-slate-600">No items dropped off.</div>}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
+
+            {(diffSummary.classDeltas.length || diffSummary.realmDeltas.length) ? (
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-label text-slate-500">Class mix shift</p>
+                  <div className="mt-1 space-y-1 text-xs text-slate-700">
+                    {diffSummary.classDeltas.length ? diffSummary.classDeltas.map((entry) => (
+                      <div key={`class-${entry.name}`} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{entry.name}</span>
+                        <span className={entry.delta > 0 ? "font-semibold text-emerald-700" : "font-semibold text-rose-700"}>
+                          {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+                        </span>
+                      </div>
+                    )) : <div>No class distribution change.</div>}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-xs uppercase tracking-label text-slate-500">Cheapest-buy realm shift</p>
+                  <div className="mt-1 space-y-1 text-xs text-slate-700">
+                    {diffSummary.realmDeltas.length ? diffSummary.realmDeltas.map((entry) => (
+                      <div key={`realm-${entry.realm}`} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{entry.realm}</span>
+                        <span className={entry.delta > 0 ? "font-semibold text-emerald-700" : "font-semibold text-rose-700"}>
+                          {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+                        </span>
+                      </div>
+                    )) : <div>No cheapest-realm distribution change.</div>}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
