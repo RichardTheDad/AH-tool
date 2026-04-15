@@ -2,7 +2,6 @@ import { apiRequest } from "./client";
 import type { LatestScanResponse, ScanCalibrationSummary, ScanHistoryResponse, ScanReadiness, ScanRuntimeStatus, ScanSession } from "../types/models";
 
 export interface RunScanPayload {
-  provider_name?: string;
   preset_id?: number;
   refresh_live?: boolean;
   include_losers?: boolean;

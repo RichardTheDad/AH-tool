@@ -145,6 +145,7 @@ def _pair_to_item(pair: SuggestedPair) -> SuggestedRealmItemRead:
 def _build_current_recommendations(
     *,
     session: Session,
+    user_id: str,
     target_realms: list[str],
     source_realms: list[str],
     fetched_rows: list[ListingImportRow],

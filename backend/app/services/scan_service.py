@@ -21,6 +21,7 @@ from app.services.listing_service import (
     get_latest_snapshots_for_realms,
     get_recent_snapshot_history_for_items,
     mark_stale_snapshots,
+    refresh_from_provider,
     snapshot_is_stale,
 )
 from app.services.provider_service import get_provider_registry
@@ -267,7 +268,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
     try:
         realms = get_enabled_realm_names(session, user_id)
         if not realms:
-            scan_session = ScanSession(user_id=user_id, provider_name=payload.provider_name or "stored", warning_text="No enabled realms configured.")
+            scan_session = ScanSession(user_id=user_id, provider_name="blizzard_auctions", warning_text="No enabled realms configured.")
             session.add(scan_session)
             session.commit()
             session.refresh(scan_session)
@@ -283,6 +284,15 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         warning_parts: list[str] = []
 
         mark_scan_stage = lambda msg: None  # noqa: E731 - stage tracking not used for user scans
+        if payload.refresh_live:
+            provider = get_provider_registry().listing_providers["blizzard_auctions"]
+            available, provider_message = provider.is_available()
+            if not available:
+                warning_parts.append(provider_message)
+            else:
+                _inserted, fetch_error = refresh_from_provider(session, realms)
+                if fetch_error:
+                    warning_parts.append(f"Live refresh failed: {fetch_error}")
         mark_stale_snapshots(session)
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         latest_snapshots = get_latest_snapshots_for_realms(session, realms)
@@ -336,7 +346,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
 
         scan_session = ScanSession(
             user_id=user_id,
-            provider_name=payload.provider_name or "stored",
+            provider_name="blizzard_auctions",
             warning_text=" ".join(warning_parts) if warning_parts else None,
         )
         session.add(scan_session)

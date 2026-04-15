@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -18,12 +16,12 @@ router = APIRouter(tags=["items"])
 @router.post("/items/search", response_model=list[ItemSearchResult])
 def search_items(payload: ItemSearchRequest, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> list[ItemSearchResult]:
     items = metadata_service.search_items(db, payload.query, payload.limit)
-    return metadata_service.to_search_results(db, items)
+    return metadata_service.to_search_results(db, items, current_user)
 
 
 @router.get("/items/{item_id}", response_model=ItemDetail)
 def get_item(item_id: int, refresh_metadata_if_missing: bool = Query(default=True), db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ItemDetail:
-    item = metadata_service.get_item_detail(db, item_id, refresh_metadata_if_missing=refresh_metadata_if_missing)
+    item = metadata_service.get_item_detail(db, item_id, current_user, refresh_metadata_if_missing=refresh_metadata_if_missing)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found.")
     return item
@@ -36,7 +34,8 @@ def refresh_metadata(request: Request, payload: ItemRefreshRequest, db: Session 
 
 
 @router.post("/items/refresh-missing-metadata")
-def refresh_missing_metadata(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> dict[str, object]:
+@limiter.limit("2/minute")
+def refresh_missing_metadata(request: Request, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> dict[str, object]:
     del db
     queued_count = queue_missing_metadata_sweep(limit=250)
     return {
@@ -47,4 +46,4 @@ def refresh_missing_metadata(db: Session = Depends(get_db), current_user: str = 
 
 @router.get("/items/{item_id}/live-listings", response_model=LiveListingLookupResponse)
 def get_live_item_listings(item_id: int, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> LiveListingLookupResponse:
-    return metadata_service.get_live_item_listings(db, item_id)
+    return metadata_service.get_live_item_listings(db, item_id, current_user)

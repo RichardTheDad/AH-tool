@@ -94,7 +94,7 @@ def upsert_items(session: Session, payloads: list[ItemRead]) -> int:
     inserted_or_updated = 0
     for item_id, payload in deduped_payloads.items():
         item = existing_items.get(item_id)
-        data = payload.model_dump()
+        data = {k: v for k, v in payload.model_dump().items() if k in Item.__table__.columns.keys()}
         if item is None:
             item = Item(**data)
             if item.metadata_updated_at is None:
@@ -222,7 +222,7 @@ def refresh_tsm_market_stats(
     return {"refreshed_count": refreshed_count, "warnings": warnings}
 
 
-def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missing: bool = True) -> ItemDetail | None:
+def get_item_detail(session: Session, item_id: int, user_id: str, *, refresh_metadata_if_missing: bool = True) -> ItemDetail | None:
     item = session.get(Item, item_id)
     metadata_status = "cached"
     metadata_message: str | None = None
@@ -252,7 +252,7 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
     elif item.metadata_updated_at is not None:
         metadata_message = f"Metadata cached locally from {item.metadata_updated_at.astimezone(timezone.utc).isoformat()}."
 
-    realms = get_enabled_realm_names(session)
+    realms = get_enabled_realm_names(session, user_id)
     listings = get_latest_snapshots_for_item(session, item_id, realms)
     auction_history_map = get_recent_snapshot_history_for_item(session, item_id, realms, limit_per_realm=30)
     auction_history = [
@@ -327,8 +327,8 @@ def get_item_detail(session: Session, item_id: int, *, refresh_metadata_if_missi
     )
 
 
-def get_live_item_listings(session: Session, item_id: int) -> LiveListingLookupResponse:
-    realms = get_enabled_realm_names(session)
+def get_live_item_listings(session: Session, item_id: int, user_id: str) -> LiveListingLookupResponse:
+    realms = get_enabled_realm_names(session, user_id)
     if not realms:
         return LiveListingLookupResponse(
             status="unavailable",
@@ -410,8 +410,8 @@ def scan_result_to_schema(
     )
 
 
-def to_search_results(session: Session, items: list[Item]) -> list[ItemSearchResult]:
-    enabled_realms = get_enabled_realm_names(session)
+def to_search_results(session: Session, items: list[Item], user_id: str) -> list[ItemSearchResult]:
+    enabled_realms = get_enabled_realm_names(session, user_id)
     preferred_realm = enabled_realms[0] if enabled_realms else None
     return [
         ItemSearchResult(

@@ -5,9 +5,8 @@ import { useAuth } from "../../contexts/AuthContext";
 const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/scanner", label: "Scanner" },
-  { to: "/suggested-realms", label: "Suggested Realms" },
   { to: "/realms", label: "Realms" },
-  { to: "/imports", label: "Imports" },
+  { to: "/suggested-realms", label: "Suggested Realms" },
   { to: "/presets", label: "Presets" },
   { to: "/settings", label: "Settings" },
 ];

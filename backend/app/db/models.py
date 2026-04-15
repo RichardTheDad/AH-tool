@@ -183,6 +183,15 @@ class AppSettings(Base):
     scoring_preset: Mapped[str] = mapped_column(String(32), default="balanced")
     non_commodity_only: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    def __init__(self, **kwargs: object) -> None:
+        kwargs.setdefault("ah_cut_percent", 0.05)
+        kwargs.setdefault("flat_buffer", 0.0)
+        kwargs.setdefault("refresh_interval_minutes", 30)
+        kwargs.setdefault("stale_after_minutes", 120)
+        kwargs.setdefault("scoring_preset", "balanced")
+        kwargs.setdefault("non_commodity_only", True)
+        super().__init__(**kwargs)
+
 
 class TuningActionAudit(Base):
     __tablename__ = "tuning_action_audit"

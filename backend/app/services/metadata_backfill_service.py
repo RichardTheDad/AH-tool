@@ -77,29 +77,30 @@ def _missing_metadata_count(*, limit: int = 1) -> int:
 def _run_follow_up_scan() -> None:
     from app.schemas.scan import ScanRunRequest
     from app.services.realm_service import get_enabled_realm_names
-    from app.services.scan_service import get_scan_readiness, run_scan
 
     session = get_session_factory()()
     try:
-        realms = get_enabled_realm_names(session)
+        from app.db.models import AppSettings
+        # Best-effort: use the first active user's context for the background scan
+        app_settings_row = session.query(AppSettings).first()
+        if app_settings_row is None:
+            logger.info("Skipping follow-up scan after metadata resolution: no user settings found.")
+            return
+        realms = get_enabled_realm_names(session, app_settings_row.user_id)
         if not realms:
             logger.info("Skipping follow-up scan after metadata resolution: no enabled realms.")
             return
 
-        provider_name = get_settings().default_listing_provider
         provider = get_provider_registry().get_listing_provider(None)
-        readiness = get_scan_readiness(session)
-        if not readiness.ready_for_scan and not provider.supports_live_fetch:
-            logger.info("Skipping follow-up scan after metadata resolution: %s", readiness.message)
+        if not provider.supports_live_fetch:
+            logger.info("Skipping follow-up scan after metadata resolution: live provider not available.")
             return
 
-        run_scan(
+        from app.services.scan_service import run_user_scan
+        run_user_scan(
             session,
-            ScanRunRequest(
-                provider_name=provider_name,
-                refresh_live=provider.supports_live_fetch,
-                include_losers=False,
-            ),
+            app_settings_row.user_id,
+            ScanRunRequest(refresh_live=provider.supports_live_fetch, include_losers=False),
         )
         logger.info("Triggered follow-up scan after metadata queue fully resolved.")
     except Exception:  # pragma: no cover - worker safety

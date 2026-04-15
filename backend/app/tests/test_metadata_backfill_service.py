@@ -42,12 +42,47 @@ def test_metadata_backfill_worker_auto_tops_off_until_all_missing_items_are_reso
         session.close()
 
 
-def test_metadata_backfill_worker_runs_follow_up_scan_after_queue_drains(monkeypatch) -> None:
+def test_metadata_backfill_worker_runs_follow_up_scan_after_queue_drains(client, monkeypatch) -> None:
     called: list[str] = []
+
+    # Insert 50 items with missing metadata into the test DB
+    session = get_session_factory()()
+    try:
+        session.add_all([
+            Item(
+                item_id=2000 + i,
+                name=f"Item {2000 + i} (metadata unavailable)",
+                metadata_json={"metadata_status": "missing"},
+                is_commodity=False,
+            )
+            for i in range(50)
+        ])
+        session.commit()
+    finally:
+        session.close()
+
+    # Make the metadata provider appear available so the sweep can proceed
+    provider = get_provider_registry().metadata_provider
+    provider.settings.blizzard_client_id = "client-id"
+    provider.settings.blizzard_client_secret = "client-secret"
+    monkeypatch.setattr(provider, "is_available", lambda: (True, "mock"))
 
     monkeypatch.setattr(metadata_backfill_service, "_top_off_pending_queue", lambda limit=250: 0)
     monkeypatch.setattr(metadata_backfill_service, "_missing_metadata_count", lambda limit=1: 0)
     monkeypatch.setattr(metadata_backfill_service, "_run_follow_up_scan", lambda: called.append("scan"))
+    # Mock the batch refresh to avoid real Blizzard network calls in the background thread
+    # The mock resolves items so the DB is updated and the final assertion passes
+    def _fake_batch_refresh(item_ids: list[int]) -> dict[str, object]:
+        from app.services.metadata_service import upsert_items
+        from app.schemas.item import ItemRead
+        s = get_session_factory()()
+        try:
+            upsert_items(s, [ItemRead(item_id=i, name=f"Resolved Item {i}", is_commodity=False) for i in item_ids])
+        finally:
+            s.close()
+        return {"refreshed_count": len(item_ids), "warnings": []}
+
+    monkeypatch.setattr(metadata_backfill_service, "_refresh_batch_with_retry", _fake_batch_refresh)
 
     with metadata_backfill_service._pending_lock:
         metadata_backfill_service._pending_item_ids.clear()

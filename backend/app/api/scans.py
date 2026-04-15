@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -57,7 +55,8 @@ def scan_readiness(db: Session = Depends(get_db), current_user: str = Depends(ge
 
 
 @router.get("/scans/status", response_model=ScanRuntimeStatusRead)
-def scan_status() -> ScanRuntimeStatusRead:
+def scan_status(current_user: str = Depends(get_current_user)) -> ScanRuntimeStatusRead:
+    del current_user
     return ScanRuntimeStatusRead.model_validate(get_scan_runtime_state().__dict__)
 
 

@@ -6,7 +6,6 @@ from app.core.config import clear_settings_cache, get_settings
 from app.db.models import Item, ListingSnapshot
 from app.providers.blizzard_auctions import BlizzardAuctionListingProvider
 from app.providers.blizzard_metadata import BlizzardMetadataProvider
-from app.providers.file_import_listings import FileImportListingProvider
 from app.schemas.provider import ProviderStatus
 
 
@@ -57,20 +56,16 @@ class ProviderRegistry:
         self.metadata_provider = BlizzardMetadataProvider(settings)
         self.listing_providers = {
             "blizzard_auctions": BlizzardAuctionListingProvider(settings),
-            "file_import": FileImportListingProvider(),
         }
 
-    def get_listing_provider(self, name: str | None):
+    def get_listing_provider(self, name: str | None = None):
         target = name or get_settings().default_listing_provider
         if target not in self.listing_providers:
-            if name is None:
-                return self.listing_providers["file_import"]
             raise KeyError(f"Unknown listing provider: {target}")
         return self.listing_providers[target]
 
     def get_provider_statuses(self, session) -> list[ProviderStatus]:
         cached_item_count = sum(1 for item in session.query(Item).all() if _has_cached_metadata(item))
-        imported_listing_count = session.query(ListingSnapshot).filter(ListingSnapshot.source_name == "file_import").count()
         blizzard_listing_count = session.query(ListingSnapshot).filter(ListingSnapshot.source_name == "blizzard_auctions").count()
 
         metadata_available, metadata_message = self.metadata_provider.is_available()
@@ -98,37 +93,24 @@ class ProviderRegistry:
             )
         ]
 
-        for provider in self.listing_providers.values():
-            available, message = provider.is_available()
-            if provider.name == "file_import":
-                cache_records = imported_listing_count
-            elif provider.name == "blizzard_auctions":
-                cache_records = blizzard_listing_count
-            if provider.name == "file_import":
-                message = (
-                    f"{imported_listing_count} imported listing snapshots cached locally."
-                    if imported_listing_count
-                    else "Import CSV or JSON listing snapshots to provide scanner data."
-                )
-                available = True
-            elif provider.name == "blizzard_auctions" and available and cache_records > 0:
-                message = f"Live Blizzard retail refresh is configured; {cache_records} cached Blizzard snapshots are available locally."
-            elif provider.name == "blizzard_auctions" and not available and cache_records > 0:
-                message = f"Live Blizzard retail refresh is unavailable; {cache_records} cached Blizzard snapshots remain usable."
-
-            statuses.append(
-                _build_status(
-                    name=provider.name,
-                    provider_type=provider.provider_type,
-                    available=available,
-                    supports_live_fetch=provider.supports_live_fetch,
-                    message=message,
-                    cache_records=cache_records,
-                    last_checked_at=provider.last_checked_at,
-                    last_error=provider.last_error,
-                    treat_last_error_as_status=provider.name != "file_import",
-                )
+        blizzard_provider = self.listing_providers["blizzard_auctions"]
+        available, message = blizzard_provider.is_available()
+        if available and blizzard_listing_count > 0:
+            message = f"Live Blizzard retail refresh is configured; {blizzard_listing_count} cached snapshots available."
+        elif not available and blizzard_listing_count > 0:
+            message = f"Live Blizzard retail refresh is unavailable; {blizzard_listing_count} cached snapshots remain usable."
+        statuses.append(
+            _build_status(
+                name=blizzard_provider.name,
+                provider_type=blizzard_provider.provider_type,
+                available=available,
+                supports_live_fetch=blizzard_provider.supports_live_fetch,
+                message=message,
+                cache_records=blizzard_listing_count,
+                last_checked_at=blizzard_provider.last_checked_at,
+                last_error=str(blizzard_provider.last_error) if blizzard_provider.last_error else None,
             )
+        )
         return statuses
 
 

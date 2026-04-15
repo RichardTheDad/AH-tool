@@ -100,7 +100,8 @@ def ensure_item_records(session: Session, item_ids: list[int], *, source_name: s
 
 
 def snapshot_is_stale(snapshot: ListingSnapshot, settings: AppSettings) -> bool:
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=settings.stale_after_minutes)
+    stale_after = settings.stale_after_minutes if settings.stale_after_minutes is not None else 120
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=stale_after)
     captured_at = snapshot.captured_at
     if captured_at.tzinfo is None:
         captured_at = captured_at.replace(tzinfo=timezone.utc)
@@ -109,7 +110,8 @@ def snapshot_is_stale(snapshot: ListingSnapshot, settings: AppSettings) -> bool:
 
 def mark_stale_snapshots(session: Session) -> int:
     app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=app_settings.stale_after_minutes)
+    stale_after = app_settings.stale_after_minutes if app_settings.stale_after_minutes is not None else 120
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=stale_after)
     updated = 0
     updated += (
         session.query(ListingSnapshot)

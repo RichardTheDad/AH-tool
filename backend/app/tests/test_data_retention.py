@@ -24,15 +24,15 @@ def test_initialize_app_data_prunes_runtime_data_older_than_30_days(tmp_path, mo
         now = datetime.now(timezone.utc)
         old_time = now - timedelta(days=31)
 
-        session.add(AppSettings(id=1))
+        session.add(AppSettings(id=1, user_id="test-user"))
         session.add_all(
             [
                 Item(item_id=1, name="Fresh Item", is_commodity=False),
                 Item(item_id=2, name="Old Item", is_commodity=False),
             ]
         )
-        fresh_scan = ScanSession(provider_name="blizzard_auctions", generated_at=now)
-        old_scan = ScanSession(provider_name="blizzard_auctions", generated_at=old_time)
+        fresh_scan = ScanSession(user_id="test-user", provider_name="blizzard_auctions", generated_at=now)
+        old_scan = ScanSession(user_id="test-user", provider_name="blizzard_auctions", generated_at=old_time)
         session.add_all([fresh_scan, old_scan])
         session.flush()
         session.add_all(

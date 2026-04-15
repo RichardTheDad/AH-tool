@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy import text
 
-from app.db.session import get_engine
+from app.db.models import Item, ListingSnapshot
+from app.db.session import get_engine, get_session_factory
 
 
 def test_settings_presets_imports_and_providers_smoke(client) -> None:
@@ -52,31 +55,24 @@ def test_settings_presets_imports_and_providers_smoke(client) -> None:
     assert delete_preset.status_code == 204
 
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
-    payload = b"item_id,realm,lowest_price,average_price,quantity,listing_count,captured_at\n873,Stormrage,15000,15500,2,2,2026-04-06T02:45:00+00:00\n"
 
-    preview_import = client.post(
-        "/imports/listings",
-        data={"commit": "false"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
-    assert preview_import.status_code == 200
-    assert preview_import.json()["accepted_count"] == 1
-    assert preview_import.json()["committed"] is False
-    assert preview_import.json()["coverage"]["realm_count"] == 1
-    assert preview_import.json()["coverage"]["unique_item_count"] == 1
-
-    commit_import = client.post(
-        "/imports/listings",
-        data={"commit": "true"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
-    assert commit_import.status_code == 200
-    assert commit_import.json()["inserted_count"] == 1
+    # Seed listing data directly (file import endpoint was removed)
+    session = get_session_factory()()
+    try:
+        session.add(Item(item_id=873, name="Test Item 873"))
+        session.add(ListingSnapshot(
+            item_id=873, realm="Stormrage", lowest_price=15000, average_price=15500,
+            quantity=2, listing_count=2, source_name="blizzard_auctions",
+            captured_at=datetime.now(timezone.utc),
+        ))
+        session.commit()
+    finally:
+        session.close()
 
     providers = client.get("/providers/status")
     assert providers.status_code == 200
     names = {provider["name"]: provider for provider in providers.json()["providers"]}
-    assert set(names) == {"blizzard_auctions", "blizzard_metadata", "file_import"}
+    assert set(names) == {"blizzard_auctions", "blizzard_metadata"}
 
     readiness = client.get("/scans/readiness")
     assert readiness.status_code == 200
@@ -89,12 +85,18 @@ def test_settings_presets_imports_and_providers_smoke(client) -> None:
 
 def test_items_endpoints_smoke(client) -> None:
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
-    payload = b"item_id,realm,lowest_price,average_price,quantity,listing_count,captured_at\n873,Stormrage,15000,15500,2,2,2026-04-06T02:45:00+00:00\n"
-    client.post(
-        "/imports/listings",
-        data={"commit": "true"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
+    # Seed listing data directly
+    session = get_session_factory()()
+    try:
+        session.add(Item(item_id=873, name="Test Item 873"))
+        session.add(ListingSnapshot(
+            item_id=873, realm="Stormrage", lowest_price=15000, average_price=15500,
+            quantity=2, listing_count=2, source_name="blizzard_auctions",
+            captured_at=datetime.now(timezone.utc),
+        ))
+        session.commit()
+    finally:
+        session.close()
 
     search = client.post("/items/search", json={"query": "873", "limit": 10})
     assert search.status_code == 200
@@ -133,24 +135,38 @@ def test_tuning_preset_cooldown_and_audit_history(client) -> None:
 
 def test_duplicate_import_rows_are_skipped_gracefully(client) -> None:
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
-    payload = b"item_id,realm,lowest_price,average_price,quantity,listing_count,captured_at\n873,Stormrage,15000,15500,2,2,2026-04-06T02:45:00+00:00\n"
 
-    first = client.post(
-        "/imports/listings",
-        data={"commit": "true"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
-    assert first.status_code == 200
-    assert first.json()["inserted_count"] == 1
+    session = get_session_factory()()
+    try:
+        session.add(Item(item_id=873, name="Test Item 873"))
+        ts = datetime.now(timezone.utc)
+        session.add(ListingSnapshot(
+            item_id=873, realm="Stormrage", lowest_price=15000, average_price=15500,
+            quantity=2, listing_count=2, source_name="blizzard_auctions", captured_at=ts,
+        ))
+        session.commit()
+    finally:
+        session.close()
 
-    second = client.post(
-        "/imports/listings",
-        data={"commit": "true"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
-    assert second.status_code == 200
-    assert second.json()["inserted_count"] == 0
-    assert second.json()["skipped_duplicates"] == 1
+    # Inserting the same snapshot again should hit the unique constraint
+    session2 = get_session_factory()()
+    try:
+        from sqlalchemy.exc import IntegrityError
+        snap = ListingSnapshot(
+            item_id=873, realm="Stormrage", lowest_price=15000, average_price=15500,
+            quantity=2, listing_count=2, source_name="blizzard_auctions", captured_at=ts,
+        )
+        session2.add(snap)
+        try:
+            session2.commit()
+            duplicate_inserted = True
+        except IntegrityError:
+            session2.rollback()
+            duplicate_inserted = False
+    finally:
+        session2.close()
+
+    assert duplicate_inserted is False, "Duplicate listing snapshots should be rejected by the unique index"
 
 
 def test_listing_snapshot_indexes_exist(client) -> None:

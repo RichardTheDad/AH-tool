@@ -110,7 +110,6 @@ function exportResultsAsCsv(rows: ReturnType<typeof filterScanResults>) {
 
 export function Scanner() {
   const queryClient = useQueryClient();
-  const [selectedProvider, setSelectedProvider] = useState("");
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -183,16 +182,7 @@ export function Scanner() {
     },
   });
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
-  const scannerProviders = [...providers]
-    .filter((provider) => provider.name === "file_import" || provider.status === "available" || provider.status === "cached_only")
-    .sort((left, right) => {
-      const score = (provider: (typeof providers)[number]) =>
-        (provider.supports_live_fetch && provider.available ? 4 : 0) +
-        (provider.status === "cached_only" ? 2 : 0) +
-        (provider.name === "file_import" ? 0 : 1);
-      return score(right) - score(left);
-    });
-  const activeProvider = scannerProviders.find((provider) => provider.name === selectedProvider) ?? scannerProviders[0] ?? null;
+  const activeProvider = providers.find((p) => p.name === "blizzard_auctions") ?? providers[0] ?? null;
   const readiness = readinessQuery.data;
   const scanStatus = scanStatusQuery.data;
   const noEnabledRealms = !!readiness && readiness.enabled_realm_count === 0;
@@ -201,12 +191,6 @@ export function Scanner() {
   const canBootstrapFromLiveProvider = !!activeProvider?.supports_live_fetch && activeProvider.available;
   const scanBlocked = noEnabledRealms || (!readiness?.ready_for_scan && !canBootstrapFromLiveProvider);
   const scanRunning = scanStatus?.status === "running";
-
-  useEffect(() => {
-    if (!activeProvider && scannerProviders[0]) {
-      setSelectedProvider(scannerProviders[0].name);
-    }
-  }, [activeProvider, scannerProviders]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -262,8 +246,8 @@ export function Scanner() {
       ? {
           title: canBootstrapFromLiveProvider ? "No local listing cache yet" : "No listing data found",
           description: canBootstrapFromLiveProvider
-            ? "Run the live provider once to pull fresh Blizzard listings into your local cache, or keep using imports as a fallback."
-            : "Import listing snapshots for your enabled realms. Live bulk listing refresh is not available right now.",
+            ? "Run the scan to pull fresh Blizzard listings into the local cache."
+            : "Live Blizzard listing refresh is not available right now. Check your Blizzard API credentials in Settings.",
         }
       : notEnoughRealmCoverage
         ? {
@@ -272,7 +256,7 @@ export function Scanner() {
           }
       : {
           title: "Scanner is empty",
-          description: "Run the live Blizzard provider to pull fresh listings, or import listing snapshots as a fallback.",
+          description: "Run the scan to pull fresh listings from the Blizzard Auction House.",
         };
 
   const diffSummary = (() => {
@@ -349,28 +333,15 @@ export function Scanner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={activeProvider?.name ?? ""}
-              onChange={(event) => setSelectedProvider(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"
-            >
-              {scannerProviders.map((provider) => (
-                <option key={provider.name} value={provider.name}>
-                  {provider.name}
-                </option>
-              ))}
-            </select>
             <button
               type="button"
               onClick={() =>
-                activeProvider &&
                 scanMutation.mutate({
-                  provider_name: activeProvider.name,
-                  refresh_live: activeProvider.supports_live_fetch,
+                  refresh_live: true,
                   include_losers: false,
                 })
               }
-              disabled={!activeProvider || scanBlocked || scanMutation.isPending || scanRunning}
+              disabled={scanBlocked || scanMutation.isPending || scanRunning}
               className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {scanMutation.isPending || scanRunning ? "Running..." : "Run scan"}
@@ -561,7 +532,7 @@ export function Scanner() {
             />
           )
         ) : (
-          <EmptyState title="Scanner is empty" description="Run the live Blizzard provider to pull fresh listings, or import listing snapshots as a fallback." />
+          <EmptyState title="Scanner is empty" description="Run the scan to pull fresh listings from the Blizzard Auction House." />
         )}
 
         {previousScanQuery.isLoading ? (

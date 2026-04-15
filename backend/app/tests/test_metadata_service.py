@@ -43,6 +43,10 @@ def test_name_item_search_returns_remote_upserted_item(client, monkeypatch) -> N
 
 
 def test_import_commit_refreshes_missing_metadata_when_provider_is_available(client, monkeypatch) -> None:
+    from datetime import datetime, timezone
+    from app.db.models import Item, ListingSnapshot
+    from app.db.session import get_session_factory
+
     provider = get_provider_registry().metadata_provider
     provider.settings.blizzard_client_id = "client-id"
     provider.settings.blizzard_client_secret = "client-secret"
@@ -54,16 +58,22 @@ def test_import_commit_refreshes_missing_metadata_when_provider_is_available(cli
 
     monkeypatch.setattr(provider, "fetch_item", fake_fetch_item)
 
-    client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
-    payload = b"item_id,realm,lowest_price,average_price,quantity,listing_count,captured_at\n873,Stormrage,15000,15500,2,2,2026-04-06T02:45:00+00:00\n"
+    # Insert an item with missing metadata directly
+    session = get_session_factory()()
+    try:
+        session.add(Item(
+            item_id=873,
+            name="Item 873 (metadata unavailable)",
+            metadata_json={"metadata_status": "missing"},
+            is_commodity=False,
+        ))
+        session.commit()
+    finally:
+        session.close()
 
-    response = client.post(
-        "/imports/listings",
-        data={"commit": "true"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
+    # Trigger metadata refresh via the API endpoint
+    response = client.post("/items/refresh-metadata", json={"item_ids": [873]})
     assert response.status_code == 200
-    assert response.json()["metadata_refreshed_count"] == 1
 
     item = client.get("/items/873")
     assert item.status_code == 200

@@ -50,7 +50,6 @@ class ScanSessionRead(BaseModel):
 
 
 class ScanRunRequest(BaseModel):
-    provider_name: str | None = None
     preset_id: int | None = None
     refresh_live: bool = False
     include_losers: bool = False

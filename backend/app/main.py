@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from app.api import health, imports, items, presets, providers, realm_suggestions, realms, scans, settings
+from app.api import health, items, presets, providers, realm_suggestions, realms, scans, settings
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.logging import configure_logging
@@ -60,7 +60,6 @@ def create_app() -> FastAPI:
     app.include_router(realms.router)
     app.include_router(realm_suggestions.router)
     app.include_router(items.router)
-    app.include_router(imports.router)
     app.include_router(scans.router)
     app.include_router(presets.router)
     app.include_router(settings.router)

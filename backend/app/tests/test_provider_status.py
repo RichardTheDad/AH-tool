@@ -10,32 +10,37 @@ def test_provider_status_endpoint_reports_truthful_local_fallbacks(client) -> No
     payload = response.json()
     names = {provider["name"]: provider for provider in payload["providers"]}
 
-    assert set(names) == {"blizzard_auctions", "blizzard_metadata", "file_import"}
+    assert set(names) == {"blizzard_auctions", "blizzard_metadata"}
     assert names["blizzard_auctions"]["available"] is False
     assert names["blizzard_auctions"]["status"] == "unavailable"
     assert names["blizzard_metadata"]["available"] is False
     assert names["blizzard_metadata"]["status"] == "unavailable"
-    assert names["file_import"]["available"] is True
-    assert names["file_import"]["status"] == "available"
     assert "mock" not in names
 
 
 def test_provider_status_uses_source_specific_cache_counts(client) -> None:
+    from datetime import datetime, timezone
+    from app.db.models import Item, ListingSnapshot
+    from app.db.session import get_session_factory
+
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
-    payload = b"item_id,realm,lowest_price,quantity,captured_at\n873,Stormrage,15000,2,2026-04-06T02:45:00+00:00\n"
-    response = client.post(
-        "/imports/listings",
-        data={"commit": "true"},
-        files={"file": ("listings.csv", payload, "text/csv")},
-    )
-    assert response.status_code == 200
+    session = get_session_factory()()
+    try:
+        session.add(Item(item_id=873, name="Test Item 873"))
+        session.add(ListingSnapshot(
+            item_id=873, realm="Stormrage", lowest_price=15000, average_price=15500,
+            quantity=2, listing_count=2, source_name="blizzard_auctions",
+            captured_at=datetime.now(timezone.utc),
+        ))
+        session.commit()
+    finally:
+        session.close()
 
     status = client.get("/providers/status")
     assert status.status_code == 200
 
     names = {provider["name"]: provider for provider in status.json()["providers"]}
-    assert names["file_import"]["cache_records"] == 1
-    assert names["blizzard_auctions"]["cache_records"] == 0
+    assert names["blizzard_auctions"]["cache_records"] == 1
     assert names["blizzard_metadata"]["cache_records"] == 0
     assert names["blizzard_metadata"]["status"] == "unavailable"
 

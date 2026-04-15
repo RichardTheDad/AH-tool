@@ -32,7 +32,7 @@ class Settings(BaseSettings):
         ]
     )
     default_region: str = "us"
-    default_listing_provider: str = "file_import"
+    default_listing_provider: str = "blizzard_auctions"
     enable_scheduler: bool = True
     log_level: str = "INFO"
     request_timeout_seconds: int = 8
