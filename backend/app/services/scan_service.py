@@ -408,8 +408,15 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         session.add(scan_session)
         session.flush()
 
+        # Load price history only for profitable candidates — items outside this set will score
+        # without volatility/recency context (profit and ROI are unaffected).
+        history_item_ids = candidate_item_ids[:500]
+        if history_item_ids:
+            mark_scan_stage(f"Loading price history for {len(history_item_ids)} candidate items...")
+            history_by_item = get_recent_snapshot_history_for_items(session, history_item_ids, realms)
+        else:
+            history_by_item = {}
         mark_scan_stage("Scoring cross-realm opportunities.")
-        history_by_item = get_recent_snapshot_history_for_items(session, list(grouped.keys()), realms)
 
         def build_scan_results(include_losers: bool) -> tuple[list[ScanResult], int, int]:
             local_results: list[ScanResult] = []
