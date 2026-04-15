@@ -8,7 +8,9 @@ import { applyTuningPreset, getTuningAudit } from "../api/settings";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
+import { Button } from "../components/common/Button";
 import { FilterSidebar } from "../components/filters/FilterSidebar";
+import { ScannerStatusBar } from "../components/scanner/ScannerStatusBar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
 import { useScannerFilters } from "../hooks/useScannerFilters";
@@ -278,67 +280,40 @@ export function Scanner() {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
-      <FilterSidebar filters={filters} onChange={handleFilterChange} categoryOptions={categoryOptions} />
+      <FilterSidebar 
+        filters={filters} 
+        onChange={handleFilterChange} 
+        categoryOptions={categoryOptions}
+        onReset={() => updateFilters({ minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", category: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
+      />
 
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="font-display text-xl font-semibold text-ink">Current opportunities</h2>
-            <p className="mt-1 text-sm text-slate-600">{persistedScan ? `Showing results from ${formatDateTime(persistedScan.generated_at)}` : "No scan recorded yet"}</p>
-            {showingPersistedResults ? <p className="mt-2 text-sm text-slate-500">Newest scan is still saved, but it returned no listings, so the last populated scan remains visible.</p> : null}
-            {latest?.warning_text ? <p className="mt-2 text-sm text-amber-700">{latest.warning_text}</p> : null}
-            <p className={`mt-2 text-sm ${readinessTextColor(readiness.status)}`}>
-              {readiness.message}
-            </p>
-            {scanRunning ? (
-              <div className="mt-2 flex items-start gap-2">
-                <span className="mt-0.5 inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
-                <div>
-                  <p className="text-sm font-medium text-sky-700">Scanning…</p>
-                  {scanStatus.message ? (
-                    <p className="mt-0.5 text-xs text-sky-600">{scanStatus.message}</p>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-            {!scanRunning && scanStatus.finished_at ? (
-              <p className="mt-2 text-sm text-slate-500">Last scan update: {formatDateTime(scanStatus.finished_at)}</p>
-            ) : null}
-            {nextScheduledScanLabel ? (
-              <p className="mt-2 text-sm text-slate-500">Next scheduled scan: {nextScheduledScanLabel}</p>
-            ) : null}
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600">
-              <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms with data</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_fresh_data} realms with fresh listings</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.unique_item_count} items in local coverage</span>
-              <span className="rounded-full bg-slate-100 px-3 py-1">{recentScans.length} recent scans saved</span>
-            </div>
-          </div>
-        </div>
+        <ScannerStatusBar 
+          readiness={readiness}
+          scanStatus={scanStatus}
+          latestScan={persistedScan}
+          showingPersistedResults={showingPersistedResults}
+          nextScheduledScanLabel={nextScheduledScanLabel}
+        />
 
-        <div className="flex flex-wrap gap-2">
-          {(presetsQuery.data ?? []).map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              aria-pressed={activePreset?.id === preset.id}
-              onClick={() => {
-                setSelectedPresetId(preset.id);
-                updateFilters(applyPresetToFilterState(preset));
-              }}
-              className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
-                activePreset?.id === preset.id
-                  ? "border-ink bg-ink text-white"
-                  : "border-brass/40 bg-white/80 text-slate-700 hover:border-brass/70"
-              }`}
-            >
-              {preset.name}
-            </button>
-          ))}
-          {activePreset ? (
-            <span className="self-center text-sm text-slate-600">Applied preset: {activePreset.name}</span>
-          ) : null}
-        </div>
+        {/* Preset selection buttons */}
+        {(presetsQuery.data ?? []).length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {(presetsQuery.data ?? []).map((preset) => (
+              <Button
+                key={preset.id}
+                variant={activePreset?.id === preset.id ? "primary" : "secondary"}
+                size="sm"
+                onClick={() => {
+                  setSelectedPresetId(preset.id);
+                  updateFilters(applyPresetToFilterState(preset));
+                }}
+              >
+                {preset.name}
+              </Button>
+            ))}
+          </div>
+        )}
 
         {calibrationQuery.isLoading ? (
           <LoadingState label="Loading calibration telemetry..." />

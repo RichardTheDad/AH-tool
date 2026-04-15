@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
 import { getLatestScan, getScanReadiness } from "../api/scans";
 import { Card } from "../components/common/Card";
+import { Link } from "../components/common/Link";
+import { StatusIndicator } from "../components/common/StatusIndicator";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
@@ -44,46 +45,65 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
-        <Card title="Today's state" subtitle="A quick read on whether the board is ready to trust.">
+        <Card title="Today's state" subtitle="Quick read on board readiness.">
           <p className={`text-sm font-semibold ${readinessTextColor(readiness.status)}`}>
             {readiness.message}
           </p>
-          <div className="mt-4 flex flex-wrap gap-2 text-sm text-slate-600">
-            <span className="rounded-full bg-slate-100 px-3 py-1">{realms.filter((realm) => realm.enabled).length} enabled realms</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.realms_with_fresh_data}/{readiness.enabled_realm_count} fresh realms</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">{readiness.unique_item_count} items in coverage</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1">{latest?.result_count ?? 0} ranked results</span>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-xs font-medium text-slate-700">
+              {realms.filter((realm) => realm.enabled).length} enabled
+            </div>
+            {readiness.realms_with_fresh_data > 0 && (
+              <StatusIndicator 
+                status="success" 
+                size="sm" 
+                variant="badge" 
+                label={`${readiness.realms_with_fresh_data} fresh`}
+              />
+            )}
+            <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-xs font-medium text-slate-700">
+              {readiness.unique_item_count} items
+            </div>
+            <div className="px-2.5 py-1.5 rounded-lg bg-slate-50 text-xs font-medium text-slate-700">
+              {latest?.result_count ?? 0} ranked
+            </div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Next step: <span className="font-medium text-ink">{nextStep}</span>
+            <span className="font-medium text-ink block mb-1">Next step:</span>
+            {nextStep}
           </p>
         </Card>
         <Card title="Live readiness">
-          <p className="text-3xl font-semibold text-ink">{liveProviderCount}/{liveProviders.length || 1}</p>
-          <p className="mt-2 text-sm text-slate-600">{liveProviders.length ? "live-capable providers usable" : "no live providers configured"}</p>
+          <p className="text-3xl font-bold text-ink">{liveProviderCount}/{liveProviders.length || 1}</p>
+          <p className="mt-2 text-xs text-slate-500">of live providers ready</p>
           {primaryListingProvider ? (
-            <p className={`mt-3 text-sm ${primaryListingProvider.available ? "text-emerald-700" : "text-amber-700"}`}>
-              Blizzard live scan {primaryListingProvider.available ? "is ready" : "needs attention"}
-            </p>
+            <div className="mt-3">
+              {primaryListingProvider.available ? (
+                <StatusIndicator status="success" size="sm" variant="pill" label="Blizzard scan ready" />
+              ) : (
+                <StatusIndicator status="warning" size="sm" variant="pill" label="Blizzard scan needs attention" />
+              )}
+            </div>
           ) : null}
         </Card>
-        <Card title="Data gaps">
-          <p className="text-3xl font-semibold text-ink">{readiness.missing_realms.length}</p>
-          <p className="mt-2 text-sm text-slate-600">
-            {readiness.missing_realms.length} realms without listings
-          </p>
-          <p className="mt-3 text-sm text-slate-500">{staleCount} stale results in the latest board</p>
-          {readiness.latest_snapshot_at ? <p className="mt-2 text-xs text-slate-500">Latest listing {formatDateTime(readiness.latest_snapshot_at)}</p> : null}
+        <Card title="Data coverage">
+          <p className="text-3xl font-bold text-ink">{readiness.missing_realms.length}</p>
+          <p className="mt-2 text-xs text-slate-500">realms with gaps</p>
+          {staleCount > 0 && (
+            <div className="mt-3">
+              <StatusIndicator status="warning" size="sm" variant="pill" label={`${staleCount} stale results`} />
+            </div>
+          )}
         </Card>
       </div>
 
-      <Card title="Where to work" subtitle="Dashboard stays light; operational detail lives on Scanner.">
+      <Card title="Where to work" subtitle="Dashboard stays light; details on Scanner.">
         <p className="text-sm text-slate-600">
           Use the{" "}
-          <Link to="/scanner" className="font-semibold text-ink underline-offset-4 hover:underline">
+          <Link to="/scanner" variant="default">
             Scanner
           </Link>{" "}
-          page for provider detail, live scan progress, sellability sorting, recent scan history, and operational controls.
+          page for provider detail, live scan progress, and operational controls.
         </p>
       </Card>
 
@@ -101,25 +121,33 @@ export function Dashboard() {
           )}
         </Card>
 
-        <Card title="Realm coverage" subtitle="Freshness and local item coverage across your enabled realm list.">
-          <div className="space-y-3">
+        <Card title="Realm coverage" subtitle="Freshness and item coverage.">
+          <div className="space-y-2">
             {readiness.realms.map((realm) => (
-              <div key={realm.realm} className="flex items-center justify-between gap-4 rounded-2xl bg-slate-50 px-4 py-3">
-                <div>
-                  <p className="font-semibold text-ink">{realm.realm}</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {realm.latest_item_count ? `${realm.fresh_item_count} fresh / ${realm.stale_item_count} stale items` : "No local listing data yet"}
+              <div key={realm.realm} className="flex items-center justify-between gap-4 rounded-lg bg-slate-50 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm text-ink">{realm.realm}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {realm.latest_item_count ? `${realm.fresh_item_count} fresh / ${realm.stale_item_count} stale` : "No data yet"}
                   </p>
-                  {realm.freshest_captured_at ? <p className="mt-1 text-xs text-slate-500">Latest listing {formatDateTime(realm.freshest_captured_at)}</p> : null}
                 </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${realmFreshnessBadge(realm.has_data, realm.fresh_item_count)}`}
-                >
-                  {!realm.has_data ? "Missing data" : realm.fresh_item_count > 0 ? "Fresh" : "Stale only"}
-                </span>
+                {realm.has_data ? (
+                  realm.fresh_item_count > 0 ? (
+                    <StatusIndicator status="success" size="sm" variant="badge" label="Fresh" />
+                  ) : (
+                    <StatusIndicator status="warning" size="sm" variant="badge" label="Stale" />
+                  )
+                ) : (
+                  <StatusIndicator status="muted" size="sm" variant="badge" label="Missing" />
+                )}
               </div>
             ))}
-            {!readiness.realms.length && realms.length ? <EmptyState title="No enabled realms" description="Enable at least one tracked realm to build scanner coverage." /> : null}
+            {!readiness.realms.length && realms.length ? (
+              <EmptyState 
+                title="No enabled realms" 
+                description="Enable at least one realm to build scanner coverage." 
+              />
+            ) : null}
           </div>
         </Card>
       </div>

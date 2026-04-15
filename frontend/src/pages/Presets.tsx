@@ -1,9 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { createPreset, deletePreset, getPresets, updatePreset } from "../api/presets";
 import { DEFAULT_CATEGORY_OPTIONS } from "../components/filters/FilterSidebar";
 import { Card } from "../components/common/Card";
+import { Button } from "../components/common/Button";
+import { Input } from "../components/common/Input";
+import { Select } from "../components/common/Select";
+import { Checkbox } from "../components/common/Checkbox";
+import { Link } from "../components/common/Link";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import type { ScanPreset } from "../types/models";
@@ -79,7 +83,7 @@ export function Presets() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-      <Card title={editingId ? "Edit preset" : "Create preset"} subtitle="Presets are filter bundles for quickly narrowing the scanner view.">
+      <Card title={editingId ? "Edit preset" : "Create preset"} subtitle="Build filter bundles for quick scanner views.">
         <form
           className="space-y-3"
           onSubmit={(event) => {
@@ -101,106 +105,117 @@ export function Presets() {
             }
           }}
         >
-          <label className="block text-sm text-slate-700">
-            name
-            <input
-              value={form.name}
-              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm text-slate-700">
-            min profit
-            <input
-              value={form.min_profit}
-              onChange={(event) => setForm((current) => ({ ...current, min_profit: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm text-slate-700">
-            min roi
-            <input
-              value={form.min_roi}
-              onChange={(event) => setForm((current) => ({ ...current, min_roi: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm text-slate-700">
-            max buy price
-            <input
-              value={form.max_buy_price}
-              onChange={(event) => setForm((current) => ({ ...current, max_buy_price: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm text-slate-700">
-            min confidence
-            <input
-              value={form.min_confidence}
-              onChange={(event) => setForm((current) => ({ ...current, min_confidence: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            />
-          </label>
-          <label className="block text-sm text-slate-700">
-            category filter
-            <select
-              value={form.category_filter}
-              onChange={(event) => setForm((current) => ({ ...current, category_filter: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
-            >
-              {PRESET_CATEGORY_OPTIONS.map((category) => (
-                <option key={category || "all"} value={category}>
-                  {category || "All categories"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            hide risky
-            <input
-              type="checkbox"
-              checked={form.hide_risky}
-              onChange={(event) => setForm((current) => ({ ...current, hide_risky: event.target.checked }))}
-            />
-          </label>
-          <div className="flex gap-2">
-            <button type="submit" className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white">
+          <Input
+            id="preset-name"
+            label="Preset name"
+            value={form.name}
+            onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+            isCompact
+          />
+          <Input
+            id="preset-min-profit"
+            label="Min profit"
+            type="number"
+            value={form.min_profit}
+            onChange={(event) => setForm((current) => ({ ...current, min_profit: event.target.value }))}
+            isCompact
+          />
+          <Input
+            id="preset-min-roi"
+            label="Min ROI %"
+            type="number"
+            value={form.min_roi}
+            onChange={(event) => setForm((current) => ({ ...current, min_roi: event.target.value }))}
+            isCompact
+          />
+          <Input
+            id="preset-max-buy"
+            label="Max buy price"
+            type="number"
+            value={form.max_buy_price}
+            onChange={(event) => setForm((current) => ({ ...current, max_buy_price: event.target.value }))}
+            isCompact
+          />
+          <Input
+            id="preset-min-confidence"
+            label="Min confidence"
+            type="number"
+            value={form.min_confidence}
+            onChange={(event) => setForm((current) => ({ ...current, min_confidence: event.target.value }))}
+            isCompact
+          />
+          <Select
+            id="preset-category"
+            label="Category filter"
+            value={form.category_filter}
+            onChange={(event) => setForm((current) => ({ ...current, category_filter: event.target.value }))}
+            isCompact
+          >
+            {PRESET_CATEGORY_OPTIONS.map((category) => (
+              <option key={category || "all"} value={category}>
+                {category || "All categories"}
+              </option>
+            ))}
+          </Select>
+          <Checkbox
+            id="preset-hide-risky"
+            label="Hide risky flips"
+            checked={form.hide_risky}
+            onChange={(event) => setForm((current) => ({ ...current, hide_risky: event.target.checked }))}
+            compact
+          />
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" size="md">
               {editingId ? "Save preset" : "Create preset"}
-            </button>
+            </Button>
             {editingId ? (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => {
                   setEditingId(null);
                   setForm(baseForm);
                 }}
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
               >
                 Cancel
-              </button>
+              </Button>
             ) : null}
           </div>
-          {message ? <p className="text-sm text-rose-700">{message}</p> : null}
+          {message && (
+            <p className="text-xs text-rose-600 mt-2">{message}</p>
+          )}
         </form>
       </Card>
 
-      <Card title="Saved presets" subtitle="Apply one from the scanner or jump straight there from this list.">
-        <div className="space-y-3">
+      <Card title="Saved presets" subtitle="Tap to apply or edit.">
+        <div className="space-y-2">
           {presets.map((preset) => (
-            <div key={preset.id} className="rounded-2xl bg-slate-50 px-4 py-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="font-semibold text-ink">{preset.name}</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    Profit {preset.min_profit ?? "—"} | ROI {preset.min_roi ?? "—"} | Confidence {preset.min_confidence ?? "—"}
+            <div key={preset.id} className="rounded-lg bg-slate-50 px-3 py-3">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm text-ink">{preset.name}</p>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {[
+                      preset.min_profit !== null && `Profit ${preset.min_profit}`,
+                      preset.min_roi !== null && `ROI ${preset.min_roi}%`,
+                      preset.min_confidence !== null && `Conf ${preset.min_confidence}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" • ")}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Link to={presetToScannerLink(preset)} className="rounded-full border border-brass/40 px-3 py-1.5 text-sm font-semibold text-slate-700">
-                    Open in scanner
+                <div className="flex flex-wrap gap-1.5 justify-end">
+                  <Link 
+                    to={presetToScannerLink(preset)} 
+                    variant="default"
+                  >
+                    <Button size="sm" variant="secondary">
+                      Open
+                    </Button>
                   </Link>
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     onClick={() => {
                       setEditingId(preset.id);
                       setForm({
@@ -213,18 +228,17 @@ export function Presets() {
                         category_filter: preset.category_filter ?? "",
                       });
                     }}
-                    className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700"
                   >
                     Edit
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
                     disabled={deleteMutation.isPending}
                     onClick={() => deleteMutation.mutate(preset.id)}
-                    className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

@@ -3,6 +3,10 @@ import { useState, type FormEvent } from "react";
 import { createRealm, deleteRealm, getRealms, updateRealm } from "../api/realms";
 import { getScanStatus } from "../api/scans";
 import { Card } from "../components/common/Card";
+import { Button } from "../components/common/Button";
+import { Select } from "../components/common/Select";
+import { Checkbox } from "../components/common/Checkbox";
+import { StatusIndicator } from "../components/common/StatusIndicator";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import type { TrackedRealm } from "../types/models";
@@ -97,94 +101,104 @@ export function Realms() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
-      <Card title={editingId ? "Edit realm" : "Add realm"} subtitle="Pick a realm from the built-in list and the region will be inferred automatically.">
+    <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      <Card title={editingId ? "Edit realm" : "Add realm"} subtitle="Select from the built-in list.">
         <form className="space-y-3" onSubmit={handleSubmit}>
-          <label className="block text-sm text-slate-700">
-            Realm
-            <select
-              value={form.realm_name}
-              onChange={(event) => setForm((current) => ({ ...current, realm_name: event.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
+          <Select
+            id="realm-select"
+            label="Realm"
+            value={form.realm_name}
+            onChange={(event) => setForm((current) => ({ ...current, realm_name: event.target.value }))}
+          >
+            <option value="">Select a realm</option>
+            {realmOptions.map((realm) => (
+              <option key={realm.realm_name} value={realm.realm_name}>
+                {realm.realm_name}
+              </option>
+            ))}
+          </Select>
+          <Checkbox
+            id="realm-enabled"
+            label="Enable for scanning"
+            checked={form.enabled}
+            onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
+          />
+          {message ? (
+            <StatusIndicator status="danger" size="sm" variant="inline" label={message} />
+          ) : null}
+          {scanRunning ? (
+            <StatusIndicator status="info" size="sm" variant="inline" label={scanStatusQuery.data?.message || "Scanning..."} />
+          ) : null}
+          <div className="flex gap-2 pt-2">
+            <Button 
+              type="submit" 
+              disabled={scanRunning} 
+              size="md"
             >
-              <option value="">Select a realm</option>
-              {realmOptions.map((realm) => (
-                <option key={realm.realm_name} value={realm.realm_name}>
-                  {realm.realm_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            Enabled
-            <input
-              type="checkbox"
-              checked={form.enabled}
-              onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
-            />
-          </label>
-          {message ? <p className="text-sm text-rose-700">{message}</p> : null}
-          {scanRunning ? <p className="text-sm text-sky-700">{scanStatusQuery.data.message}</p> : null}
-          <div className="flex gap-2">
-            <button type="submit" disabled={scanRunning} className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
               {editingId ? "Save realm" : "Add realm"}
-            </button>
+            </Button>
             {editingId ? (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 disabled={scanRunning}
                 onClick={() => {
                   setEditingId(null);
                   setForm(emptyForm);
                   setMessage(null);
                 }}
-                className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
-              </button>
+              </Button>
             ) : null}
           </div>
         </form>
       </Card>
 
-      <Card title="Tracked realms" subtitle="Enable or disable realms without deleting them from the working set.">
-        <div className="space-y-3">
+      <Card title="Tracked realms" subtitle="Manage your realm list.">
+        <div className="space-y-2">
           {realms.map((realm) => (
-            <div key={realm.id} className="flex flex-col gap-3 rounded-2xl bg-slate-50 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div key={realm.id} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-3">
               <div>
-                <p className="font-semibold text-ink">{realm.realm_name}</p>
+                <p className="font-medium text-sm text-ink">{realm.realm_name}</p>
+                {!realm.enabled && (
+                  <p className="text-xs text-slate-500 mt-0.5">Disabled</p>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
+              <div className="flex flex-wrap gap-1.5 justify-end">
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={scanRunning}
                   onClick={() => updateMutation.mutate({ id: realm.id, payload: { enabled: !realm.enabled } })}
-                  className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {realm.enabled ? "Disable" : "Enable"}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   disabled={scanRunning}
                   onClick={() => {
                     setEditingId(realm.id);
                     setForm({ realm_name: realm.realm_name, enabled: realm.enabled });
                   }}
-                  className="rounded-full border border-brass/40 px-3 py-1.5 text-sm font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Edit
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
                   disabled={scanRunning || deleteMutation.isPending}
                   onClick={() => deleteMutation.mutate(realm.id)}
-                  className="rounded-full border border-rose-200 px-3 py-1.5 text-sm font-semibold text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Remove
-                </button>
+                </Button>
               </div>
             </div>
           ))}
+          {!realms.length && (
+            <p className="text-sm text-slate-500 text-center py-6">No realms tracked yet. Add one to get started.</p>
+          )}
         </div>
       </Card>
     </div>

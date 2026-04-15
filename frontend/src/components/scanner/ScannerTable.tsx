@@ -105,31 +105,31 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-card">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1070px] divide-y divide-slate-200 text-[13px]">
-          <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-label text-slate-500">
+        <table className="w-full min-w-[1070px] divide-y divide-slate-100 text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider font-semibold text-slate-600 border-b border-slate-200">
             <tr>
-              <th className="px-3 py-3 min-w-[10rem]">Item</th>
-              <th className="px-4 py-3 whitespace-nowrap">Buy realm</th>
+              <th className="px-4 py-3 min-w-[11rem]">Item</th>
+              <th className="px-3 py-3 whitespace-nowrap">Buy realm</th>
               <SortableHeader
                 label="Buy price"
                 column="cheapest_buy_price"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-4 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap"
               />
-              <th className="px-4 py-3 whitespace-nowrap">Sell realm</th>
-              <th className="px-4 py-3 whitespace-nowrap">Target sell</th>
-              <th className="px-4 py-3 whitespace-nowrap">Profit</th>
+              <th className="px-3 py-3 whitespace-nowrap">Sell realm</th>
+              <th className="px-3 py-3 whitespace-nowrap">Target sell</th>
+              <th className="px-3 py-3 whitespace-nowrap font-bold text-emerald-700">Profit</th>
               <SortableHeader
                 label="ROI"
                 column="roi"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-4 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap font-bold"
               />
               <SortableHeader
                 label="Confidence"
@@ -137,7 +137,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-4 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap"
               />
               <SortableHeader
                 label="Sellability"
@@ -145,14 +145,14 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-4 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap"
               />
               <th className="px-3 py-3 min-w-[13rem]">Explanation</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {results.map((result) => (
-              <tr key={result.id} className="hover:bg-parchment/40">
+              <tr key={result.id} className="hover:bg-slate-50 transition">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
                   <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -208,8 +208,8 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap font-semibold text-emerald-700">{formatGold(result.estimated_profit)}</td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">{formatPercent(result.roi)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700">{formatGold(result.estimated_profit)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   {(() => {
                     const tone = result.confidence_score >= 70
