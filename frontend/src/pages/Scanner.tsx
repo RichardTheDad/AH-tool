@@ -246,7 +246,9 @@ export function Scanner() {
     (selectedPresetId === null ? inferredPreset : null);
   const latestWarningText = latest?.warning_text?.toLowerCase() ?? "";
   const showingPersistedResults = Boolean(persistedScan && latest && persistedScan.id !== latest.id && persistedScan.result_count > 0);
+  const loadingPersistedScan = Boolean(!latest?.result_count && fallbackScanId && fallbackScanQuery.isLoading && !fallbackScanQuery.data);
   const showGuidedEmptyState =
+    !loadingPersistedScan &&
     (!persistedScan || persistedScan.result_count === 0) &&
     ((scanBlocked && !canBootstrapFromLiveProvider) || latestWarningText.includes("no listing data found"));
 
@@ -536,7 +538,9 @@ export function Scanner() {
           </div>
         ) : null}
 
-        {showGuidedEmptyState ? (
+        {loadingPersistedScan ? (
+          <LoadingState label="Loading last populated scan..." />
+        ) : showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : persistedScan ? (
           useVirtualizedResults ? (

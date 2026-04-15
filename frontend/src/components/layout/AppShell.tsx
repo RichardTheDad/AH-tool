@@ -3,8 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 const navItems = [
-  { to: "/", label: "Dashboard" },
-  { to: "/scanner", label: "Scanner" },
+  { to: "/", label: "Scanner" },
   { to: "/realms", label: "Realms" },
   { to: "/suggested-realms", label: "Suggested Realms" },
   { to: "/presets", label: "Presets" },

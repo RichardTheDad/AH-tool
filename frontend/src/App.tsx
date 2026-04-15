@@ -1,7 +1,6 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AppShell } from "./components/layout/AppShell";
-import { Dashboard } from "./pages/Dashboard";
 import { ItemDetail } from "./pages/ItemDetail";
 import { Login } from "./pages/Login";
 import { Presets } from "./pages/Presets";
@@ -21,8 +20,8 @@ export default function App() {
           <ProtectedRoute>
             <AppShell>
               <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/scanner" element={<Scanner />} />
+                <Route path="/" element={<Scanner />} />
+                <Route path="/scanner" element={<Navigate to="/" replace />} />
                 <Route path="/suggested-realms" element={<SuggestedRealms />} />
                 <Route path="/realms" element={<Realms />} />
                 <Route path="/presets" element={<Presets />} />
