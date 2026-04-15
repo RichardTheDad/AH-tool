@@ -12,6 +12,7 @@ from app.db.models import AppSettings, Item, RealmSuggestionRecommendation, Real
 from app.schemas.listing import ListingImportRow
 from app.schemas.realm_suggestion import SuggestedRealmItemRead, SuggestedRealmRead, SuggestedRealmReportRead
 from app.services.listing_service import get_recent_snapshot_history_for_items
+from app.services.app_settings_service import enforce_fixed_ah_cut
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
 from app.services.scan_service import select_best_sell_snapshot
@@ -156,6 +157,7 @@ def _build_current_recommendations(
     history_realms = sorted(set(target_realms + source_realms), key=str.casefold)
     history_by_item = get_recent_snapshot_history_for_items(session, list(item_ids), history_realms, limit_per_realm=6)
     settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
+    enforce_fixed_ah_cut(settings)
     app_settings = get_settings()
 
     cheapest_source_counts: dict[str, int] = defaultdict(int)

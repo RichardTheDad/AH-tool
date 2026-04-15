@@ -13,7 +13,6 @@ export function Settings() {
   const queryClient = useQueryClient();
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: getSettings });
   const [form, setForm] = useState({
-    ah_cut_percent: "0.05",
     flat_buffer: "0",
     refresh_interval_minutes: "30",
     stale_after_minutes: "120",
@@ -24,7 +23,6 @@ export function Settings() {
   useEffect(() => {
     if (!settingsQuery.data) return;
     setForm({
-      ah_cut_percent: String(settingsQuery.data.ah_cut_percent),
       flat_buffer: String(settingsQuery.data.flat_buffer),
       refresh_interval_minutes: String(settingsQuery.data.refresh_interval_minutes),
       stale_after_minutes: String(settingsQuery.data.stale_after_minutes),
@@ -47,13 +45,12 @@ export function Settings() {
   }
 
   return (
-    <Card title="Scanner settings" subtitle="Tune fees, re-scan cadence, stale windows, and scoring.">
+    <Card title="Scanner settings" subtitle="AH cut is fixed at 5%. Tune buffers, re-scan cadence, stale windows, and scoring.">
       <form
         className="grid gap-4 lg:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
           updateMutation.mutate({
-            ah_cut_percent: Number(form.ah_cut_percent),
             flat_buffer: Number(form.flat_buffer),
             refresh_interval_minutes: Number(form.refresh_interval_minutes),
             stale_after_minutes: Number(form.stale_after_minutes),
@@ -66,8 +63,9 @@ export function Settings() {
           id="ah-cut"
           label="AH cut %"
           type="number"
-          value={form.ah_cut_percent}
-          onChange={(event) => setForm((current) => ({ ...current, ah_cut_percent: event.target.value }))}
+          value={String(settingsQuery.data?.ah_cut_percent ?? 0.05)}
+          disabled
+          hint="Auction House cut is locked to 5% across the app."
         />
         <Input
           id="flat-buffer"

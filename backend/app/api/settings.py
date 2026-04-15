@@ -11,6 +11,7 @@ from app.core.mutation_limiter import enforce_user_mutation_limit
 from app.db.init_db import provision_new_user
 from app.db.models import AppSettings, TuningActionAudit
 from app.db.session import get_db
+from app.services.app_settings_service import enforce_fixed_ah_cut
 from app.services.scheduler_audit_service import SCHEDULER_AUDIT_SOURCE
 from app.schemas.settings import (
     AppSettingsApplyPresetRequest,
@@ -41,6 +42,9 @@ def _get_or_provision_settings(db: Session, user_id: str) -> AppSettings:
     if app_settings is None:
         provision_new_user(db, user_id)
         app_settings = db.query(AppSettings).filter(AppSettings.user_id == user_id).first()
+    if app_settings is not None and enforce_fixed_ah_cut(app_settings):
+        db.commit()
+        db.refresh(app_settings)
     return app_settings  # type: ignore[return-value]
 
 
@@ -55,8 +59,13 @@ def update_settings(payload: AppSettingsUpdate, db: Session = Depends(get_db), c
     enforce_user_mutation_limit(user_id=current_user, scope="settings.update", limit=10)
     app_settings = _get_or_provision_settings(db, SYSTEM_USER_ID)
 
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    payload_data = payload.model_dump(exclude_unset=True)
+    payload_data.pop("ah_cut_percent", None)
+
+    for key, value in payload_data.items():
         setattr(app_settings, key, value)
+
+    enforce_fixed_ah_cut(app_settings)
 
     db.commit()
     db.refresh(app_settings)

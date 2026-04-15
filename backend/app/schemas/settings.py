@@ -18,7 +18,6 @@ class AppSettingsRead(BaseModel):
 
 
 class AppSettingsUpdate(BaseModel):
-    ah_cut_percent: float | None = Field(default=None, ge=0, le=0.95)
     flat_buffer: float | None = Field(default=None, ge=0)
     refresh_interval_minutes: int | None = Field(default=None, ge=5, le=1440)
     stale_after_minutes: int | None = Field(default=None, ge=5, le=10080)

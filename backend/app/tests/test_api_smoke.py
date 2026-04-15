@@ -43,7 +43,7 @@ def test_settings_presets_imports_and_providers_smoke(client) -> None:
         },
     )
     assert update_settings.status_code == 200
-    assert update_settings.json()["ah_cut_percent"] == 0.07
+    assert update_settings.json()["ah_cut_percent"] == 0.05
 
     presets = client.get("/presets")
     assert presets.status_code == 200

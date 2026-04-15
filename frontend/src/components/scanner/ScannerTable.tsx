@@ -69,13 +69,13 @@ function ItemIcon({ result }: { result: ScanResult }) {
         src={result.item_icon_url}
         alt=""
         loading="lazy"
-        className="mt-0.5 h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover"
+        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover"
       />
     );
   }
 
   return (
-    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
       --
     </div>
   );

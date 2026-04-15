@@ -34,6 +34,7 @@ from app.services.listing_service import (
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
 from app.services.calibration_service import record_scan_predictions
+from app.services.app_settings_service import enforce_fixed_ah_cut
 from app.services.scoring_service import MarketHistoryContext, score_opportunity
 from app.services.scoring_service import derive_recommended_sell_price
 from app.services.tsm_service import TsmMarketService
@@ -187,6 +188,7 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
     if realms is None:
         realms = get_enabled_realm_names(session, user_id)
     app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
+    enforce_fixed_ah_cut(app_settings)
     latest_snapshots = get_latest_snapshots_for_realms(session, realms)
     metadata_provider = get_provider_registry().metadata_provider
     metadata_configured, _metadata_message = metadata_provider.is_available()
@@ -348,6 +350,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
                     warning_parts.append(f"Live refresh failed: {fetch_error}")
         mark_stale_snapshots(session)
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
+        enforce_fixed_ah_cut(app_settings)
         latest_snapshots = get_latest_snapshots_for_realms(session, realms)
         metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
 
