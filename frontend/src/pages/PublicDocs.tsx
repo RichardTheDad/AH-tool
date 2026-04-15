@@ -186,15 +186,6 @@ export function PublicDocs() {
           </p>
         </Card>
       </main>
-
-      <footer className="border-t border-slate-200 bg-white/70 py-4">
-        <div className="mx-auto w-full max-w-6xl px-4 text-xs text-slate-500 sm:px-6 lg:px-8">
-          <p>© 2026 Azeroth Flip. World of Warcraft is a trademark of Blizzard Entertainment.</p>
-          <p className="text-slate-500 mt-1">
-            This documentation reflects the current state as of April 15, 2026. For the latest information, please visit the app directly.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 }

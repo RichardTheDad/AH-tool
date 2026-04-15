@@ -93,63 +93,87 @@ function isEvidenceGated(result: ScanResult) {
   return Boolean(provenance?.evidence?.gate_applied);
 }
 
+function ItemIcon({ result }: { result: ScanResult }) {
+  if (result.item_icon_url) {
+    return (
+      <img
+        src={result.item_icon_url}
+        alt=""
+        loading="lazy"
+        className="mt-0.5 h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      --
+    </div>
+  );
+}
+
 function Row({ index, style, results, onOpenProvenance, search }: RowComponentProps<{ results: ScanResult[]; onOpenProvenance?: (result: ScanResult) => void; search: string }>) {
   const result = results[index];
   const provenance = summarizeProvenance(result);
   const gated = isEvidenceGated(result);
 
   return (
-    <div style={style} className="overflow-hidden border-b border-slate-200 px-4 py-3">
+    <div style={style} className="overflow-hidden border-b border-slate-200 px-4 py-2.5">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Link
-              to={`/items/${result.item_id}`}
-              state={{
-                from: "scanner",
-                scannerSearch: search,
-                restoreItemId: result.item_id,
-                restoreIndex: index,
-              }}
-              className="font-semibold text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
-            >
-              {result.item_name}
-            </Link>
-            {result.undermine_url ? (
-              <a
-                href={result.undermine_url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[11px] font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
-              >
-                Undermine
-              </a>
-            ) : null}
-          </div>
-          <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.explanation}</p>
-          {provenance ? (
-            <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
-              <span className="min-w-0 truncate">
-                Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
-                {provenance.gateApplied ? " | evidence gate" : ""}
-                {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
-              </span>
-              {onOpenProvenance ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenProvenance(result)}
-                  className="shrink-0 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+          <div className="flex gap-2.5">
+            <ItemIcon result={result} />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <Link
+                  to={`/items/${result.item_id}`}
+                  state={{
+                    from: "scanner",
+                    scannerSearch: search,
+                    restoreItemId: result.item_id,
+                    restoreIndex: index,
+                  }}
+                  className="text-[14px] font-semibold leading-[1.25] text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
                 >
-                  Details
-                </button>
+                  {result.item_name}
+                </Link>
+                {result.undermine_url ? (
+                  <a
+                    href={result.undermine_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                  >
+                    Undermine
+                  </a>
+                ) : null}
+              </div>
+              <p className="mt-1 line-clamp-2 text-[12px] leading-[1.3] text-slate-600">{result.explanation}</p>
+              {provenance ? (
+                <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                  <span className="min-w-0 truncate">
+                    Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
+                    {provenance.gateApplied ? " | evidence gate" : ""}
+                    {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
+                  </span>
+                  {onOpenProvenance ? (
+                    <button
+                      type="button"
+                      onClick={() => onOpenProvenance(result)}
+                      className="shrink-0 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                    >
+                      Details
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
+                {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
+                {gated ? <Badge tone="warning">Evidence gate</Badge> : null}
+                <Badge tone={summarizeMoverLikelihood(result) === "likely mover" ? "success" : "warning"}>{summarizeMoverLikelihood(result)}</Badge>
+              </div>
             </div>
-          ) : null}
-          <div className="mt-2 flex flex-nowrap gap-1 overflow-hidden">
-            {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
-            {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
-            {gated ? <Badge tone="warning">Evidence gate</Badge> : null}
-            <Badge tone={summarizeMoverLikelihood(result) === "likely mover" ? "success" : "warning"}>{summarizeMoverLikelihood(result)}</Badge>
           </div>
         </div>
 
@@ -267,7 +291,7 @@ export function VirtualizedScannerList({
       <List
         style={{ height }}
         rowCount={results.length}
-        rowHeight={156}
+        rowHeight={160}
         rowComponent={Row}
         rowProps={{ results, onOpenProvenance, search }}
         listRef={listRef}

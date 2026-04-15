@@ -62,6 +62,25 @@ interface ScannerTableProps {
   onOpenProvenance?: (result: ScanResult) => void;
 }
 
+function ItemIcon({ result }: { result: ScanResult }) {
+  if (result.item_icon_url) {
+    return (
+      <img
+        src={result.item_icon_url}
+        alt=""
+        loading="lazy"
+        className="mt-0.5 h-8 w-8 shrink-0 rounded-md border border-slate-200 bg-slate-100 object-cover"
+      />
+    );
+  }
+
+  return (
+    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-slate-100 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+      --
+    </div>
+  );
+}
+
 function SortableHeader({
   label,
   column,
@@ -157,47 +176,50 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
             {results.map((result, index) => (
               <tr key={result.id} id={`scanner-item-${result.item_id}`} className="hover:bg-slate-50 transition">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <Link
-                        to={`/items/${result.item_id}`}
-                        state={{
-                          from: "scanner",
-                          scannerSearch: location.search,
-                          restoreItemId: result.item_id,
-                          restoreIndex: index,
-                        }}
-                        className="font-semibold leading-snug text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
-                      >
-                        {result.item_name}
-                      </Link>
-                      {result.undermine_url ? (
-                        <a
-                          href={result.undermine_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                  <div className="flex gap-2.5">
+                    <ItemIcon result={result} />
+                    <div className="flex min-w-0 flex-col gap-1.5">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <Link
+                          to={`/items/${result.item_id}`}
+                          state={{
+                            from: "scanner",
+                            scannerSearch: location.search,
+                            restoreItemId: result.item_id,
+                            restoreIndex: index,
+                          }}
+                          className="text-[14px] font-semibold leading-[1.25] text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
                         >
-                          Undermine
-                        </a>
-                      ) : null}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
-                      {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}
-                      {isEvidenceGated(result) ? <Badge tone="warning">Evidence gate</Badge> : null}
-                      <Badge
-                        tone={
-                          summarizeMoverLikelihood(result) === "likely mover"
-                            ? "success"
-                            : summarizeMoverLikelihood(result) === "tradable"
-                              ? "neutral"
-                              : "warning"
-                        }
-                      >
-                        {summarizeMoverLikelihood(result)}
-                      </Badge>
-                      {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
+                          {result.item_name}
+                        </Link>
+                        {result.undermine_url ? (
+                          <a
+                            href={result.undermine_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] font-semibold uppercase tracking-link text-slate-500 underline-offset-4 hover:text-ink hover:underline"
+                          >
+                            Undermine
+                          </a>
+                        ) : null}
+                      </div>
+                        <div className="flex flex-wrap gap-1.5">
+                        {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
+                        {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}
+                        {isEvidenceGated(result) ? <Badge tone="warning">Evidence gate</Badge> : null}
+                        <Badge
+                          tone={
+                            summarizeMoverLikelihood(result) === "likely mover"
+                              ? "success"
+                              : summarizeMoverLikelihood(result) === "tradable"
+                                ? "neutral"
+                                : "warning"
+                          }
+                        >
+                          {summarizeMoverLikelihood(result)}
+                        </Badge>
+                        {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
+                      </div>
                     </div>
                   </div>
                 </td>

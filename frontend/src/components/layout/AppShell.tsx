@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../common/Button";
 
@@ -12,6 +12,7 @@ const navItems = [
 
 export function AppShell({ children }: PropsWithChildren) {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen">
@@ -47,7 +48,10 @@ export function AppShell({ children }: PropsWithChildren) {
               <Button 
                 variant="secondary" 
                 size="sm"
-                onClick={() => void signOut()}
+                onClick={async () => {
+                  await signOut();
+                  navigate("/home", { replace: true });
+                }}
               >
                 Sign out
               </Button>

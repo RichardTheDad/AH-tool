@@ -148,18 +148,6 @@ export function Homepage() {
           </div>
         </Card>
       </main>
-
-      <footer className="border-t border-slate-200 bg-white/70 py-4">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <p>© 2026 Azeroth Flip. World of Warcraft is a trademark of Blizzard Entertainment.</p>
-          <button
-            onClick={() => navigate("/public/docs")}
-            className="w-fit text-slate-600 underline-offset-2 hover:text-ember hover:underline"
-          >
-            Public docs
-          </button>
-        </div>
-      </footer>
     </div>
   );
 }
