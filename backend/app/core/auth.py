@@ -4,6 +4,7 @@ import json
 import logging
 import threading
 import urllib.request
+from urllib.parse import urlparse
 
 from fastapi import Header, HTTPException, status
 from jose import JWTError, jwt
@@ -22,10 +23,30 @@ def _assert_trusted_issuer(issuer: str) -> str:
     if not trusted_supabase_url:
         raise JWTError("Auth not configured: AZEROTHFLIPLOCAL_SUPABASE_URL is not set.")
 
-    normalized_issuer = issuer.rstrip("/")
-    if normalized_issuer != trusted_supabase_url:
+    def _split_url(raw_url: str) -> tuple[str, str]:
+        parsed = urlparse(raw_url.rstrip("/"))
+        if not parsed.scheme or not parsed.netloc:
+            raise JWTError("Configured Supabase URL is invalid.")
+        origin = f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+        path = parsed.path.rstrip("/").lower()
+        return origin, path
+
+    issuer_origin, issuer_path = _split_url(issuer)
+    trusted_origin, trusted_path = _split_url(trusted_supabase_url)
+
+    if issuer_origin != trusted_origin:
         raise JWTError("Token issuer is not trusted.")
-    return normalized_issuer
+
+    # Supabase tokens are typically issued from /auth/v1. Accept either
+    # configured base URL or auth API URL to avoid env formatting mismatches.
+    allowed_paths = {"", "/auth/v1"}
+    if trusted_path:
+        allowed_paths.add(trusted_path)
+
+    if issuer_path not in allowed_paths:
+        raise JWTError("Token issuer is not trusted.")
+
+    return f"{issuer_origin}/auth/v1"
 
 
 def _fetch_jwks(jwks_url: str) -> dict:
