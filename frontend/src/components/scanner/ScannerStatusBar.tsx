@@ -1,5 +1,5 @@
 import { formatDateTime } from "../../utils/format";
-import { StatusIndicator } from "./StatusIndicator";
+import { StatusIndicator } from "../common/StatusIndicator";
 import type { ScanReadiness, ScanRuntimeStatus, ScanSession } from "../../types/models";
 
 interface ScannerStatusBarProps {

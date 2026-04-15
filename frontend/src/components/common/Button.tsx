@@ -1,5 +1,5 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
-import { type ButtonVariant, shape, variants } from "../theme/design-system";
+import { type ButtonVariant, shape, variants } from "../../theme/design-system";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
