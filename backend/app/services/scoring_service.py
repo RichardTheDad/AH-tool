@@ -33,6 +33,26 @@ SCORING_PRESETS = {
     },
 }
 
+SELLABILITY_WEIGHTS = {
+    "liquidity": 0.45,
+    "volatility": 0.25,
+    "anti_bait": 0.20,
+}
+
+CONFIDENCE_WEIGHTS = {
+    "liquidity": 0.42,
+    "volatility": 0.34,
+    "anti_bait": 0.24,
+}
+
+FINAL_SCORE_WEIGHTS = {
+    "confidence": 0.42,
+    "sellability": 0.28,
+    "capital_efficiency": 0.16,
+    "profit_component": 0.07,
+    "roi_component": 0.07,
+}
+
 
 @dataclass
 class ScoreBreakdown:
@@ -150,6 +170,26 @@ def _market_depth_score(snapshot: ListingSnapshot, tuning: dict[str, float], *, 
     return clamp(score, 0, 100)
 
 
+def _evidence_gate_cap(*, sell_depth_ok: bool, history_coverage_ok: bool, recency_ok: bool) -> float | None:
+    """Return an optional score cap when minimum evidence is incomplete.
+
+    Graded caps avoid flattening every weak-evidence case to one hard threshold.
+    """
+    if sell_depth_ok and history_coverage_ok and recency_ok:
+        return None
+
+    failures = int(not sell_depth_ok) + int(not history_coverage_ok) + int(not recency_ok)
+    if failures >= 3:
+        return 60.0
+    if failures == 2:
+        return 65.0
+    if not recency_ok:
+        return 68.0
+    if not history_coverage_ok:
+        return 70.0
+    return 75.0
+
+
 def score_opportunity(
     item: Item,
     buy_snapshot: ListingSnapshot,
@@ -263,9 +303,9 @@ def score_opportunity(
         bait_risk += tuning["stale_penalty"] * 0.75
     bait_risk = round(clamp(bait_risk, 0, 100), 2)
 
-    liquidity_component = liquidity_score * 0.45
-    volatility_component = volatility_score * 0.25
-    anti_bait_component = (100 - bait_risk) * 0.20
+    liquidity_component = liquidity_score * SELLABILITY_WEIGHTS["liquidity"]
+    volatility_component = volatility_score * SELLABILITY_WEIGHTS["volatility"]
+    anti_bait_component = (100 - bait_risk) * SELLABILITY_WEIGHTS["anti_bait"]
     sellability_score = (
         liquidity_component
         + volatility_component
@@ -301,9 +341,9 @@ def score_opportunity(
     turnover_label = _turnover_label(sellability_score)
 
     confidence = (
-        (liquidity_score * 0.42)
-        + (volatility_score * 0.34)
-        + ((100 - bait_risk) * 0.24)
+        (liquidity_score * CONFIDENCE_WEIGHTS["liquidity"])
+        + (volatility_score * CONFIDENCE_WEIGHTS["volatility"])
+        + ((100 - bait_risk) * CONFIDENCE_WEIGHTS["anti_bait"])
         - (tuning["stale_penalty"] if has_stale_data else 0)
     )
     if persistent_margin:
@@ -344,11 +384,11 @@ def score_opportunity(
     roi_component = clamp(roi * 85, -35, 100)
     capital_efficiency_score = clamp((roi * 120) + (sellability_score * 0.35) - ((buy_price / max(recommended_sell_price, 1)) * 25), 0, 100)
     final_score = (
-        (confidence * 0.42)
-        + (sellability_score * 0.28)
-        + (capital_efficiency_score * 0.16)
-        + (profit_component * 0.07)
-        + (roi_component * 0.07)
+        (confidence * FINAL_SCORE_WEIGHTS["confidence"])
+        + (sellability_score * FINAL_SCORE_WEIGHTS["sellability"])
+        + (capital_efficiency_score * FINAL_SCORE_WEIGHTS["capital_efficiency"])
+        + (profit_component * FINAL_SCORE_WEIGHTS["profit_component"])
+        + (roi_component * FINAL_SCORE_WEIGHTS["roi_component"])
     )
     if bait_risk > 75:
         final_score -= 12
@@ -371,8 +411,13 @@ def score_opportunity(
     if persistent_margin:
         final_score += 7
     final_score = round(clamp(final_score, 0, 100), 2)
-    if evidence_gate_applied:
-        final_score = min(final_score, 65.0)
+    evidence_cap = _evidence_gate_cap(
+        sell_depth_ok=sell_depth_ok,
+        history_coverage_ok=history_coverage_ok,
+        recency_ok=recency_ok,
+    )
+    if evidence_cap is not None:
+        final_score = min(final_score, evidence_cap)
 
     score_provenance = {
         "components": {
@@ -381,16 +426,16 @@ def score_opportunity(
             "anti_bait": round(anti_bait_component, 2),
         },
         "confidence_components": {
-            "liquidity": round(liquidity_score * 0.42, 2),
-            "volatility": round(volatility_score * 0.34, 2),
-            "anti_bait": round((100 - bait_risk) * 0.24, 2),
+            "liquidity": round(liquidity_score * CONFIDENCE_WEIGHTS["liquidity"], 2),
+            "volatility": round(volatility_score * CONFIDENCE_WEIGHTS["volatility"], 2),
+            "anti_bait": round((100 - bait_risk) * CONFIDENCE_WEIGHTS["anti_bait"], 2),
         },
         "final_components": {
-            "confidence": round(confidence * 0.42, 2),
-            "sellability": round(sellability_score * 0.28, 2),
-            "capital_efficiency": round(capital_efficiency_score * 0.16, 2),
-            "profit_component": round(profit_component * 0.07, 2),
-            "roi_component": round(roi_component * 0.07, 2),
+            "confidence": round(confidence * FINAL_SCORE_WEIGHTS["confidence"], 2),
+            "sellability": round(sellability_score * FINAL_SCORE_WEIGHTS["sellability"], 2),
+            "capital_efficiency": round(capital_efficiency_score * FINAL_SCORE_WEIGHTS["capital_efficiency"], 2),
+            "profit_component": round(profit_component * FINAL_SCORE_WEIGHTS["profit_component"], 2),
+            "roi_component": round(roi_component * FINAL_SCORE_WEIGHTS["roi_component"], 2),
         },
         "adjustments": {
             "stable_history_bonus": stable_history_bonus,
@@ -405,6 +450,7 @@ def score_opportunity(
             "history_coverage_ok": history_coverage_ok,
             "recency_ok": recency_ok,
             "gate_applied": evidence_gate_applied,
+            "gate_cap": evidence_cap,
             "gate_reasons": gate_reasons,
         },
     }

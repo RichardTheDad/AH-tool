@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from app.db.models import AppSettings, Item, ListingSnapshot
 from app.services.scoring_service import (
     MarketHistoryContext,
+    _evidence_gate_cap,
     calculate_profit_and_roi,
     derive_recommended_sell_price,
     score_opportunity,
@@ -244,3 +245,14 @@ def test_persistent_positive_margin_history_boosts_repeatable_flip() -> None:
 
     assert persistent.confidence_score > fleeting.confidence_score
     assert persistent.final_score > fleeting.final_score
+
+
+def test_evidence_gate_cap_is_graded_for_single_failures() -> None:
+    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=True, recency_ok=True) == 75.0
+    assert _evidence_gate_cap(sell_depth_ok=True, history_coverage_ok=False, recency_ok=True) == 70.0
+    assert _evidence_gate_cap(sell_depth_ok=True, history_coverage_ok=True, recency_ok=False) == 68.0
+
+
+def test_evidence_gate_cap_tightens_as_failures_stack() -> None:
+    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=False, recency_ok=True) == 65.0
+    assert _evidence_gate_cap(sell_depth_ok=False, history_coverage_ok=False, recency_ok=False) == 60.0
