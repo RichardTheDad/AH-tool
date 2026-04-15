@@ -364,14 +364,21 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         mark_scan_stage("Scoring cross-realm opportunities.")
         metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
         history_by_item = get_recent_snapshot_history_for_items(session, list(grouped.keys()), realms)
+        items_by_id = _load_items_by_id(session, set(grouped.keys()))
 
         def build_scan_results(include_losers: bool) -> tuple[list[ScanResult], int, int]:
             local_results: list[ScanResult] = []
             skipped_missing_metadata_local = 0
             included_unverified_metadata_local = 0
+            total_items = len(grouped)
+            progress_step = max(100, total_items // 10) if total_items else 100
+            mode_label = "all-ranked" if include_losers else "profit-positive"
 
-            for item_id, snapshots in grouped.items():
-                item = session.get(Item, item_id)
+            for index, (item_id, snapshots) in enumerate(grouped.items(), start=1):
+                if index == 1 or index % progress_step == 0 or index == total_items:
+                    mark_scan_stage(f"Scoring cross-realm opportunities ({mode_label})... {index}/{total_items} items")
+
+                item = items_by_id.get(item_id)
                 if item is None:
                     continue
                 if app_settings.non_commodity_only and item.is_commodity:
@@ -448,8 +455,9 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         if metadata_configured and results:
             refresh_targets: list[int] = []
             seen_targets: set[int] = set()
+            result_items_by_id = _load_items_by_id(session, {result.item_id for result in results[:100]})
             for result in results[:100]:
-                item = session.get(Item, result.item_id)
+                item = result_items_by_id.get(result.item_id)
                 if item is None or not item_has_missing_metadata(item) or result.item_id in seen_targets:
                     continue
                 seen_targets.add(result.item_id)
