@@ -1,17 +1,13 @@
+from __future__ import annotations
+
 import logging
-from fastapi import Request
 
-from __future__ import annotations
-from app.core.logging import is_search_crawler
-
-logger = logging.getLogger(__name__)
-from __future__ import annotations
-
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user
+from app.core.logging import is_search_crawler
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.jobs.scheduler import manager as scheduler_manager
@@ -19,6 +15,7 @@ from app.services.metadata_backfill_service import get_metadata_backfill_status
 from app.services.scheduler_audit_service import get_latest_scheduler_event
 from app.services.scan_runtime_service import get_scan_runtime_state
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
 
@@ -49,7 +46,7 @@ def require_health_diagnostics_access(
 @router.get("/health")
 def health_check(
     db: Session = Depends(get_db),
-    request: Request | None = None
+    request: Request = None,
 ) -> dict[str, object]:
     # Log crawler access for SEO monitoring (Phase 6)
     if request and is_search_crawler(request.headers.get("user-agent")):

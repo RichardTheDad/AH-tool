@@ -6,9 +6,11 @@ import app.services.scan_service as scan_service_module
 
 from app.db.models import Item, ListingSnapshot
 from app.db.session import get_session_factory
+from app.core.config import SYSTEM_USER_ID
 from app.schemas.scan import ScanRunRequest
 from app.services.provider_service import get_provider_registry
 from app.schemas.listing import ListingImportRow
+from app.tests.conftest import TEST_USER_ID
 
 
 _SNAPSHOTS_3_REALM = [
@@ -54,13 +56,14 @@ def seed_listing_data(client) -> None:
     _insert_snapshots(_SNAPSHOTS_3_REALM)
 
 
-def run_scan(payload: dict | None = None, user_id: str = "test-user") -> dict:
+def run_scan(payload: dict | None = None, user_id: str = TEST_USER_ID, realms: list[str] | None = None) -> dict:
     session = get_session_factory()()
     try:
         scan = scan_service_module.run_user_scan(
             session,
             user_id=user_id,
             payload=ScanRunRequest(**(payload or {"refresh_live": False, "include_losers": False})),
+            realms=realms,
         )
         return scan.model_dump(mode="json")
     finally:
@@ -269,7 +272,7 @@ def test_latest_scan_includes_recent_sell_history_for_chosen_sell_realm(client) 
         {"item_id": 873, "realm": "Zul'jin",   "lowest_price": 22000, "average_price": 23500, "quantity": 5, "listing_count": 4, "captured_at": "2026-04-06T00:50:00+00:00"},
     ])
 
-    run_scan({"refresh_live": False, "include_losers": False})
+    run_scan({"refresh_live": False, "include_losers": False}, user_id=SYSTEM_USER_ID, realms=["Area 52", "Stormrage", "Zul'jin"])
 
     latest = client.get("/scans/latest")
     assert latest.status_code == 200
@@ -355,7 +358,7 @@ def test_health_and_realms_smoke_flow(client) -> None:
 def test_scan_history_returns_recent_summaries(client) -> None:
     seed_listing_data(client)
 
-    run_scan({"refresh_live": False, "include_losers": False})
+    run_scan({"refresh_live": False, "include_losers": False}, user_id=SYSTEM_USER_ID, realms=["Area 52", "Stormrage", "Zul'jin"])
 
     history = client.get("/scans/history")
     assert history.status_code == 200
