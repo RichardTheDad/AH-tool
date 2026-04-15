@@ -99,6 +99,7 @@ def test_settings_presets_imports_and_providers_smoke(client) -> None:
     status = client.get("/scans/status")
     assert status.status_code == 200
     assert status.json()["status"] in {"idle", "running"}
+    assert "next_scheduled_at" in status.json()
 
 
 def test_items_endpoints_smoke(client) -> None:

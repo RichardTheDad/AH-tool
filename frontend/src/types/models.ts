@@ -118,6 +118,7 @@ export interface ScanRuntimeStatus {
   provider_name?: string | null;
   started_at?: string | null;
   finished_at?: string | null;
+  next_scheduled_at?: string | null;
 }
 
 export interface SuggestedRealmItem {

@@ -89,6 +89,7 @@ class ScanRuntimeStatusRead(BaseModel):
     provider_name: str | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    next_scheduled_at: datetime | None = None
 
 
 class ScanResultFilterState(BaseModel):

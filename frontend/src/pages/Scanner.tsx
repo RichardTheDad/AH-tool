@@ -12,7 +12,7 @@ import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
 import { useScannerFilters } from "../hooks/useScannerFilters";
-import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus } from "../types/models";
+import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus, ScanSession, ScanSessionSummary } from "../types/models";
 import { filterScanResults } from "../utils/filters";
 import { formatDateTime } from "../utils/format";
 import { readinessTextColor } from "../utils/statusStyles";
@@ -70,6 +70,23 @@ function matchesPreset(filters: ReturnType<typeof applyPresetToFilterState> & { 
   );
 }
 
+function asArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizeSession(session: ScanSession | null | undefined): ScanSession | null {
+  if (!session) {
+    return null;
+  }
+  const results = asArray(session.results);
+  return {
+    ...session,
+    warning_text: session.warning_text ?? null,
+    result_count: typeof session.result_count === "number" ? session.result_count : results.length,
+    results,
+  };
+}
+
 export function Scanner() {
   const queryClient = useQueryClient();
   const scanRefreshIntervalMs = 60000;
@@ -93,8 +110,8 @@ export function Scanner() {
     queryFn: () => getScan(previousScanId as number, 200),
     enabled: typeof previousScanId === "number",
   });
-  const latest = scanQuery.data?.latest ?? null;
-  const recentScans = scanHistoryQuery.data?.scans ?? [];
+  const latest = normalizeSession(scanQuery.data?.latest);
+  const recentScans: ScanSessionSummary[] = asArray(scanHistoryQuery.data?.scans);
   const fallbackScanId = latest?.result_count ? null : recentScans.find((scan) => scan.id !== latest?.id && scan.result_count > 0)?.id ?? null;
   const fallbackScanQuery = useQuery({
     queryKey: ["scans", fallbackScanId, "persisted", 500],
@@ -140,6 +157,7 @@ export function Scanner() {
       provider_name: null,
       started_at: null,
       finished_at: null,
+      next_scheduled_at: null,
     };
   const noEnabledRealms = readinessLoaded && readiness.enabled_realm_count === 0;
   const noUsableListingData = readinessLoaded && readiness.enabled_realm_count > 0 && readiness.realms_with_data === 0;
@@ -164,15 +182,16 @@ export function Scanner() {
   }
 
   const calibration = calibrationQuery.data;
-  const previousScan = previousScanQuery.data ?? null;
-  const persistedScan = latest?.result_count ? latest : fallbackScanQuery.data ?? latest;
+  const previousScan = normalizeSession(previousScanQuery.data);
+  const fallbackScan = normalizeSession(fallbackScanQuery.data);
+  const persistedScan = latest?.result_count ? latest : fallbackScan ?? latest;
   const calibrationUnavailable = Boolean(calibrationQuery.error);
   const previousScanUnavailable = Boolean(previousScanQuery.error);
-  const tuningAudit = tuningAuditQuery.data?.entries ?? [];
-  const results = filterScanResults(persistedScan?.results ?? [], filters);
+  const tuningAudit = asArray(tuningAuditQuery.data?.entries);
+  const results = filterScanResults(asArray(persistedScan?.results), filters);
   const useVirtualizedResults = results.length > 300;
   const categoryOptions = Array.from(
-    new Set((persistedScan?.results ?? []).map((result) => result.item_class_name).filter((value): value is string => !!value)),
+    new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
   const inferredPreset = (presetsQuery.data ?? []).find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
@@ -273,6 +292,9 @@ export function Scanner() {
             ) : null}
             {!scanRunning && scanStatus.finished_at ? (
               <p className="mt-2 text-sm text-slate-500">Last scan update: {formatDateTime(scanStatus.finished_at)}</p>
+            ) : null}
+            {scanStatus.next_scheduled_at ? (
+              <p className="mt-2 text-sm text-slate-500">Next scheduled scan: {formatDateTime(scanStatus.next_scheduled_at)}</p>
             ) : null}
             {activeProvider ? (
               <p className={`mt-2 text-sm ${activeProvider.status === "error" ? "text-rose-700" : activeProvider.status === "cached_only" ? "text-amber-700" : "text-slate-600"}`}>

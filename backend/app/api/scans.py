@@ -16,6 +16,7 @@ from app.schemas.scan import (
 )
 from app.services.realm_service import get_all_enabled_realm_names
 from app.services.calibration_service import get_calibration_summary
+from app.jobs.scheduler import manager as scheduler_manager
 from app.services.scan_runtime_service import get_scan_runtime_state
 from app.services.scan_service import ScanAlreadyRunningError, get_latest_scan, get_scan_history, get_scan_readiness, get_scan_session, run_user_scan
 
@@ -66,7 +67,15 @@ def scan_readiness(db: Session = Depends(get_db), current_user: str = Depends(ge
 @router.get("/scans/status", response_model=ScanRuntimeStatusRead)
 def scan_status(current_user: str = Depends(get_current_user)) -> ScanRuntimeStatusRead:
     del current_user
-    return ScanRuntimeStatusRead.model_validate(get_scan_runtime_state().__dict__)
+    runtime_state = get_scan_runtime_state().__dict__
+    scheduler_status = scheduler_manager.status()
+    refresh_cycle = scheduler_status.get("refresh_cycle") if isinstance(scheduler_status, dict) else None
+    next_scheduled_at = refresh_cycle.get("next_run_time") if isinstance(refresh_cycle, dict) else None
+    payload = {
+        **runtime_state,
+        "next_scheduled_at": next_scheduled_at,
+    }
+    return ScanRuntimeStatusRead.model_validate(payload)
 
 
 @router.get("/scans/{scan_id}", response_model=ScanSessionRead)
