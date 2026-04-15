@@ -8,6 +8,7 @@ from sqlalchemy.exc import OperationalError
 
 from app.core.config import SYSTEM_USER_ID, get_settings
 from app.db.init_db import purge_expired_app_data
+from app.db.models import TrackedRealm
 from app.db.session import get_session_factory
 from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 from app.services.listing_service import mark_stale_snapshots, refresh_from_provider
@@ -16,6 +17,7 @@ from app.services.calibration_service import evaluate_due_predictions
 from app.services.realm_service import get_all_enabled_realm_names
 from app.services.scheduler_audit_service import record_scheduler_event
 from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, try_mark_scan_started
+from app.services.realm_suggestion_service import run_realm_suggestions, should_refresh_realm_suggestions
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 LOCK_RETRY_ATTEMPTS = 4
 LOCK_RETRY_DELAY_SECONDS = 1.5
+REALM_SUGGESTION_WEEKLY_COOLDOWN_MINUTES = 7 * 24 * 60
 
 
 def _run_with_sqlite_lock_retry(session, operation_name: str, func):
@@ -65,6 +68,45 @@ def _run_system_scan(session, realms: list[str]) -> None:
         logger.info("Skipping scheduled global scan: scan already running.")
     except Exception:
         logger.exception("Scheduled global scan failed.")
+
+
+def _run_weekly_realm_suggestions(session) -> tuple[int, int]:
+    """Refresh suggested source realms for users due for a weekly update.
+
+    This runs only after the main scheduled scan has completed so the suggestions
+    use the newest snapshot baseline.
+    """
+    user_ids = [
+        user_id
+        for (user_id,) in (
+            session.query(TrackedRealm.user_id)
+            .filter(TrackedRealm.enabled.is_(True))
+            .distinct()
+            .all()
+        )
+        if user_id
+    ]
+    if not user_ids:
+        return 0, 0
+
+    queued = 0
+    completed = 0
+    for user_id in user_ids:
+        due, _latest = should_refresh_realm_suggestions(
+            session,
+            user_id=user_id,
+            cooldown_minutes=REALM_SUGGESTION_WEEKLY_COOLDOWN_MINUTES,
+        )
+        if not due:
+            continue
+        queued += 1
+        try:
+            run_realm_suggestions(session, user_id)
+            completed += 1
+        except Exception:
+            logger.exception("Weekly realm suggestion refresh failed for user %s.", user_id)
+
+    return queued, completed
 
 
 def run_refresh_cycle() -> None:
@@ -137,6 +179,13 @@ def run_refresh_cycle() -> None:
             logger.info("Updated %d calibration telemetry event(s).", evaluated)
 
         _run_system_scan(session, realms)
+        suggestion_queued, suggestion_completed = _run_weekly_realm_suggestions(session)
+        if suggestion_completed:
+            logger.info(
+                "Weekly realm suggestions refreshed for %d/%d due user(s).",
+                suggestion_completed,
+                suggestion_queued,
+            )
         status = "success.warning" if warning else "success"
         message = warning or "Scheduled refresh cycle completed successfully."
         _finish(
@@ -148,6 +197,8 @@ def run_refresh_cycle() -> None:
                 "inserted": inserted,
                 "metadata_queued": queued,
                 "calibration_evaluated": evaluated,
+                "realm_suggestions_due": suggestion_queued,
+                "realm_suggestions_refreshed": suggestion_completed,
             },
         )
     except Exception:  # pragma: no cover - scheduler safety net

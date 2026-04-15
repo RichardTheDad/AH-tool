@@ -512,17 +512,18 @@ def run_realm_suggestions(session: Session, user_id: str, *, target_realms: list
 def should_refresh_realm_suggestions(
     session: Session,
     *,
+    user_id: str,
     target_realms: list[str] | None = None,
     cooldown_minutes: int,
 ) -> tuple[bool, RealmSuggestionRun | None]:
-    resolved_targets = _normalize_target_realms(target_realms or get_enabled_realm_names(session))
+    resolved_targets = _normalize_target_realms(target_realms or get_enabled_realm_names(session, user_id))
     if not resolved_targets:
         return False, None
 
     target_set_key = _target_set_key(resolved_targets)
     latest_run = (
         session.query(RealmSuggestionRun)
-        .filter(RealmSuggestionRun.target_set_key == target_set_key)
+        .filter(RealmSuggestionRun.user_id == user_id, RealmSuggestionRun.target_set_key == target_set_key)
         .order_by(RealmSuggestionRun.generated_at.desc())
         .first()
     )

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getLatestSuggestedRealms, runSuggestedRealms } from "../api/realmSuggestions";
+import { getLatestSuggestedRealms } from "../api/realmSuggestions";
 import { createRealm, getRealms, updateRealm } from "../api/realms";
 import { Card } from "../components/common/Card";
 import { EmptyState } from "../components/common/EmptyState";
@@ -44,13 +44,6 @@ export function SuggestedRealms() {
     },
   });
 
-  const runMutation = useMutation({
-    mutationFn: () => runSuggestedRealms(selectedTargetRealms),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["realm-suggestions", "latest"] });
-    },
-  });
-
   if (realmsQuery.isLoading || suggestionsQuery.isLoading) {
     return <LoadingState label="Loading suggested realms..." />;
   }
@@ -83,7 +76,7 @@ export function SuggestedRealms() {
               </span>
             </p>
             <p className="mt-2 text-sm text-slate-600">
-              This discovery run is separate from Scanner. It checks a rotating slice of Blizzard US source realms, then reuses your current sellability model against the enabled target realms you have selected below.
+              Suggested realms refresh automatically after the main scheduled scanner run finishes, and each target set is updated at most once per week.
             </p>
             {enabledRealmNames.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
@@ -123,25 +116,17 @@ export function SuggestedRealms() {
             {report?.generated_at ? <p className="mt-2 text-xs text-slate-500">Last refreshed {formatDateTime(report.generated_at)}</p> : null}
             {report?.warning_text ? <p className="mt-3 text-sm text-amber-700">{report.warning_text}</p> : null}
           </div>
-          <button
-            type="button"
-            onClick={() => runMutation.mutate()}
-            disabled={!enabledRealms.length || runMutation.isPending}
-            className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {runMutation.isPending ? "Refreshing..." : "Refresh suggestions"}
-          </button>
         </div>
       </Card>
 
       {!enabledRealms.length ? (
         <EmptyState title="No target realms enabled" description="Enable the realms you want to sell on first, then Suggested realms can look for cheap source realms that fit them." />
       ) : !report ? (
-        <EmptyState title="No suggestions yet" description="Run a discovery pass to inspect Blizzard US realms and build your first suggested source-realm board." />
+        <EmptyState title="No suggestions yet" description="Suggestions are generated automatically after scheduled scans. Check back after the next weekly refresh window." />
       ) : !report.recommendations.length ? (
         <EmptyState
           title="No source realms surfaced yet"
-          description="The discovery pass did not find strong source realms for your current targets. Try again after more scans or expand the realms you sell on."
+          description="The latest weekly discovery pass did not find strong source realms for your current targets. Try again after more scans or expand the realms you sell on."
         />
       ) : (
         <>
