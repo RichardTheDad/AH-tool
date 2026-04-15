@@ -110,7 +110,7 @@ def _derive_readiness_status(
     if realms_with_data_count < 2:
         return "blocked", "At least two enabled realms need listing data before the scanner can compare flip opportunities.", items_missing_count
     if realms_with_fresh_count < 2:
-        return "caution", "The scanner can run, but fewer than two enabled realms have fresh listings. Import fresher data before trusting top results.", items_missing_count
+        return "caution", "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results.", items_missing_count
     if missing_metadata_item_ids:
         if metadata_configured:
             msg = "Some items still have missing metadata, so unverified imports will be excluded from non-commodity scans until metadata is refreshed."
@@ -267,7 +267,7 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
         message = "At least two enabled realms need listing data before the scanner can compare flip opportunities."
     elif realms_with_fresh_data < 2:
         status = "caution"
-        message = "The scanner can run, but fewer than two enabled realms have fresh listings. Import fresher data before trusting top results."
+        message = "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results."
     elif missing_metadata_item_ids:
         status = "caution"
         if metadata_configured:

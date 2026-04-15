@@ -97,8 +97,8 @@ export function Scanner() {
   const recentScans = scanHistoryQuery.data?.scans ?? [];
   const fallbackScanId = latest?.result_count ? null : recentScans.find((scan) => scan.id !== latest?.id && scan.result_count > 0)?.id ?? null;
   const fallbackScanQuery = useQuery({
-    queryKey: ["scans", fallbackScanId, "persisted", 2000],
-    queryFn: () => getScan(fallbackScanId as number, 2000),
+    queryKey: ["scans", fallbackScanId, "persisted", 500],
+    queryFn: () => getScan(fallbackScanId as number, 500),
     enabled: typeof fallbackScanId === "number",
   });
   const tuningMutation = useMutation({
