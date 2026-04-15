@@ -19,6 +19,28 @@ def _sqlite_connect_args(database_url: str) -> dict[str, object]:
     return {}
 
 
+def _engine_kwargs(database_url: str) -> dict[str, object]:
+    kwargs: dict[str, object] = {
+        "future": True,
+        "connect_args": _sqlite_connect_args(database_url),
+    }
+    if not database_url.startswith("sqlite"):
+        # Supabase session poolers have a low max-client ceiling. Keep the app pool
+        # intentionally small so polling endpoints and multiple Fly machines do not
+        # exhaust available connections.
+        kwargs.update(
+            {
+                "pool_size": 3,
+                "max_overflow": 1,
+                "pool_timeout": 15,
+                "pool_recycle": 1800,
+                "pool_pre_ping": True,
+                "pool_use_lifo": True,
+            }
+        )
+    return kwargs
+
+
 def _configure_sqlite_connection(dbapi_connection, _connection_record) -> None:
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -31,7 +53,7 @@ def _configure_sqlite_connection(dbapi_connection, _connection_record) -> None:
 @lru_cache(maxsize=4)
 def get_engine(database_url: str | None = None) -> Engine:
     url = database_url or get_settings().database_url
-    engine = create_engine(url, future=True, connect_args=_sqlite_connect_args(url))
+    engine = create_engine(url, **_engine_kwargs(url))
     if url.startswith("sqlite"):
         event.listen(engine, "connect", _configure_sqlite_connection)
     return engine
