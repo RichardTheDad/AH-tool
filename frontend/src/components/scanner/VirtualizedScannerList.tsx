@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { List, type RowComponentProps } from "react-window";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { ScanResult, ScannerFilters } from "../../types/models";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
 import { GoldAmount } from "../common/GoldAmount";
-import { formatGold, formatPercent, formatScore } from "../../utils/format";
+import { formatPercent, formatScore } from "../../utils/format";
 
 interface VirtualizedScannerListProps {
   results: ScanResult[];
@@ -13,7 +13,19 @@ interface VirtualizedScannerListProps {
   sortDirection: ScannerFilters["sortDirection"];
   onSortChange: (next: { sortBy: ScannerFilters["sortBy"]; sortDirection: ScannerFilters["sortDirection"] }) => void;
   onOpenProvenance?: (result: ScanResult) => void;
+  restoreItemId?: number | null;
+  restoreIndex?: number | null;
+  onRestoreComplete?: () => void;
 }
+
+type ListRefApi = {
+  readonly element: HTMLDivElement | null;
+  scrollToRow: (config: {
+    align?: "auto" | "center" | "end" | "smart" | "start";
+    behavior?: "auto" | "instant" | "smooth";
+    index: number;
+  }) => void;
+};
 
 function SortButton({
   label,
@@ -81,7 +93,7 @@ function isEvidenceGated(result: ScanResult) {
   return Boolean(provenance?.evidence?.gate_applied);
 }
 
-function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ results: ScanResult[]; onOpenProvenance?: (result: ScanResult) => void }>) {
+function Row({ index, style, results, onOpenProvenance, search }: RowComponentProps<{ results: ScanResult[]; onOpenProvenance?: (result: ScanResult) => void; search: string }>) {
   const result = results[index];
   const provenance = summarizeProvenance(result);
   const gated = isEvidenceGated(result);
@@ -91,7 +103,16 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Link to={`/items/${result.item_id}`} className="font-semibold text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]">
+            <Link
+              to={`/items/${result.item_id}`}
+              state={{
+                from: "scanner",
+                scannerSearch: search,
+                restoreItemId: result.item_id,
+                restoreIndex: index,
+              }}
+              className="font-semibold text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+            >
               {result.item_name}
             </Link>
             {result.undermine_url ? (
@@ -164,8 +185,21 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
   );
 }
 
-export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortChange, onOpenProvenance }: VirtualizedScannerListProps) {
+export function VirtualizedScannerList({
+  results,
+  sortBy,
+  sortDirection,
+  onSortChange,
+  onOpenProvenance,
+  restoreItemId = null,
+  restoreIndex = null,
+  onRestoreComplete,
+}: VirtualizedScannerListProps) {
+  const location = useLocation();
   const [height, setHeight] = useState(560);
+  const listRef = useRef<ListRefApi | null>(null);
+  const lastRestoreKeyRef = useRef<string | null>(null);
+  const search = useMemo(() => location.search, [location.search]);
 
   useEffect(() => {
     const updateHeight = () => {
@@ -178,6 +212,42 @@ export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortC
     window.addEventListener("resize", updateHeight);
     return () => window.removeEventListener("resize", updateHeight);
   }, []);
+
+  useEffect(() => {
+    if (!results.length) {
+      return;
+    }
+    if (restoreItemId === null && restoreIndex === null) {
+      return;
+    }
+
+    const resolvedIndex = (() => {
+      if (typeof restoreItemId === "number") {
+        const fromId = results.findIndex((result) => result.item_id === restoreItemId);
+        if (fromId >= 0) {
+          return fromId;
+        }
+      }
+      if (typeof restoreIndex === "number" && restoreIndex >= 0 && restoreIndex < results.length) {
+        return restoreIndex;
+      }
+      return -1;
+    })();
+
+    if (resolvedIndex < 0) {
+      onRestoreComplete?.();
+      return;
+    }
+
+    const restoreKey = `${restoreItemId ?? ""}:${restoreIndex ?? ""}:${results.length}`;
+    if (lastRestoreKeyRef.current === restoreKey) {
+      return;
+    }
+
+    lastRestoreKeyRef.current = restoreKey;
+    listRef.current?.scrollToRow({ index: resolvedIndex, align: "center", behavior: "instant" });
+    onRestoreComplete?.();
+  }, [listRef, onRestoreComplete, restoreIndex, restoreItemId, results]);
 
   if (!results.length) {
     return <EmptyState title="No current opportunities" description="Try a looser preset or wait for the next scheduled Blizzard data refresh." />;
@@ -199,7 +269,8 @@ export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortC
         rowCount={results.length}
         rowHeight={156}
         rowComponent={Row}
-        rowProps={{ results, onOpenProvenance }}
+        rowProps={{ results, onOpenProvenance, search }}
+        listRef={listRef}
         overscanCount={6}
       />
     </div>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { getItem } from "../api/items";
 import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
@@ -10,6 +10,8 @@ import { ItemListingsTable } from "../components/items/ItemListingsTable";
 import { formatDateTime, formatMarketPerDay, formatMarketPercent, formatPercent, formatScore } from "../utils/format";
 
 export function ItemDetail() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const params = useParams();
   const itemId = Number(params.itemId);
   const itemQuery = useQuery({
@@ -26,9 +28,43 @@ export function ItemDetail() {
   }
 
   const item = itemQuery.data;
+  const scannerContext = (location.state as {
+    from?: string;
+    scannerSearch?: string;
+    restoreItemId?: number;
+    restoreIndex?: number;
+  } | null) ?? null;
 
   return (
     <div className="space-y-6">
+      <div>
+        <button
+          type="button"
+          onClick={() => {
+            if (scannerContext?.from === "scanner") {
+              navigate(
+                {
+                  pathname: "/",
+                  search: scannerContext.scannerSearch ?? "",
+                },
+                {
+                  state: {
+                    restoreItemId: scannerContext.restoreItemId,
+                    restoreIndex: scannerContext.restoreIndex,
+                    restoredAt: Date.now(),
+                  },
+                },
+              );
+              return;
+            }
+            navigate("/");
+          }}
+          className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-ink hover:text-ink"
+        >
+          Back to scanner
+        </button>
+      </div>
+
       <Card
         title={item.name}
         subtitle={`${item.class_name ?? "Unknown class"}${item.subclass_name ? ` | ${item.subclass_name}` : ""}`}

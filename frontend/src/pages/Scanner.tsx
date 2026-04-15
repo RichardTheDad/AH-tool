@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
@@ -24,6 +25,12 @@ const CALIBRATION_CHART_HEIGHT = 180;
 const CALIBRATION_CHART_PADDING = 14;
 const TUNING_COOLDOWN_MS = 30 * 60 * 1000;
 const SCHEDULE_INTERVAL_MINUTES_FALLBACK = 65;
+
+interface ScannerNavigationState {
+  restoreItemId?: number;
+  restoreIndex?: number;
+  restoredAt?: number;
+}
 
 function toPercentPoints(values: number[]) {
   if (!values.length) {
@@ -90,21 +97,36 @@ function normalizeSession(session: ScanSession | null | undefined): ScanSession 
 
 export function Scanner() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   const scanRefreshIntervalMs = 60000;
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
+  const [restoreTarget, setRestoreTarget] = useState<{ itemId: number | null; index: number | null } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const { filters, updateFilters } = useScannerFilters();
+  const { filters, updateFilters, restoreFiltersFromStorage } = useScannerFilters();
 
-  const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan(), refetchInterval: scanRefreshIntervalMs });
-  const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory, refetchInterval: scanRefreshIntervalMs });
+  const scanQuery = useQuery({
+    queryKey: ["scans", "latest"],
+    queryFn: () => getLatestScan(),
+    refetchInterval: scanRefreshIntervalMs,
+    staleTime: 45_000,
+    gcTime: 15 * 60_000,
+  });
+  const scanHistoryQuery = useQuery({
+    queryKey: ["scans", "history"],
+    queryFn: getScanHistory,
+    refetchInterval: scanRefreshIntervalMs,
+    staleTime: 45_000,
+    gcTime: 15 * 60_000,
+  });
   const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
   const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
-  const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
-  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanRefreshIntervalMs });
+  const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness, refetchInterval: 120000, staleTime: 30_000 });
+  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanRefreshIntervalMs, staleTime: 30_000 });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
-  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
-  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
+  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000 });
+  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
   const previousScanId = (scanHistoryQuery.data?.scans ?? [])[1]?.id;
   const previousScanQuery = useQuery({
     queryKey: ["scans", previousScanId, "summary", 200],
@@ -172,6 +194,27 @@ export function Scanner() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    restoreFiltersFromStorage();
+  }, [restoreFiltersFromStorage]);
+
+  useEffect(() => {
+    const state = location.state as ScannerNavigationState | null;
+    const hasRestoreState = Boolean(
+      state && (typeof state.restoreItemId === "number" || typeof state.restoreIndex === "number"),
+    );
+    if (!hasRestoreState) {
+      return;
+    }
+
+    setRestoreTarget({
+      itemId: typeof state?.restoreItemId === "number" ? state.restoreItemId : null,
+      index: typeof state?.restoreIndex === "number" ? state.restoreIndex : null,
+    });
+
+    navigate({ pathname: location.pathname, search: location.search }, { replace: true, state: null });
+  }, [location.pathname, location.search, location.state, navigate]);
 
   function handleFilterChange(next: Parameters<typeof updateFilters>[0]) {
     const changedKeys = Object.keys(next);
@@ -277,6 +320,27 @@ export function Scanner() {
     }
     return null;
   })();
+
+  useEffect(() => {
+    if (!restoreTarget || useVirtualizedResults) {
+      return;
+    }
+    const targetId = restoreTarget.itemId;
+    if (typeof targetId !== "number") {
+      setRestoreTarget(null);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const element = document.getElementById(`scanner-item-${targetId}`);
+      if (element) {
+        element.scrollIntoView({ block: "center", behavior: "instant" });
+      }
+      setRestoreTarget(null);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [restoreTarget, useVirtualizedResults]);
 
   return (
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
@@ -460,6 +524,9 @@ export function Scanner() {
               sortDirection={filters.sortDirection}
               onSortChange={handleFilterChange}
               onOpenProvenance={setSelectedProvenanceResult}
+              restoreItemId={restoreTarget?.itemId ?? null}
+              restoreIndex={restoreTarget?.index ?? null}
+              onRestoreComplete={() => setRestoreTarget(null)}
             />
           ) : (
             <ScannerTable

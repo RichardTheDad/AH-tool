@@ -66,14 +66,6 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
           placeholder="Max buy price"
           isCompact
         />
-        <Checkbox
-          id="scanner-filter-hide-risky"
-          name="hideRisky"
-          checked={filters.hideRisky}
-          onChange={(event) => onChange({ hideRisky: event.target.checked })}
-          label="Hide risky flips"
-          compact
-        />
       </div>
 
       {/* Confidence & Category Section */}
@@ -130,6 +122,18 @@ export function FilterSidebar({ filters, onChange, categoryOptions, onReset }: F
           <option value="desc">Highest to lowest</option>
           <option value="asc">Lowest to highest</option>
         </Select>
+      </div>
+
+      <div className="space-y-2 border-t border-slate-100 pt-3">
+        <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Safety</h3>
+        <Checkbox
+          id="scanner-filter-hide-risky"
+          name="hideRisky"
+          checked={filters.hideRisky}
+          onChange={(event) => onChange({ hideRisky: event.target.checked })}
+          label="Hide risky flips"
+          compact
+        />
       </div>
     </aside>
   );

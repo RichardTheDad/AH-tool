@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
 import { GoldAmount } from "../common/GoldAmount";
@@ -101,6 +101,8 @@ function SortableHeader({
 }
 
 export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onOpenProvenance }: ScannerTableProps) {
+  const location = useLocation();
+
   if (!results.length) {
     return <EmptyState title="No current opportunities" description="Try a looser preset or wait for the next scheduled Blizzard data refresh." />;
   }
@@ -152,12 +154,21 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
-            {results.map((result) => (
-              <tr key={result.id} className="hover:bg-slate-50 transition">
+            {results.map((result, index) => (
+              <tr key={result.id} id={`scanner-item-${result.item_id}`} className="hover:bg-slate-50 transition">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
                   <div className="flex flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <Link to={`/items/${result.item_id}`} className="font-semibold leading-snug text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]">
+                      <Link
+                        to={`/items/${result.item_id}`}
+                        state={{
+                          from: "scanner",
+                          scannerSearch: location.search,
+                          restoreItemId: result.item_id,
+                          restoreIndex: index,
+                        }}
+                        className="font-semibold leading-snug text-ink underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+                      >
                         {result.item_name}
                       </Link>
                       {result.undermine_url ? (

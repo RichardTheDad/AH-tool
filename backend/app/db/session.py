@@ -26,13 +26,17 @@ def _engine_kwargs(database_url: str) -> dict[str, object]:
         "connect_args": _sqlite_connect_args(database_url),
     }
     if not database_url.startswith("sqlite"):
+        pool_size = max(4, int(settings.db_pool_size))
+        max_overflow = max(4, int(settings.db_max_overflow))
+        pool_timeout = max(5, int(settings.db_pool_timeout_seconds))
+        pool_recycle = max(300, int(settings.db_pool_recycle_seconds))
         # Keep pool usage bounded but configurable for production traffic bursts.
         kwargs.update(
             {
-                "pool_size": settings.db_pool_size,
-                "max_overflow": settings.db_max_overflow,
-                "pool_timeout": settings.db_pool_timeout_seconds,
-                "pool_recycle": settings.db_pool_recycle_seconds,
+                "pool_size": pool_size,
+                "max_overflow": max_overflow,
+                "pool_timeout": pool_timeout,
+                "pool_recycle": pool_recycle,
                 "pool_pre_ping": True,
                 "pool_use_lifo": True,
             }
