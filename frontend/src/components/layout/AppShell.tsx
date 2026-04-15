@@ -4,6 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../common/Button";
 
 const navItems = [
+  { to: "/home", label: "Home" },
   { to: "/", label: "Scanner" },
   { to: "/realms", label: "Realms" },
   { to: "/suggested-realms", label: "Suggested Realms" },
