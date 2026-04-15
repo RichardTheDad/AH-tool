@@ -31,13 +31,11 @@ function summarizeProvenance(result: ScanResult) {
   const liquidity = provenance.components.liquidity;
   const volatility = provenance.components.volatility;
   const antiBait = provenance.components.anti_bait;
-  const personal = provenance.components.personal_turnover;
   const gateApplied = Boolean(provenance.evidence?.gate_applied);
   return {
     liquidity,
     volatility,
     antiBait,
-    personal,
     gateApplied,
   };
 }
@@ -95,7 +93,7 @@ function SortableHeader({
 
 export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onOpenProvenance }: ScannerTableProps) {
   if (!results.length) {
-    return <EmptyState title="No current opportunities" description="Try a looser preset, import fresher listings, or refresh from an available listing provider." />;
+    return <EmptyState title="No current opportunities" description="Try a looser preset or wait for the next scheduled Blizzard data refresh." />;
   }
 
   return (
@@ -167,13 +165,6 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                     <div className="flex flex-wrap gap-2">
                       {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
                       {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}
-                      {result.personal_sale_count > 0 ? <Badge tone="success">Sold before</Badge> : null}
-                      {result.personal_expired_count > result.personal_sale_count && result.personal_expired_count > 0 ? (
-                        <Badge tone="warning">Expire history</Badge>
-                      ) : null}
-                      {result.personal_cancel_count > result.personal_sale_count && result.personal_cancel_count > 0 ? (
-                        <Badge tone="warning">Cancel history</Badge>
-                      ) : null}
                       {result.has_missing_metadata ? <Badge tone="warning">Metadata gap</Badge> : null}
                       {isEvidenceGated(result) ? <Badge tone="warning">Evidence gate</Badge> : null}
                       <Badge
@@ -221,7 +212,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                           : "danger";
                     return (
                   <span
-                    title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)} | Personal sales ${result.personal_sale_count} | Cancels ${result.personal_cancel_count} | Expired ${result.personal_expired_count}`}
+                    title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
                   >
                     <Badge tone={tone}>
                       {formatScore(result.confidence_score)}
@@ -239,13 +230,13 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 </td>
                 <td
                   className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-slate-600 [overflow-wrap:anywhere]"
-                  title={`Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)} | Personal sales ${result.personal_sale_count} | Cancels ${result.personal_cancel_count} | Expired ${result.personal_expired_count}`}
+                  title={`Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
                 >
                   {(() => {
                     const provenance = summarizeProvenance(result);
                     return provenance ? (
                       <div className="mb-2 rounded-2xl bg-slate-100 px-3 py-2 text-[11px] text-slate-600">
-                        Signals: L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}, Personal {provenance.personal?.toFixed?.(1) ?? "--"}
+                        Signals: L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
                         {provenance.gateApplied ? " | evidence gate applied" : ""}
                         {onOpenProvenance ? (
                           <button
@@ -265,7 +256,6 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                       <span>{result.turnover_label} turnover</span>
                       <span>{summarizeLiquidity(result.liquidity_score)}</span>
                       <span>{summarizeBaitRisk(result.bait_risk_score)}</span>
-                      <span>{result.personal_sale_count > 0 ? `${result.personal_sale_count} prior sales` : "no prior sales"}</span>
                     </div>
                     <div className="rounded-2xl bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
                       <div>Recommended sell target: {formatGold(result.best_sell_price)}</div>

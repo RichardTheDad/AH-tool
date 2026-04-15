@@ -406,9 +406,6 @@ def scan_result_to_schema(
     *,
     sell_history_prices: list[float] | None = None,
     observed_sell_price: float | None = None,
-    personal_sale_count: int = 0,
-    personal_cancel_count: int = 0,
-    personal_expired_count: int = 0,
 ) -> ScanResultRead:
     has_missing_metadata = item_has_missing_metadata(result.item) if result.item else True
     return ScanResultRead(
@@ -439,9 +436,6 @@ def scan_result_to_schema(
         has_stale_data=result.has_stale_data,
         is_risky=result.is_risky,
         has_missing_metadata=has_missing_metadata,
-        personal_sale_count=personal_sale_count,
-        personal_cancel_count=personal_cancel_count,
-        personal_expired_count=personal_expired_count,
         score_provenance=result.score_provenance_json,
     )
 

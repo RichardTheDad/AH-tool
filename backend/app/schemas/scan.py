@@ -34,9 +34,6 @@ class ScanResultRead(BaseModel):
     has_stale_data: bool
     is_risky: bool
     has_missing_metadata: bool = False
-    personal_sale_count: int = 0
-    personal_cancel_count: int = 0
-    personal_expired_count: int = 0
     score_provenance: dict[str, Any] | None = None
 
 

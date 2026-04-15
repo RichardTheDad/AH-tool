@@ -62,9 +62,6 @@ export interface ScanResult {
   has_stale_data: boolean;
   is_risky: boolean;
   has_missing_metadata: boolean;
-  personal_sale_count: number;
-  personal_cancel_count: number;
-  personal_expired_count: number;
   score_provenance?: Record<string, unknown> | null;
 }
 

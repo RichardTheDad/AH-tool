@@ -123,6 +123,9 @@ class Settings(BaseSettings):
         return raw
 
 
+SYSTEM_USER_ID = "system"
+
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()

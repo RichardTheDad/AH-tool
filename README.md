@@ -1,6 +1,6 @@
 # AzerothFlipLocal
 
-Local-first World of Warcraft flipping analysis focused on current non-commodity opportunities across a user-managed realm list.
+API-driven World of Warcraft flipping analysis focused on current non-commodity opportunities across a user-managed realm list.
 
 ## Stack
 
@@ -17,10 +17,8 @@ Supported workflows:
 - live Blizzard Retail Auction House ingestion when Battle.net credentials are configured
 - live item metadata from Blizzard when Battle.net credentials are configured
 - live TSM region market stats on item detail pages when a TSM API key is configured
-- local TSM AuctionDB and personal ledger discovery across detected WoW account folders
 - cached item metadata when live metadata is unavailable
-- real CSV or JSON listing imports for scanner input
-- cached imported listings after restart
+- cached API snapshots after restart
 - scanner readiness checks based on enabled-realm coverage and listing freshness
 - history-aware ranking that penalizes thin, stale, inconsistent, or spiky sell markets
 - automatic app-data retention that prunes listing and scan history older than 30 days
@@ -37,11 +35,8 @@ Current behavior:
 - `BlizzardMetadataProvider`
   - uses Blizzard item and item-media endpoints
   - normalizes live item metadata into the local cache
-- `FileImportListingProvider`
-  - accepts real CSV and JSON listing snapshots
-  - stores them as `source_name = "file_import"`
 
-When live listings are unavailable, the app stays usable with imported listing data. It does not fabricate listings to fill gaps.
+When live listings are unavailable, the app uses the most recent cached API snapshots. It does not fabricate listings to fill gaps.
 
 ## Project Layout
 
@@ -93,8 +88,6 @@ AZEROTHFLIPLOCAL_BLIZZARD_API_REGION=us
 AZEROTHFLIPLOCAL_BLIZZARD_LOCALE=en_US
 AZEROTHFLIPLOCAL_TSM_API_KEY=
 AZEROTHFLIPLOCAL_TSM_REGION_ID=1
-AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH=
-AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH=
 VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
@@ -148,18 +141,13 @@ Important values:
 - `AZEROTHFLIPLOCAL_BLIZZARD_LOCALE`
 - `AZEROTHFLIPLOCAL_TSM_API_KEY`
 - `AZEROTHFLIPLOCAL_TSM_REGION_ID`
-- `AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH`
-- `AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH`
 - `VITE_API_BASE_URL`
 
 Notes:
 
 - `.env` is the only runtime config file the app reads.
 - `.env` contains real secrets and should stay local.
-- `AZEROTHFLIPLOCAL_TSM_APPHELPER_PATH` is optional. If blank, the app will try to auto-detect `TradeSkillMaster_AppHelper\\AppData.lua` from a standard retail WoW install on Windows.
-- `AZEROTHFLIPLOCAL_TSM_SAVEDVARIABLES_PATH` is optional. If blank, the app will try to auto-detect `TradeSkillMaster.lua` from compatible retail WoW account folders on Windows.
-- local TSM SavedVariables and AppHelper data are auto-discovered across compatible WoW account folders when paths are left blank
-- Local TSM AppHelper AuctionDB data can enrich the app even when the TSM web API is unavailable.
+- data sources are API-only: Blizzard APIs + TSM Pricing API + cached snapshots persisted by the app.
 
 ## Recommended Daily-Driver Setup
 
@@ -174,31 +162,6 @@ With that setup:
 - the scheduler can refresh retail non-commodity listings automatically from Blizzard
 - the scanner can bootstrap itself from live Blizzard data even when the local cache starts empty
 - item names, class data, quality, and icons can also be refreshed from Blizzard
-- imports remain available as a fallback if you want to supplement or replace local coverage manually
-
-## Import Workflow
-
-Use the Imports page or `POST /imports/listings`.
-
-Supported fields:
-
-- `item_id`
-- `realm`
-- `lowest_price`
-- `average_price`
-- `quantity`
-- `listing_count`
-- `captured_at`
-
-Behavior:
-
-- preview validates rows without writing to SQLite
-- commit stores rows as `source_name = "file_import"`
-- duplicate rows are skipped with a clear summary
-- invalid rows are reported without crashing the import
-- successful commits can refresh missing item metadata from Blizzard when configured
-- preview and commit responses include coverage details for realms, items, and snapshot window
-- scans can run immediately after a successful commit
 
 ## Scanner Trust Model
 
@@ -211,7 +174,7 @@ The scanner keeps the original realm-list model:
 Trust-oriented behavior:
 
 - rankings are based on the latest local snapshot per item per realm
-- rankings now include a dedicated sellability signal built from TSM turnover, local scan persistence, and personal TSM ledger history when available
+- rankings include a dedicated sellability signal built from market depth, volatility consistency, and anti-bait penalties
 - stale snapshots are penalized
 - thin sell markets are penalized
 - suspicious spreads are penalized
@@ -276,8 +239,6 @@ If TSM is configured, the item detail page can also show:
 - `DBRegionSaleAvg`
 - `DBRegionSaleRate`
 - `DBRegionSoldPerDay`
-- tracked-realm AuctionDB signals from your local `TradeSkillMaster_AppHelper\\AppData.lua`, including recent market value, historical value, min buyout, and auction count when available
-- personal TSM ledger context from detected `TradeSkillMaster.lua` files, including prior sales, buys, cancels, expirations, and realized sale pricing when available
 
 These are TSM region market metrics, not actual completed-sale transactions from the Blizzard Auction House.
 

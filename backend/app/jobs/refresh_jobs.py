@@ -5,9 +5,8 @@ import time
 
 from sqlalchemy.exc import OperationalError
 
-from app.core.config import get_settings
+from app.core.config import SYSTEM_USER_ID, get_settings
 from app.db.init_db import purge_expired_app_data
-from app.db.models import AppSettings
 from app.db.session import get_session_factory
 from app.services.metadata_backfill_service import queue_missing_metadata_sweep
 from app.services.listing_service import mark_stale_snapshots, refresh_from_provider
@@ -47,29 +46,23 @@ def _run_with_sqlite_lock_retry(session, operation_name: str, func):
             raise
 
 
-def _score_all_users(session) -> None:
-    """Run a scored-opportunities scan for every registered user after a data refresh.
-
-    Uses refresh_live=False because listing data was just fetched in this cycle.
-    Errors for individual users are logged and do not abort the remaining users.
-    """
+def _run_system_scan(session, realms: list[str]) -> None:
+    """Run a single global scored-opportunities scan after a data refresh."""
     from app.schemas.scan import ScanRunRequest
     from app.services.scan_service import ScanAlreadyRunningError, run_user_scan
 
-    user_ids = [row.user_id for row in session.query(AppSettings.user_id).all()]
-    if not user_ids:
-        logger.info("Skipping scheduled scoring: no registered users.")
-        return
-
-    logger.info("Running scheduled scan scoring for %d user(s).", len(user_ids))
-    for user_id in user_ids:
-        try:
-            result = run_user_scan(session, user_id, ScanRunRequest(refresh_live=False, include_losers=False))
-            logger.info("Scheduled scan for user %s completed with %d result(s).", user_id, result.result_count)
-        except ScanAlreadyRunningError:
-            logger.info("Skipping scheduled scan for user %s: scan already running.", user_id)
-        except Exception:
-            logger.exception("Scheduled scan for user %s failed; continuing with remaining users.", user_id)
+    try:
+        result = run_user_scan(
+            session,
+            SYSTEM_USER_ID,
+            ScanRunRequest(refresh_live=False, include_losers=False),
+            realms=realms,
+        )
+        logger.info("Scheduled global scan completed with %d result(s).", result.result_count)
+    except ScanAlreadyRunningError:
+        logger.info("Skipping scheduled global scan: scan already running.")
+    except Exception:
+        logger.exception("Scheduled global scan failed.")
 
 
 def run_refresh_cycle() -> None:
@@ -122,7 +115,7 @@ def run_refresh_cycle() -> None:
         if evaluated:
             logger.info("Updated %d calibration telemetry event(s).", evaluated)
 
-        _score_all_users(session)
+        _run_system_scan(session, realms)
     except Exception:  # pragma: no cover - scheduler safety net
         logger.exception("Scheduled refresh cycle failed.")
     finally:

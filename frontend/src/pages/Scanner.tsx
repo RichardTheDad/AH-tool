@@ -570,7 +570,6 @@ export function Scanner() {
                           <p>Liquidity: {(components.liquidity ?? 0).toFixed(2)}</p>
                           <p>Volatility: {(components.volatility ?? 0).toFixed(2)}</p>
                           <p>Anti-bait: {(components.anti_bait ?? 0).toFixed(2)}</p>
-                          <p>Personal turnover: {(components.personal_turnover ?? 0).toFixed(2)}</p>
                         </div>
                       </div>
                       <div className="rounded-2xl bg-slate-50 px-4 py-3">

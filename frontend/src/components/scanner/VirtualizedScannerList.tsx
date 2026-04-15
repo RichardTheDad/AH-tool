@@ -64,7 +64,6 @@ function summarizeProvenance(result: ScanResult) {
     liquidity: provenance.components.liquidity,
     volatility: provenance.components.volatility,
     antiBait: provenance.components.anti_bait,
-    personal: provenance.components.personal_turnover,
     gateApplied: Boolean(provenance.evidence?.gate_applied),
   };
 }
@@ -101,7 +100,7 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
           <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.explanation}</p>
           {provenance ? (
             <p className="mt-1 text-[11px] text-slate-500">
-              Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}, Personal {provenance.personal?.toFixed?.(1) ?? "--"}
+              Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
               {provenance.gateApplied ? " | evidence gate" : ""}
               {onOpenProvenance ? (
                 <button
@@ -170,7 +169,7 @@ export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortC
   }, []);
 
   if (!results.length) {
-    return <EmptyState title="No current opportunities" description="Try a looser preset, import fresher listings, or refresh from an available listing provider." />;
+    return <EmptyState title="No current opportunities" description="Try a looser preset or wait for the next scheduled Blizzard data refresh." />;
   }
 
   return (

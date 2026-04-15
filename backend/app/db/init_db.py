@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -19,7 +19,7 @@ from app.db.models import (
     TrackedRealm,
 )
 from app.db.session import get_engine
-from app.core.config import get_settings
+from app.core.config import SYSTEM_USER_ID, get_settings
 
 
 NON_PRODUCTION_SOURCES = {"seed", "mock"}
@@ -190,6 +190,57 @@ def provision_new_user(session: Session, user_id: str) -> None:
                 ScanPreset(user_id=user_id, name="Aggressive Peek", min_profit=1000, min_roi=0.08, min_confidence=35, hide_risky=False),
             ]
         )
+    session.commit()
+
+
+def migrate_to_system_user(session: Session) -> None:
+    """Migrate shared scanner tables to a single global user id.
+
+    This is idempotent and intentionally leaves per-user realms and presets intact.
+    """
+    non_system_count = int(
+        session.query(func.count(AppSettings.id)).filter(AppSettings.user_id != SYSTEM_USER_ID).scalar() or 0
+    )
+    has_non_system_scan_sessions = bool(
+        session.query(ScanSession.id).filter(ScanSession.user_id != SYSTEM_USER_ID).first()
+    )
+    has_non_system_tuning_audit = bool(
+        session.query(TuningActionAudit.id).filter(TuningActionAudit.user_id != SYSTEM_USER_ID).first()
+    )
+    has_non_system_calibration = bool(
+        session.query(ScoreCalibrationEvent.id).filter(ScoreCalibrationEvent.user_id != SYSTEM_USER_ID).first()
+    )
+    if not (non_system_count or has_non_system_scan_sessions or has_non_system_tuning_audit or has_non_system_calibration):
+        return
+
+    system_settings = session.query(AppSettings).filter(AppSettings.user_id == SYSTEM_USER_ID).order_by(AppSettings.id.asc()).first()
+    non_system_settings = (
+        session.query(AppSettings)
+        .filter(AppSettings.user_id != SYSTEM_USER_ID)
+        .order_by(AppSettings.id.asc())
+        .all()
+    )
+    if system_settings is not None:
+        for row in non_system_settings:
+            session.delete(row)
+    elif non_system_settings:
+        keep = non_system_settings[0]
+        keep.user_id = SYSTEM_USER_ID
+        for row in non_system_settings[1:]:
+            session.delete(row)
+
+    session.query(ScanSession).filter(ScanSession.user_id != SYSTEM_USER_ID).update(
+        {ScanSession.user_id: SYSTEM_USER_ID},
+        synchronize_session=False,
+    )
+    session.query(TuningActionAudit).filter(TuningActionAudit.user_id != SYSTEM_USER_ID).update(
+        {TuningActionAudit.user_id: SYSTEM_USER_ID},
+        synchronize_session=False,
+    )
+    session.query(ScoreCalibrationEvent).filter(ScoreCalibrationEvent.user_id != SYSTEM_USER_ID).update(
+        {ScoreCalibrationEvent.user_id: SYSTEM_USER_ID},
+        synchronize_session=False,
+    )
     session.commit()
 
 

@@ -8,10 +8,10 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.api import health, items, presets, providers, realm_suggestions, realms, scans, settings
-from app.core.config import get_settings
+from app.core.config import SYSTEM_USER_ID, get_settings
 from app.core.limiter import limiter
 from app.core.logging import configure_logging
-from app.db.init_db import create_db_and_tables, initialize_app_data
+from app.db.init_db import create_db_and_tables, initialize_app_data, migrate_to_system_user, provision_new_user
 from app.db.session import get_session_factory
 from app.jobs.scheduler import manager as scheduler_manager
 from app.services.metadata_backfill_service import queue_missing_metadata_sweep
@@ -23,13 +23,16 @@ async def lifespan(_: FastAPI):
     create_db_and_tables()
 
     database_url = get_settings().database_url
-    if database_url.startswith("sqlite"):
-        session = get_session_factory()()
-        try:
+    session = get_session_factory()()
+    try:
+        if database_url.startswith("sqlite"):
             initialize_app_data(session)
-        finally:
-            session.close()
+        migrate_to_system_user(session)
+        provision_new_user(session, SYSTEM_USER_ID)
+    finally:
+        session.close()
 
+    if database_url.startswith("sqlite"):
         queue_missing_metadata_sweep(limit=250)
     # For PostgreSQL deployments, startup data initialization is handled by
     # Alembic migrations; the scheduler picks up pending work on its first cycle.

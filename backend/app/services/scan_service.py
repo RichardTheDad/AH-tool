@@ -183,8 +183,9 @@ def select_best_sell_snapshot(
     return best_candidate, best_score
 
 
-def get_scan_readiness(session: Session, user_id: str) -> ScanReadinessRead:
-    realms = get_enabled_realm_names(session, user_id)
+def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None = None) -> ScanReadinessRead:
+    if realms is None:
+        realms = get_enabled_realm_names(session, user_id)
     app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
     latest_snapshots = get_latest_snapshots_for_realms(session, realms)
     metadata_provider = get_provider_registry().metadata_provider
@@ -298,7 +299,7 @@ def get_scan_readiness(session: Session, user_id: str) -> ScanReadinessRead:
     )
 
 
-def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> ScanSessionRead:
+def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realms: list[str] | None = None) -> ScanSessionRead:
     """Compute a scan for a specific user using existing cached listing data.
 
     Live data refresh is handled exclusively by the background scheduler. This
@@ -315,7 +316,8 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
     # Ensure user has default settings/presets on first scan
     provision_new_user(session, user_id)
     try:
-        realms = get_enabled_realm_names(session, user_id)
+        if realms is None:
+            realms = get_enabled_realm_names(session, user_id)
         if not realms:
             scan_session = ScanSession(user_id=user_id, provider_name="blizzard_auctions", warning_text="No enabled realms configured.")
             session.add(scan_session)
