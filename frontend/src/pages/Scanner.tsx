@@ -113,6 +113,7 @@ export function Scanner() {
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [scanStartedAt, setScanStartedAt] = useState<number | null>(null);
   const { filters, updateFilters } = useScannerFilters();
 
   const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan() });
@@ -149,6 +150,7 @@ export function Scanner() {
 
   const scanMutation = useMutation({
     mutationFn: runScan,
+    onSettled: () => setScanStartedAt(null),
     onSuccess: (scanSession) => {
       queryClient.setQueryData(["scans", "latest"], { latest: scanSession });
       queryClient.setQueryData(["scans", "history"], (current: { scans?: Array<{ id: number; generated_at: string; provider_name: string; result_count: number }> } | undefined) => {
@@ -191,6 +193,8 @@ export function Scanner() {
   const canBootstrapFromLiveProvider = !!activeProvider?.supports_live_fetch && activeProvider.available;
   const scanBlocked = noEnabledRealms || (!readiness?.ready_for_scan && !canBootstrapFromLiveProvider);
   const scanRunning = scanStatus?.status === "running";
+  const isActivelyScanning = scanMutation.isPending || scanRunning;
+  const elapsedSeconds = scanStartedAt != null ? Math.floor((nowMs - scanStartedAt) / 1000) : 0;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -310,8 +314,18 @@ export function Scanner() {
             <p className={`mt-2 text-sm ${readiness.status === "blocked" ? "text-rose-700" : readiness.status === "caution" ? "text-amber-700" : "text-emerald-700"}`}>
               {readiness.message}
             </p>
-            {scanRunning ? <p className="mt-2 text-sm text-sky-700">{scanStatus.message}</p> : null}
-            {!scanRunning && scanStatus.finished_at ? (
+            {isActivelyScanning ? (
+              <div className="mt-2 flex items-start gap-2">
+                <span className="mt-0.5 inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-sky-500 border-t-transparent" />
+                <div>
+                  <p className="text-sm font-medium text-sky-700">Scanning{elapsedSeconds > 0 ? ` — ${elapsedSeconds}s` : ""}…</p>
+                  {scanRunning && scanStatus.message ? (
+                    <p className="mt-0.5 text-xs text-sky-600">{scanStatus.message}</p>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            {!isActivelyScanning && scanStatus.finished_at ? (
               <p className="mt-2 text-sm text-slate-500">Last scan update: {formatDateTime(scanStatus.finished_at)}</p>
             ) : null}
             {activeProvider ? (
@@ -335,16 +349,22 @@ export function Scanner() {
           <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                setScanStartedAt(Date.now());
                 scanMutation.mutate({
                   refresh_live: true,
                   include_losers: false,
-                })
-              }
+                });
+              }}
               disabled={scanBlocked || scanMutation.isPending || scanRunning}
-              className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {scanMutation.isPending || scanRunning ? "Running..." : "Run scan"}
+              {scanMutation.isPending || scanRunning ? (
+                <>
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Running{elapsedSeconds > 0 ? ` (${elapsedSeconds}s)` : ""}
+                </>
+              ) : "Run scan"}
             </button>
             <button
               type="button"

@@ -16,7 +16,14 @@ from app.services.metadata_service import (
     refresh_tsm_market_stats,
     scan_result_to_schema,
 )
-from app.services.scan_runtime_service import try_mark_user_scan_started, USER_SCAN_COOLDOWN_SECONDS
+from app.services.scan_runtime_service import (
+    try_mark_user_scan_started,
+    mark_scan_started,
+    mark_scan_finished,
+    mark_scan_failed,
+    mark_scan_stage as _mark_stage,
+    USER_SCAN_COOLDOWN_SECONDS,
+)
 from app.services.listing_service import (
     get_latest_snapshots_for_realms,
     get_recent_snapshot_history_for_items,
@@ -283,8 +290,10 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
 
         warning_parts: list[str] = []
 
-        mark_scan_stage = lambda msg: None  # noqa: E731 - stage tracking not used for user scans
+        mark_scan_started("blizzard_auctions")
+        mark_scan_stage = _mark_stage
         if payload.refresh_live:
+            mark_scan_stage("Fetching live auction listings...")
             provider = get_provider_registry().listing_providers["blizzard_auctions"]
             available, provider_message = provider.is_available()
             if not available:
@@ -456,6 +465,8 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         session.commit()
         session.refresh(scan_session)
 
+        mark_scan_finished("blizzard_auctions", result_count=len(results), warning_text=scan_session.warning_text)
+
         latest_by_item = {
             item_id: {
                 realm: snapshots
@@ -474,6 +485,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         )
         return response
     except Exception:
+        mark_scan_failed("blizzard_auctions", "Scan encountered an unexpected error.")
         raise
 
 
