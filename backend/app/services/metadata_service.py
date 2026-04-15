@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from collections.abc import Iterable
 from typing import Any
 
+import httpx
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -120,8 +121,7 @@ def search_items(session: Session, query: str, limit: int = 25) -> list[Item]:
         return local_items
 
     remote_results = get_provider_registry().metadata_provider.search_items(query, limit=limit)
-    for remote in remote_results:
-        upsert_item(session, remote)
+    upsert_items(session, remote_results)
 
     return (
         session.query(Item)
@@ -178,9 +178,14 @@ def refresh_all_missing_metadata(session: Session, *, limit: int = 250) -> dict[
 def get_missing_metadata_item_ids(session: Session, *, limit: int = 250) -> list[int]:
     return [
         item.item_id
-        for item in session.query(Item).order_by(Item.item_id.asc()).all()
-        if item_has_missing_metadata(item)
-    ][:limit]
+        for item in (
+            session.query(Item)
+            .filter(Item.name.like("%(metadata unavailable)%"))
+            .order_by(Item.item_id.asc())
+            .limit(limit)
+            .all()
+        )
+    ]
 
 
 def refresh_tsm_market_stats(
@@ -197,24 +202,25 @@ def refresh_tsm_market_stats(
 
     refreshed_count = 0
     warnings: list[str] = []
-    for item_id in _dedupe_item_ids(item_ids):
-        item = session.get(Item, item_id)
-        if item is None:
-            continue
+    with httpx.Client(timeout=get_settings().request_timeout_seconds) as http_client:
+        for item_id in _dedupe_item_ids(item_ids):
+            item = session.get(Item, item_id)
+            if item is None:
+                continue
 
-        metadata = dict(item.metadata_json) if isinstance(item.metadata_json, dict) else {}
-        if not force and tsm_service.is_market_stats_fresh(metadata, max_age_hours=max_age_hours):
-            continue
+            metadata = dict(item.metadata_json) if isinstance(item.metadata_json, dict) else {}
+            if not force and tsm_service.is_market_stats_fresh(metadata, max_age_hours=max_age_hours):
+                continue
 
-        stats, stats_message = tsm_service.fetch_region_item_stats(item_id)
-        if stats is None:
-            warnings.append(stats_message)
-            continue
+            stats, stats_message = tsm_service.fetch_region_item_stats(item_id, client=http_client)
+            if stats is None:
+                warnings.append(stats_message)
+                continue
 
-        metadata["tsm_region_stats"] = stats
-        metadata["tsm_updated_at"] = datetime.now(timezone.utc).isoformat()
-        metadata["tsm_region_id"] = tsm_service._resolve_region_id()
-        item.metadata_json = metadata
+            metadata["tsm_region_stats"] = stats
+            metadata["tsm_updated_at"] = datetime.now(timezone.utc).isoformat()
+            metadata["tsm_region_id"] = tsm_service._resolve_region_id()
+            item.metadata_json = metadata
         refreshed_count += 1
 
     if refreshed_count:

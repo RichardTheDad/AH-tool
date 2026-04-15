@@ -35,7 +35,7 @@ class TsmMarketService:
             return False, "TSM region ID is not configured and could not be inferred from the Blizzard region."
         return True, f"Configured for TSM region market stats (region {region_id})."
 
-    def fetch_region_item_stats(self, item_id: int) -> tuple[dict[str, float | None] | None, str]:
+    def fetch_region_item_stats(self, item_id: int, *, client: httpx.Client | None = None) -> tuple[dict[str, float | None] | None, str]:
         api_available, api_message = self._api_is_available()
         if not api_available:
             return None, api_message
@@ -44,7 +44,7 @@ class TsmMarketService:
         assert region_id is not None
 
         try:
-            with httpx.Client(timeout=self.settings.request_timeout_seconds) as client:
+            if client is not None:
                 token = self._get_access_token(client)
                 response = client.get(
                     f"{self.PRICING_API_BASE_URL}/region/{region_id}/item/{item_id}",
@@ -52,6 +52,15 @@ class TsmMarketService:
                 )
                 response.raise_for_status()
                 payload = response.json()
+            else:
+                with httpx.Client(timeout=self.settings.request_timeout_seconds) as _client:
+                    token = self._get_access_token(_client)
+                    response = _client.get(
+                        f"{self.PRICING_API_BASE_URL}/region/{region_id}/item/{item_id}",
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    response.raise_for_status()
+                    payload = response.json()
             stats = self._normalize_region_stats(payload)
             if not stats:
                 return None, "TSM returned no recognized region stats for this item."

@@ -80,6 +80,48 @@ def _load_items_by_id(session: Session, item_ids: set[int]) -> dict[int, Item]:
     return items
 
 
+def _derive_readiness_status(
+    latest_snapshots: list,
+    realms: list[str],
+    app_settings: AppSettings,
+    items_by_id: dict[int, Item],
+    metadata_configured: bool,
+) -> tuple[str, str, int]:
+    """Compute scan readiness from already-loaded data. Returns (status, message, items_missing_metadata_count)."""
+    realms_with_data: set[str] = set()
+    realms_with_fresh_data: set[str] = set()
+    missing_metadata_item_ids: set[int] = set()
+
+    for snapshot in latest_snapshots:
+        realms_with_data.add(snapshot.realm)
+        item = items_by_id.get(snapshot.item_id)
+        if item is not None and item_has_missing_metadata(item):
+            missing_metadata_item_ids.add(snapshot.item_id)
+        if not snapshot_is_stale(snapshot, app_settings):
+            realms_with_fresh_data.add(snapshot.realm)
+
+    realms_with_data_count = len(realms_with_data)
+    realms_with_fresh_count = len(realms_with_fresh_data)
+    missing_realms = [r for r in realms if r not in realms_with_data]
+    items_missing_count = len(missing_metadata_item_ids)
+
+    if not realms:
+        return "blocked", "Add at least one enabled realm before scanning.", 0
+    if realms_with_data_count < 2:
+        return "blocked", "At least two enabled realms need listing data before the scanner can compare flip opportunities.", items_missing_count
+    if realms_with_fresh_count < 2:
+        return "caution", "The scanner can run, but fewer than two enabled realms have fresh listings. Import fresher data before trusting top results.", items_missing_count
+    if missing_metadata_item_ids:
+        if metadata_configured:
+            msg = "Some items still have missing metadata, so unverified imports will be excluded from non-commodity scans until metadata is refreshed."
+        else:
+            msg = "Live metadata is not configured, so some items still lack rich metadata even though local listing coverage is present."
+        return "caution", msg, items_missing_count
+    if missing_realms:
+        return "caution", "Some enabled realms still have no listing data. Results only reflect the realms currently covered by your local cache.", 0
+    return "ready", "Enabled realms have enough local listing coverage for a trustworthy scan.", 0
+
+
 def _extract_sell_history_prices(history_by_item: dict[int, dict[str, list]] | None, item_id: int, realm: str) -> list[float]:
     if not history_by_item:
         return []
@@ -305,7 +347,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         mark_stale_snapshots(session)
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         latest_snapshots = get_latest_snapshots_for_realms(session, realms)
-        readiness = get_scan_readiness(session, user_id)
+        metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
 
         grouped: dict[int, list] = {}
         for snapshot in latest_snapshots:
@@ -313,10 +355,15 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
                 continue
             grouped.setdefault(snapshot.item_id, []).append(snapshot)
 
+        items_by_id = _load_items_by_id(session, set(grouped.keys()))
+        readiness_status, readiness_message, items_missing_metadata_count = _derive_readiness_status(
+            latest_snapshots, realms, app_settings, items_by_id, metadata_configured
+        )
+
         if not grouped:
             warning_parts.append("No listing data found for enabled realms. Import listing snapshots to run the scanner.")
-        if readiness.status != "ready":
-            warning_parts.append(readiness.message)
+        if readiness_status != "ready":
+            warning_parts.append(readiness_message)
 
         candidate_items: list[tuple[float, int]] = []
         exploration_candidate_item_ids: list[int] = []
@@ -362,9 +409,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         session.flush()
 
         mark_scan_stage("Scoring cross-realm opportunities.")
-        metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
         history_by_item = get_recent_snapshot_history_for_items(session, list(grouped.keys()), realms)
-        items_by_id = _load_items_by_id(session, set(grouped.keys()))
 
         def build_scan_results(include_losers: bool) -> tuple[list[ScanResult], int, int]:
             local_results: list[ScanResult] = []
@@ -455,9 +500,8 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         if metadata_configured and results:
             refresh_targets: list[int] = []
             seen_targets: set[int] = set()
-            result_items_by_id = _load_items_by_id(session, {result.item_id for result in results[:100]})
             for result in results[:100]:
-                item = result_items_by_id.get(result.item_id)
+                item = items_by_id.get(result.item_id)
                 if item is None or not item_has_missing_metadata(item) or result.item_id in seen_targets:
                     continue
                 seen_targets.add(result.item_id)
@@ -470,7 +514,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
                         f"Queued live Blizzard metadata refresh for {queued_count} scanned items and will keep retrying unresolved metadata in the background."
                     )
 
-        if metadata_configured and readiness.items_missing_metadata:
+        if metadata_configured and items_missing_metadata_count:
             sweep_queued = queue_missing_metadata_sweep(limit=200)
             if sweep_queued:
                 warning_parts.append(

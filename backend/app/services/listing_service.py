@@ -276,13 +276,18 @@ def get_recent_snapshot_history_for_items(
     if not item_ids:
         return {}
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
     history: dict[int, dict[str, list[ListingSnapshot]]] = {}
     chunk_size = 500
     for start in range(0, len(item_ids), chunk_size):
         chunk = item_ids[start : start + chunk_size]
         rows = (
             session.query(ListingSnapshot)
-            .filter(ListingSnapshot.item_id.in_(chunk), ListingSnapshot.realm.in_(realms))
+            .filter(
+                ListingSnapshot.item_id.in_(chunk),
+                ListingSnapshot.realm.in_(realms),
+                ListingSnapshot.captured_at >= cutoff,
+            )
             .order_by(ListingSnapshot.item_id.asc(), ListingSnapshot.realm.asc(), ListingSnapshot.captured_at.desc())
             .all()
         )
@@ -307,7 +312,6 @@ def refresh_from_provider(session: Session, realms: list[str], provider_name: st
         return 0, provider.last_error or "Provider returned no listings."
 
     inserted, skipped_duplicates = persist_listing_rows(session, rows, source_name=provider.name)
-    mark_stale_snapshots(session)
     if inserted == 0 and skipped_duplicates:
         return 0, "Provider returned only duplicate listings; using cached data."
     return inserted, None

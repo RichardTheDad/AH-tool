@@ -120,10 +120,10 @@ export function Scanner() {
 
   const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan(), refetchInterval: scanRefreshIntervalMs });
   const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory, refetchInterval: scanRefreshIntervalMs });
-  const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000 });
-  const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000 });
+  const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
+  const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
-  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 4000 });
+  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanMutation.isPending || scanStatusQuery.data?.status === "running" ? 4000 : false });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
@@ -156,10 +156,6 @@ export function Scanner() {
         const remaining = (current?.scans ?? []).filter((scan) => scan.id !== scanSession.id);
         return { scans: [nextEntry, ...remaining] };
       });
-      queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "status"] });
       window.setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
         queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
