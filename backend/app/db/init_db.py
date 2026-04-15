@@ -26,10 +26,96 @@ NON_PRODUCTION_SOURCES = {"seed", "mock"}
 APP_DATA_RETENTION_DAYS = 30
 
 
+def _pg_columns(connection, table_name: str) -> set[str]:
+    """Return the set of existing column names for a table in PostgreSQL."""
+    result = connection.execute(
+        text(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = :table AND table_schema = 'public'"
+        ),
+        {"table": table_name},
+    )
+    return {row[0] for row in result.fetchall()}
+
+
+def _run_postgres_migrations(engine) -> None:  # noqa: ANN001
+    """Apply additive schema migrations for PostgreSQL (idempotent)."""
+    with engine.begin() as connection:
+        scan_preset_cols = _pg_columns(connection, "scan_presets")
+        if "buy_realms" not in scan_preset_cols:
+            connection.execute(text("ALTER TABLE scan_presets ADD COLUMN buy_realms JSON"))
+        if "sell_realms" not in scan_preset_cols:
+            connection.execute(text("ALTER TABLE scan_presets ADD COLUMN sell_realms JSON"))
+        if "is_default" not in scan_preset_cols:
+            connection.execute(text("ALTER TABLE scan_presets ADD COLUMN is_default BOOLEAN DEFAULT FALSE"))
+            connection.execute(
+                text(
+                    """
+                    UPDATE scan_presets
+                    SET is_default = TRUE
+                    WHERE id IN (
+                        SELECT MIN(id)
+                        FROM scan_presets
+                        GROUP BY user_id
+                    )
+                    """
+                )
+            )
+
+        scan_result_cols = _pg_columns(connection, "scan_results")
+        if "sellability_score" not in scan_result_cols:
+            connection.execute(text("ALTER TABLE scan_results ADD COLUMN sellability_score FLOAT DEFAULT 0"))
+        if "turnover_label" not in scan_result_cols:
+            connection.execute(text("ALTER TABLE scan_results ADD COLUMN turnover_label VARCHAR(24) DEFAULT 'slow'"))
+        if "score_provenance_json" not in scan_result_cols:
+            connection.execute(text("ALTER TABLE scan_results ADD COLUMN score_provenance_json JSON"))
+
+        realm_suggestion_run_cols = _pg_columns(connection, "realm_suggestion_runs")
+        if "source_realms_json" not in realm_suggestion_run_cols:
+            connection.execute(text("ALTER TABLE realm_suggestion_runs ADD COLUMN source_realms_json JSON"))
+        if "target_set_key" not in realm_suggestion_run_cols:
+            connection.execute(text("ALTER TABLE realm_suggestion_runs ADD COLUMN target_set_key VARCHAR(255)"))
+            connection.execute(
+                text(
+                    """
+                    UPDATE realm_suggestion_runs
+                    SET target_set_key = LOWER(
+                        REPLACE(
+                            REPLACE(
+                                REPLACE(
+                                    REPLACE(target_realms_json::text, '["', ''),
+                                    '"]', ''
+                                ),
+                                '", "', '|'
+                            ),
+                            '","', '|'
+                        )
+                    )
+                    WHERE target_realms_json IS NOT NULL
+                      AND target_realms_json::text != '[]'
+                    """
+                )
+            )
+
+        realm_suggestion_rec_cols = _pg_columns(connection, "realm_suggestion_recommendations")
+        if realm_suggestion_rec_cols:
+            if "median_buy_price" not in realm_suggestion_rec_cols:
+                connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN median_buy_price FLOAT"))
+            if "best_target_realm" not in realm_suggestion_rec_cols:
+                connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN best_target_realm VARCHAR(120)"))
+
+        calibration_cols = _pg_columns(connection, "score_calibration_events")
+        if calibration_cols and "horizon_outcomes_json" not in calibration_cols:
+            connection.execute(text("ALTER TABLE score_calibration_events ADD COLUMN horizon_outcomes_json JSON"))
+
+
 def create_db_and_tables() -> None:
     database_url = get_settings().database_url
+    engine = get_engine()
+
     if not database_url.startswith("sqlite"):
-        # PostgreSQL: schema is managed by Alembic migrations, not create_all.
+        # PostgreSQL: apply additive column migrations (no create_all — tables exist).
+        _run_postgres_migrations(engine)
         return
 
     engine = get_engine()
