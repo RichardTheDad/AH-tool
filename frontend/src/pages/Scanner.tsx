@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getPresets } from "../api/presets";
+import { getDefaultPreset, getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
 import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../api/scans";
@@ -132,6 +132,7 @@ export function Scanner() {
   const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanRefreshIntervalMs, staleTime: 30_000 });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000 });
+  const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000 });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
   const previousScanId = (scanHistoryQuery.data?.scans ?? [])[1]?.id;
   const previousScanQuery = useQuery({
@@ -258,6 +259,8 @@ export function Scanner() {
     !loadingPersistedScan &&
     (!persistedScan || persistedScan.result_count === 0) &&
     (noEnabledRealms || noUsableListingData || latestWarningText.includes("no listing data found"));
+  const focusedModeActive = Boolean(filters.buyRealm || filters.sellRealm);
+  const focusedExcludedCount = Math.max(0, asArray(persistedScan?.results).length - results.length);
 
   const emptyState = noEnabledRealms
     ? {
@@ -491,9 +494,43 @@ export function Scanner() {
           Scanner runs automatically on the scheduler. Use your personal settings and filters to control what you see.
         </div>
 
+        {focusedModeActive ? (
+          <div className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Focused mode active. Showing {results.length} of {asArray(persistedScan?.results).length} results; {focusedExcludedCount} excluded by buy/sell realm scope.
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+            Discovery mode active. Rankings are computed on the full scheduled scan universe across enabled realms.
+          </div>
+        )}
+
         {/* Preset selection buttons */}
         {(presetsQuery.data ?? []).length > 0 && (
           <div className="flex flex-wrap gap-2">
+            {defaultPresetQuery.data ? (
+              <Button
+                variant={activePreset?.id === defaultPresetQuery.data.id ? "primary" : "secondary"}
+                size="sm"
+                onClick={() => {
+                  setSelectedPresetId(defaultPresetQuery.data!.id);
+                  updateFilters(applyPresetToFilterState(defaultPresetQuery.data!));
+                }}
+              >
+                Apply default
+              </Button>
+            ) : null}
+            {defaultPresetQuery.data ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSelectedPresetId(defaultPresetQuery.data!.id);
+                  updateFilters(applyPresetToFilterState(defaultPresetQuery.data!));
+                }}
+              >
+                Reset to saved default
+              </Button>
+            ) : null}
             {(presetsQuery.data ?? []).map((preset) => (
               <Button
                 key={preset.id}
@@ -654,6 +691,7 @@ export function Scanner() {
               sortBy={filters.sortBy}
               sortDirection={filters.sortDirection}
               onSortChange={handleFilterChange}
+              focusedModeActive={focusedModeActive}
               onOpenProvenance={setSelectedProvenanceResult}
               restoreItemId={restoreTarget?.itemId ?? null}
               restoreIndex={restoreTarget?.index ?? null}
@@ -665,6 +703,7 @@ export function Scanner() {
               sortBy={filters.sortBy}
               sortDirection={filters.sortDirection}
               onSortChange={handleFilterChange}
+              focusedModeActive={focusedModeActive}
               onOpenProvenance={setSelectedProvenanceResult}
             />
           )

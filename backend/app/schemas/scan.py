@@ -22,7 +22,11 @@ class ScanResultRead(BaseModel):
     estimated_profit: float
     roi: float
     spread_percent: float
+    spread_absolute: float
     observed_spread_percent: float | None = None
+    observed_spread_absolute: float | None = None
+    sale_average_spread_percent: float | None = None
+    sale_average_spread_absolute: float | None = None
     confidence_score: float
     sellability_score: float = 0
     liquidity_score: float

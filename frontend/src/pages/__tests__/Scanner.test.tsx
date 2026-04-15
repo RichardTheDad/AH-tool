@@ -30,13 +30,14 @@ vi.mock("../../api/realms", () => ({
 
 vi.mock("../../api/presets", () => ({
   getPresets: vi.fn(),
+  getDefaultPreset: vi.fn(),
 }));
 
 import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../../api/scans";
 import { refreshMissingMetadata } from "../../api/items";
 import { getProviderStatus } from "../../api/providers";
 import { getRealms } from "../../api/realms";
-import { getPresets } from "../../api/presets";
+import { getDefaultPreset, getPresets } from "../../api/presets";
 import { applyTuningPreset, getTuningAudit } from "../../api/settings";
 
 const providerResponse = {
@@ -107,6 +108,7 @@ describe("Scanner page", () => {
     vi.mocked(getProviderStatus).mockResolvedValue(providerResponse);
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
     vi.mocked(getPresets).mockResolvedValue([]);
+    vi.mocked(getDefaultPreset).mockResolvedValue(null);
     vi.mocked(getScan).mockResolvedValue({
       id: 2,
       provider_name: "file_import",
@@ -248,6 +250,7 @@ describe("Scanner page", () => {
     vi.mocked(getPresets).mockResolvedValue([
       {
         id: 1,
+        is_default: true,
         name: "Balanced Board",
         min_profit: 2500,
         min_roi: 0.12,
@@ -308,6 +311,7 @@ describe("Scanner page", () => {
     vi.mocked(getPresets).mockResolvedValue([
       {
         id: 1,
+        is_default: false,
         name: "Safe Floor",
         min_profit: 5000,
         min_roi: 0.2,
@@ -319,6 +323,7 @@ describe("Scanner page", () => {
       },
       {
         id: 2,
+        is_default: false,
         name: "Balanced Board",
         min_profit: 2500,
         min_roi: 0.12,
@@ -330,6 +335,7 @@ describe("Scanner page", () => {
       },
       {
         id: 3,
+        is_default: false,
         name: "Aggressive Peek",
         min_profit: 1000,
         min_roi: 0.08,

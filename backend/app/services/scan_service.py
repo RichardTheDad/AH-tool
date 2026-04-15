@@ -170,15 +170,19 @@ def _serialize_scan_results(
     serialized = []
     for result in results:
         observed_sell_price = None
+        observed_sell_average_price = None
         if latest_by_item:
             latest_sell_snapshots = latest_by_item.get(result.item_id, {}).get(result.best_sell_realm, [])
             if latest_sell_snapshots:
                 observed_sell_price = float(latest_sell_snapshots[0].lowest_price or 0)
+                if latest_sell_snapshots[0].average_price is not None:
+                    observed_sell_average_price = float(latest_sell_snapshots[0].average_price)
         serialized.append(
             scan_result_to_schema(
                 result,
                 sell_history_prices=_extract_sell_history_prices(history_by_item, result.item_id, result.best_sell_realm),
                 observed_sell_price=observed_sell_price,
+                observed_sell_average_price=observed_sell_average_price,
             )
         )
     return serialized

@@ -406,12 +406,25 @@ def scan_result_to_schema(
     *,
     sell_history_prices: list[float] | None = None,
     observed_sell_price: float | None = None,
+    observed_sell_average_price: float | None = None,
 ) -> ScanResultRead:
     has_missing_metadata = item_has_missing_metadata(result.item) if result.item else True
     buy_price = float(result.cheapest_buy_price or 0)
     target_sell_price = float(result.best_sell_price or 0)
     spread_percent = ((target_sell_price / buy_price) - 1) if buy_price > 0 else 0.0
+    spread_absolute = target_sell_price - buy_price
     observed_spread_percent = ((observed_sell_price / buy_price) - 1) if observed_sell_price and buy_price > 0 else None
+    observed_spread_absolute = (observed_sell_price - buy_price) if observed_sell_price is not None else None
+    sale_average_spread_percent = (
+        ((observed_sell_average_price / buy_price) - 1)
+        if observed_sell_average_price is not None and buy_price > 0
+        else None
+    )
+    sale_average_spread_absolute = (
+        (observed_sell_average_price - buy_price)
+        if observed_sell_average_price is not None
+        else None
+    )
     return ScanResultRead(
         id=result.id,
         item_id=result.item_id,
@@ -428,7 +441,11 @@ def scan_result_to_schema(
         estimated_profit=result.estimated_profit,
         roi=result.roi,
         spread_percent=round(spread_percent, 4),
+        spread_absolute=round(spread_absolute, 2),
         observed_spread_percent=round(observed_spread_percent, 4) if observed_spread_percent is not None else None,
+        observed_spread_absolute=round(observed_spread_absolute, 2) if observed_spread_absolute is not None else None,
+        sale_average_spread_percent=round(sale_average_spread_percent, 4) if sale_average_spread_percent is not None else None,
+        sale_average_spread_absolute=round(sale_average_spread_absolute, 2) if sale_average_spread_absolute is not None else None,
         confidence_score=result.confidence_score,
         sellability_score=getattr(result, "sellability_score", 0),
         liquidity_score=result.liquidity_score,

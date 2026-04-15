@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { createPreset, deletePreset, getPresets, updatePreset } from "../api/presets";
+import { useLocation } from "react-router-dom";
+import { clearDefaultPreset, createPreset, deletePreset, getDefaultPreset, getPresets, setDefaultPreset, updatePreset } from "../api/presets";
 import { getRealms } from "../api/realms";
 import { DEFAULT_CATEGORY_OPTIONS } from "../components/filters/FilterSidebar";
 import { Card } from "../components/common/Card";
@@ -54,18 +55,52 @@ function presetToScannerLink(preset: ScanPreset) {
 const PRESET_CATEGORY_OPTIONS = ["", ...DEFAULT_CATEGORY_OPTIONS];
 
 export function Presets() {
+  const location = useLocation();
   const queryClient = useQueryClient();
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
+  const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset });
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000 });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(baseForm);
   const [message, setMessage] = useState<string | null>(null);
+  const [quickSaveName, setQuickSaveName] = useState("My scanner view");
   const presets = presetsQuery.data ?? [];
+
+  const scannerStatePayload = (() => {
+    const params = new URLSearchParams(location.search);
+    const hasScannerState = [
+      "minProfit",
+      "minRoi",
+      "maxBuyPrice",
+      "minConfidence",
+      "category",
+      "buyRealm",
+      "sellRealm",
+    ].some((key) => params.has(key));
+    if (!hasScannerState) {
+      return null;
+    }
+    const buyRealm = params.get("buyRealm");
+    const sellRealm = params.get("sellRealm");
+    return {
+      name: quickSaveName.trim() || "My scanner view",
+      min_profit: params.get("minProfit") ? Number(params.get("minProfit")) : null,
+      min_roi: params.get("minRoi") ? Number(params.get("minRoi")) : null,
+      max_buy_price: params.get("maxBuyPrice") ? Number(params.get("maxBuyPrice")) : null,
+      min_confidence: params.get("minConfidence") ? Number(params.get("minConfidence")) : null,
+      allow_stale: false,
+      hide_risky: params.get("hideRisky") !== "false",
+      category_filter: params.get("category") || null,
+      buy_realms: buyRealm ? [buyRealm] : null,
+      sell_realms: sellRealm ? [sellRealm] : null,
+    };
+  })();
 
   const createMutation = useMutation({
     mutationFn: createPreset,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presets"] });
+      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
       setForm(baseForm);
       setMessage(null);
     },
@@ -76,6 +111,7 @@ export function Presets() {
     mutationFn: ({ id, payload }: { id: number; payload: Partial<ScanPreset> }) => updatePreset(id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presets"] });
+      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
       setEditingId(null);
       setForm(baseForm);
       setMessage(null);
@@ -87,6 +123,27 @@ export function Presets() {
     mutationFn: deletePreset,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["presets"] });
+      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      setMessage(null);
+    },
+    onError: (error: Error) => setMessage(error.message),
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: setDefaultPreset,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["presets"] });
+      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      setMessage(null);
+    },
+    onError: (error: Error) => setMessage(error.message),
+  });
+
+  const clearDefaultMutation = useMutation({
+    mutationFn: clearDefaultPreset,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["presets"] });
+      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
       setMessage(null);
     },
     onError: (error: Error) => setMessage(error.message),
@@ -225,6 +282,41 @@ export function Presets() {
       </Card>
 
       <Card title="Saved presets" subtitle="Tap to apply or edit.">
+        <div className="mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-zinc-300">
+          <p className="font-medium text-zinc-100">Default preset</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            {defaultPresetQuery.data ? `Current default: ${defaultPresetQuery.data.name}` : "No default selected."}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Input
+              id="preset-quick-save-name"
+              label="Save current scanner URL filters as"
+              value={quickSaveName}
+              onChange={(event) => setQuickSaveName(event.target.value)}
+              isCompact
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!scannerStatePayload || createMutation.isPending}
+              onClick={() => {
+                if (scannerStatePayload) {
+                  createMutation.mutate(scannerStatePayload);
+                }
+              }}
+            >
+              Save current scanner state
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={clearDefaultMutation.isPending}
+              onClick={() => clearDefaultMutation.mutate()}
+            >
+              Reset default preset
+            </Button>
+          </div>
+        </div>
         <div className="space-y-2">
           {presets.map((preset) => (
             <div key={preset.id} className="rounded-lg border border-white/10 bg-white/5 px-3 py-3">
@@ -255,6 +347,14 @@ export function Presets() {
                   <Button
                     size="sm"
                     variant="ghost"
+                    disabled={preset.is_default || setDefaultMutation.isPending}
+                    onClick={() => setDefaultMutation.mutate(preset.id)}
+                  >
+                    {preset.is_default ? "Default" : "Set default"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     onClick={() => {
                       setEditingId(preset.id);
                       setForm({
@@ -275,7 +375,7 @@ export function Presets() {
                   <Button
                     size="sm"
                     variant="danger"
-                    disabled={deleteMutation.isPending}
+                    disabled={deleteMutation.isPending || preset.is_default}
                     onClick={() => deleteMutation.mutate(preset.id)}
                   >
                     Delete

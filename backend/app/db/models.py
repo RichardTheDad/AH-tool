@@ -125,6 +125,7 @@ class ScanPreset(Base):
     category_filter: Mapped[str | None] = mapped_column(String(120), nullable=True)
     buy_realms: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     sell_realms: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class RealmSuggestionRun(Base):

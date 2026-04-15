@@ -150,7 +150,23 @@ Validation expected after each wave:
 - Overusing saturated orange fills on large containers.
 - Styling form controls ad hoc per page instead of using primitives.
 
-## 12) Current Canonical References
+## 12) Scanner and Preset Conventions
+
+- Scanner refresh is scheduler-driven. Do not add manual "run scan" triggers in scanner-facing UI.
+- Scanner controls are user-owned filters and presets only.
+- Always show mode context:
+  - Discovery mode: broad scheduled-scan universe across enabled realms.
+  - Focused mode: user realm filters intentionally narrow the same scheduled-scan universe.
+- Focused mode should include impact context (for example: shown count vs total baseline).
+- Spread presentation should prefer layered context when available:
+  - Target spread (% and gold)
+  - Observed spread (% and gold)
+  - Sale-average spread (% and gold)
+- Presets support one user default preset:
+  - Set default from preset management surfaces.
+  - Provide a reset/apply path so scanner can return to saved default filters quickly.
+
+## 13) Current Canonical References
 
 - Tokens and variants: `src/theme/design-system.ts`
 - Global baseline styles: `src/index.css`

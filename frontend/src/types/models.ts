@@ -50,7 +50,11 @@ export interface ScanResult {
   estimated_profit: number;
   roi: number;
   spread_percent?: number;
+  spread_absolute?: number;
   observed_spread_percent?: number | null;
+  observed_spread_absolute?: number | null;
+  sale_average_spread_percent?: number | null;
+  sale_average_spread_absolute?: number | null;
   confidence_score: number;
   sellability_score: number;
   liquidity_score: number;
@@ -244,6 +248,7 @@ export interface TuningActionAuditList {
 
 export interface ScanPreset {
   id: number;
+  is_default: boolean;
   name: string;
   min_profit?: number | null;
   min_roi?: number | null;

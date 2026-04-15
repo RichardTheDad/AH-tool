@@ -6,6 +6,7 @@ import app.services.scan_service as scan_service_module
 
 from app.db.models import Item, ListingSnapshot
 from app.db.session import get_session_factory
+from app.schemas.scan import ScanRunRequest
 from app.services.provider_service import get_provider_registry
 from app.schemas.listing import ListingImportRow
 
@@ -53,13 +54,23 @@ def seed_listing_data(client) -> None:
     _insert_snapshots(_SNAPSHOTS_3_REALM)
 
 
+def run_scan(payload: dict | None = None, user_id: str = "test-user") -> dict:
+    session = get_session_factory()()
+    try:
+        scan = scan_service_module.run_user_scan(
+            session,
+            user_id=user_id,
+            payload=ScanRunRequest(**(payload or {"refresh_live": False, "include_losers": False})),
+        )
+        return scan.model_dump(mode="json")
+    finally:
+        session.close()
+
+
 def test_scan_selects_best_buy_and_sell_realms(client) -> None:
     seed_listing_data(client)
 
-    response = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert response.status_code == 200
-
-    payload = response.json()
+    payload = run_scan()
     assert payload["result_count"] > 0
 
     staff = next(result for result in payload["results"] if result["item_id"] == 873)
@@ -73,12 +84,13 @@ def test_scan_selects_best_buy_and_sell_realms(client) -> None:
 def test_scan_includes_spread_metrics(client) -> None:
     seed_listing_data(client)
 
-    response = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert response.status_code == 200
-
-    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    staff = next(result for result in run_scan()["results"] if result["item_id"] == 873)
     assert "spread_percent" in staff
+    assert "spread_absolute" in staff
     assert "observed_spread_percent" in staff
+    assert "observed_spread_absolute" in staff
+    assert "sale_average_spread_percent" in staff
+    assert "sale_average_spread_absolute" in staff
     assert staff["spread_percent"] > 0
     assert staff["observed_spread_percent"] > 0
 
@@ -86,18 +98,16 @@ def test_scan_includes_spread_metrics(client) -> None:
 def test_scan_honors_buy_and_sell_realm_scope(client) -> None:
     seed_listing_data(client)
 
-    response = client.post(
-        "/scans/run",
-        json={
+    payload = run_scan(
+        {
             "refresh_live": False,
             "include_losers": False,
             "buy_realms": ["Stormrage"],
             "sell_realms": ["Zul'jin"],
-        },
+        }
     )
-    assert response.status_code == 200
 
-    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    staff = next(result for result in payload["results"] if result["item_id"] == 873)
     assert staff["cheapest_buy_realm"] == "Stormrage"
     assert staff["best_sell_realm"] == "Zul'jin"
 
@@ -123,17 +133,15 @@ def test_scan_uses_preset_realm_scope_when_preset_id_is_provided(client) -> None
     assert create_preset.status_code == 201
     preset_id = create_preset.json()["id"]
 
-    response = client.post(
-        "/scans/run",
-        json={
+    payload = run_scan(
+        {
             "preset_id": preset_id,
             "refresh_live": False,
             "include_losers": False,
-        },
+        }
     )
-    assert response.status_code == 200
 
-    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    staff = next(result for result in payload["results"] if result["item_id"] == 873)
     assert staff["cheapest_buy_realm"] == "Stormrage"
     assert staff["best_sell_realm"] == "Zul'jin"
 
@@ -159,19 +167,17 @@ def test_scan_payload_realms_override_preset_scope(client) -> None:
     assert create_preset.status_code == 201
     preset_id = create_preset.json()["id"]
 
-    response = client.post(
-        "/scans/run",
-        json={
+    payload = run_scan(
+        {
             "preset_id": preset_id,
             "refresh_live": False,
             "include_losers": False,
             "buy_realms": ["Stormrage"],
             "sell_realms": ["Zul'jin"],
-        },
+        }
     )
-    assert response.status_code == 200
 
-    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    staff = next(result for result in payload["results"] if result["item_id"] == 873)
     assert staff["cheapest_buy_realm"] == "Stormrage"
     assert staff["best_sell_realm"] == "Zul'jin"
 
@@ -184,18 +190,14 @@ def test_scan_returns_no_results_when_only_one_realm_has_data(client) -> None:
         {"item_id": 873, "realm": "Stormrage", "lowest_price": 15000, "average_price": 15500, "quantity": 2, "listing_count": 2, "captured_at": "2026-04-06T02:45:00+00:00"},
     ])
 
-    scan = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert scan.status_code == 200
-    assert scan.json()["result_count"] == 0
+    payload = run_scan({"refresh_live": False, "include_losers": False})
+    assert payload["result_count"] == 0
 
 
 def test_scan_warns_when_live_provider_unavailable(client) -> None:
     seed_listing_data(client)
 
-    response = client.post("/scans/run", json={"refresh_live": True, "include_losers": False})
-    assert response.status_code == 200
-
-    payload = response.json()
+    payload = run_scan({"refresh_live": True, "include_losers": False})
     assert payload["result_count"] > 0
     assert payload["warning_text"] is not None
     assert "No Blizzard Battle.net client credentials are configured." in payload["warning_text"]
@@ -219,9 +221,8 @@ def test_scan_bootstraps_from_blizzard_provider_when_available(client, monkeypat
         ],
     )
 
-    response = client.post("/scans/run", json={"refresh_live": True, "include_losers": False})
-    assert response.status_code == 200
-    assert response.json()["result_count"] > 0
+    payload = run_scan({"refresh_live": True, "include_losers": False})
+    assert payload["result_count"] > 0
 
 
 def test_scan_queues_background_metadata_refresh_for_blizzard_results(client, monkeypatch) -> None:
@@ -248,12 +249,11 @@ def test_scan_queues_background_metadata_refresh_for_blizzard_results(client, mo
     queued: list[list[int]] = []
     monkeypatch.setattr(scan_service_module, "queue_missing_metadata_refresh", lambda item_ids: queued.append(list(item_ids)) or len(item_ids))
 
-    response = client.post("/scans/run", json={"refresh_live": True, "include_losers": False})
+    payload = run_scan({"refresh_live": True, "include_losers": False})
 
-    assert response.status_code == 200
-    assert response.json()["result_count"] > 0
+    assert payload["result_count"] > 0
     assert queued == [[873]]
-    assert "Queued live Blizzard item-detail refresh for 1 scanned items" in (response.json()["warning_text"] or "")
+    assert "Queued live Blizzard item-detail refresh for 1 scanned items" in (payload["warning_text"] or "")
 
 
 def test_latest_scan_includes_recent_sell_history_for_chosen_sell_realm(client) -> None:
@@ -269,8 +269,7 @@ def test_latest_scan_includes_recent_sell_history_for_chosen_sell_realm(client) 
         {"item_id": 873, "realm": "Zul'jin",   "lowest_price": 22000, "average_price": 23500, "quantity": 5, "listing_count": 4, "captured_at": "2026-04-06T00:50:00+00:00"},
     ])
 
-    scan = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert scan.status_code == 200
+    run_scan({"refresh_live": False, "include_losers": False})
 
     latest = client.get("/scans/latest")
     assert latest.status_code == 200
@@ -283,10 +282,9 @@ def test_scan_warns_when_enabled_realms_have_no_listing_data(client) -> None:
     response = client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
     assert response.status_code == 201
 
-    scan = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert scan.status_code == 200
-    assert scan.json()["result_count"] == 0
-    assert "No listing data found for enabled realms" in scan.json()["warning_text"]
+    payload = run_scan({"refresh_live": False, "include_losers": False})
+    assert payload["result_count"] == 0
+    assert "No listing data found for enabled realms" in payload["warning_text"]
 
 
 def test_scan_readiness_reports_blocked_until_two_realms_have_listing_data(client) -> None:
@@ -320,9 +318,8 @@ def test_scan_filters_commodities_by_default(client) -> None:
     finally:
         session.close()
 
-    response = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert response.status_code == 200
-    assert response.json()["result_count"] == 0
+    payload = run_scan({"refresh_live": False, "include_losers": False})
+    assert payload["result_count"] == 0
 
 
 def test_scan_excludes_items_with_missing_metadata_from_non_commodity_mode(client) -> None:
@@ -338,10 +335,9 @@ def test_scan_excludes_items_with_missing_metadata_from_non_commodity_mode(clien
         {"item_id": 999001, "realm": "Zul'jin",   "lowest_price": 23900, "average_price": 24550, "quantity": 5, "listing_count": 4, "captured_at": "2026-04-06T02:50:00+00:00"},
     ], item_meta={999001: {"metadata_status": "missing"}})
 
-    scan = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert scan.status_code == 200
-    assert scan.json()["result_count"] == 0
-    assert "incomplete item details" in (scan.json()["warning_text"] or "").lower()
+    payload = run_scan({"refresh_live": False, "include_losers": False})
+    assert payload["result_count"] == 0
+    assert "incomplete item details" in (payload["warning_text"] or "").lower()
 
 
 def test_health_and_realms_smoke_flow(client) -> None:
@@ -359,8 +355,7 @@ def test_health_and_realms_smoke_flow(client) -> None:
 def test_scan_history_returns_recent_summaries(client) -> None:
     seed_listing_data(client)
 
-    response = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
-    assert response.status_code == 200
+    run_scan({"refresh_live": False, "include_losers": False})
 
     history = client.get("/scans/history")
     assert history.status_code == 200

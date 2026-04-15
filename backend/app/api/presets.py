@@ -18,6 +18,14 @@ def list_presets(db: Session = Depends(get_db), current_user: str = Depends(get_
     return [ScanPresetRead.model_validate(preset) for preset in preset_service.list_presets(db, current_user)]
 
 
+@router.get("/presets/default", response_model=ScanPresetRead | None)
+def get_default_preset(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ScanPresetRead | None:
+    preset = preset_service.get_default_preset(db, current_user)
+    if preset is None:
+        return None
+    return ScanPresetRead.model_validate(preset)
+
+
 @router.post("/presets", response_model=ScanPresetRead, status_code=status.HTTP_201_CREATED)
 def create_preset(payload: ScanPresetCreate, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ScanPresetRead:
     enforce_user_mutation_limit(user_id=current_user, scope="presets.create", limit=10)
@@ -47,3 +55,19 @@ def delete_preset(preset_id: int, db: Session = Depends(get_db), current_user: s
         preset_service.delete_preset(db, current_user, preset_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/presets/{preset_id}/set-default", response_model=ScanPresetRead)
+def set_default_preset(preset_id: int, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ScanPresetRead:
+    enforce_user_mutation_limit(user_id=current_user, scope="presets.set_default", limit=10)
+    try:
+        preset = preset_service.set_default_preset(db, current_user, preset_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return ScanPresetRead.model_validate(preset)
+
+
+@router.delete("/presets/default", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def clear_default_preset(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> None:
+    enforce_user_mutation_limit(user_id=current_user, scope="presets.clear_default", limit=10)
+    preset_service.clear_default_preset(db, current_user)

@@ -59,6 +59,7 @@ interface ScannerTableProps {
   sortBy: ScannerFilters["sortBy"];
   sortDirection: ScannerFilters["sortDirection"];
   onSortChange: (next: { sortBy: ScannerFilters["sortBy"]; sortDirection: ScannerFilters["sortDirection"] }) => void;
+  focusedModeActive?: boolean;
   onOpenProvenance?: (result: ScanResult) => void;
 }
 
@@ -119,7 +120,7 @@ function SortableHeader({
   );
 }
 
-export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onOpenProvenance }: ScannerTableProps) {
+export function ScannerTable({ results, sortBy, sortDirection, onSortChange, focusedModeActive = false, onOpenProvenance }: ScannerTableProps) {
   const location = useLocation();
 
   if (!results.length) {
@@ -253,9 +254,22 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                 <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></td>
                 <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap text-zinc-200">
-                  <span title={result.observed_spread_percent != null ? `Observed spread ${formatPercent(result.observed_spread_percent)}` : undefined}>
+                  <span
+                    title={
+                      result.observed_spread_percent != null
+                        ? `Observed spread ${formatPercent(result.observed_spread_percent)}${result.observed_spread_absolute != null ? ` (${formatGold(result.observed_spread_absolute)})` : ""}`
+                        : undefined
+                    }
+                  >
                     {formatPercent(result.spread_percent)}
                   </span>
+                  {result.spread_absolute != null ? <div className="text-[11px] text-zinc-500">{formatGold(result.spread_absolute)}</div> : null}
+                  {result.sale_average_spread_percent != null ? (
+                    <div className="text-[11px] text-zinc-500">
+                      Avg {formatPercent(result.sale_average_spread_percent)}
+                      {result.sale_average_spread_absolute != null ? ` (${formatGold(result.sale_average_spread_absolute)})` : ""}
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   {(() => {
@@ -315,6 +329,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-zinc-400">
                       <div>Recommended sell target: {formatGold(result.best_sell_price)}</div>
                       <div>Observed current listing: {result.observed_sell_price != null ? formatGold(result.observed_sell_price) : "--"}</div>
+                      <div>{focusedModeActive ? "Focused view: this row was filtered by your realm scope." : "Discovery view: this row was ranked from the full scheduled scan universe."}</div>
                       <div>
                         Risk readout: {result.is_risky ? "flagged risky" : "within current safety thresholds"}; liquidity {formatScore(result.liquidity_score)}, bait risk {formatScore(result.bait_risk_score)}
                       </div>

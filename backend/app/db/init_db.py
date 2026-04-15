@@ -108,6 +108,21 @@ def create_db_and_tables() -> None:
             connection.execute(text("ALTER TABLE scan_presets ADD COLUMN buy_realms JSON"))
         if "sell_realms" not in existing_scan_preset_columns:
             connection.execute(text("ALTER TABLE scan_presets ADD COLUMN sell_realms JSON"))
+        if "is_default" not in existing_scan_preset_columns:
+            connection.execute(text("ALTER TABLE scan_presets ADD COLUMN is_default BOOLEAN DEFAULT 0"))
+            connection.execute(
+                text(
+                    """
+                    UPDATE scan_presets
+                    SET is_default = 1
+                    WHERE id IN (
+                        SELECT MIN(id)
+                        FROM scan_presets
+                        GROUP BY user_id
+                    )
+                    """
+                )
+            )
 
         existing_calibration_columns = {
             row[1]
@@ -193,8 +208,8 @@ def provision_new_user(session: Session, user_id: str) -> None:
     if not session.query(ScanPreset).filter(ScanPreset.user_id == user_id).count():
         session.add_all(
             [
-                ScanPreset(user_id=user_id, name="Safe Floor", min_profit=5000, min_roi=0.2, min_confidence=70, hide_risky=True),
-                ScanPreset(user_id=user_id, name="Balanced Board", min_profit=2500, min_roi=0.12, min_confidence=55, hide_risky=True),
+                ScanPreset(user_id=user_id, name="Safe Floor", min_profit=5000, min_roi=0.2, min_confidence=70, hide_risky=True, is_default=False),
+                ScanPreset(user_id=user_id, name="Balanced Board", min_profit=2500, min_roi=0.12, min_confidence=55, hide_risky=True, is_default=True),
                 ScanPreset(user_id=user_id, name="Aggressive Peek", min_profit=1000, min_roi=0.08, min_confidence=35, hide_risky=False),
             ]
         )

@@ -31,10 +31,12 @@ class ScanPresetUpdate(BaseModel):
     category_filter: str | None = None
     buy_realms: list[str] | None = None
     sell_realms: list[str] | None = None
+    is_default: bool | None = None
 
 
 class ScanPresetRead(ScanPresetBase):
     id: int
+    is_default: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 
