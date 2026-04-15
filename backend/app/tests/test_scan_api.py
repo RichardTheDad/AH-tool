@@ -102,6 +102,42 @@ def test_scan_honors_buy_and_sell_realm_scope(client) -> None:
     assert staff["best_sell_realm"] == "Zul'jin"
 
 
+def test_scan_uses_preset_realm_scope_when_preset_id_is_provided(client) -> None:
+    seed_listing_data(client)
+
+    create_preset = client.post(
+        "/presets",
+        json={
+            "name": "Scoped preset",
+            "min_profit": None,
+            "min_roi": None,
+            "max_buy_price": None,
+            "min_confidence": None,
+            "allow_stale": False,
+            "hide_risky": False,
+            "category_filter": None,
+            "buy_realms": ["Stormrage"],
+            "sell_realms": ["Zul'jin"],
+        },
+    )
+    assert create_preset.status_code == 201
+    preset_id = create_preset.json()["id"]
+
+    response = client.post(
+        "/scans/run",
+        json={
+            "preset_id": preset_id,
+            "refresh_live": False,
+            "include_losers": False,
+        },
+    )
+    assert response.status_code == 200
+
+    staff = next(result for result in response.json()["results"] if result["item_id"] == 873)
+    assert staff["cheapest_buy_realm"] == "Stormrage"
+    assert staff["best_sell_realm"] == "Zul'jin"
+
+
 def test_scan_returns_no_results_when_only_one_realm_has_data(client) -> None:
     response = client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
     assert response.status_code == 201
