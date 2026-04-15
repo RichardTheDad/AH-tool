@@ -21,6 +21,7 @@ const CALIBRATION_CHART_WIDTH = 640;
 const CALIBRATION_CHART_HEIGHT = 180;
 const CALIBRATION_CHART_PADDING = 14;
 const TUNING_COOLDOWN_MS = 30 * 60 * 1000;
+const SCHEDULE_INTERVAL_MINUTES_FALLBACK = 65;
 
 function toPercentPoints(values: number[]) {
   if (!values.length) {
@@ -264,6 +265,18 @@ export function Scanner() {
   const latestAppliedAtMs = latestAppliedTuning ? new Date(latestAppliedTuning.applied_at).getTime() : null;
   const tuningCooldownRemainingMs = latestAppliedAtMs ? Math.max(0, latestAppliedAtMs + TUNING_COOLDOWN_MS - nowMs) : 0;
   const tuningCooldownActive = tuningCooldownRemainingMs > 0;
+  const nextScheduledScanLabel = (() => {
+    if (scanStatus.next_scheduled_at) {
+      return formatDateTime(scanStatus.next_scheduled_at);
+    }
+    if (persistedScan?.generated_at) {
+      const baseMs = new Date(persistedScan.generated_at).getTime();
+      if (Number.isFinite(baseMs)) {
+        return `${formatDateTime(new Date(baseMs + SCHEDULE_INTERVAL_MINUTES_FALLBACK * 60 * 1000).toISOString())} (estimated)`;
+      }
+    }
+    return null;
+  })();
 
   return (
     <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
@@ -293,8 +306,8 @@ export function Scanner() {
             {!scanRunning && scanStatus.finished_at ? (
               <p className="mt-2 text-sm text-slate-500">Last scan update: {formatDateTime(scanStatus.finished_at)}</p>
             ) : null}
-            {scanStatus.next_scheduled_at ? (
-              <p className="mt-2 text-sm text-slate-500">Next scheduled scan: {formatDateTime(scanStatus.next_scheduled_at)}</p>
+            {nextScheduledScanLabel ? (
+              <p className="mt-2 text-sm text-slate-500">Next scheduled scan: {nextScheduledScanLabel}</p>
             ) : null}
             {activeProvider ? (
               <p className={`mt-2 text-sm ${activeProvider.status === "error" ? "text-rose-700" : activeProvider.status === "cached_only" ? "text-amber-700" : "text-slate-600"}`}>
