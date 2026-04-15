@@ -8,7 +8,6 @@ const navItems = [
   { to: "/realms", label: "Realms" },
   { to: "/suggested-realms", label: "Suggested Realms" },
   { to: "/presets", label: "Presets" },
-  { to: "/settings", label: "Settings" },
 ];
 
 export function AppShell({ children }: PropsWithChildren) {

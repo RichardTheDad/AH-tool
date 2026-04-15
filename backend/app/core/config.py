@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     tsm_api_key: str = ""
     tsm_region_id: int | None = None
     supabase_jwt_secret: str = ""
-    scheduler_refresh_interval_minutes: int = 30
+    scheduler_refresh_interval_minutes: int = 60
 
     @field_validator("database_url", mode="before")
     @classmethod
