@@ -144,9 +144,7 @@ export function Scanner() {
   const coreQueriesLoading =
     scanQuery.isLoading ||
     scanHistoryQuery.isLoading ||
-    fallbackScanQuery.isLoading ||
     readinessQuery.isLoading ||
-    scanStatusQuery.isLoading ||
     providersQuery.isLoading ||
     presetsQuery.isLoading ||
     realmsQuery.isLoading;
@@ -154,7 +152,6 @@ export function Scanner() {
     scanQuery.error ||
     scanHistoryQuery.error ||
     readinessQuery.error ||
-    scanStatusQuery.error ||
     providersQuery.error ||
     presetsQuery.error ||
     realmsQuery.error;
