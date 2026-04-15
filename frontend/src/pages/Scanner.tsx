@@ -110,14 +110,15 @@ function exportResultsAsCsv(rows: ReturnType<typeof filterScanResults>) {
 
 export function Scanner() {
   const queryClient = useQueryClient();
+  const scanRefreshIntervalMs = 60000;
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [scanStartedAt, setScanStartedAt] = useState<number | null>(null);
   const { filters, updateFilters } = useScannerFilters();
 
-  const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan() });
-  const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory });
+  const scanQuery = useQuery({ queryKey: ["scans", "latest"], queryFn: () => getLatestScan(), refetchInterval: scanRefreshIntervalMs });
+  const scanHistoryQuery = useQuery({ queryKey: ["scans", "history"], queryFn: getScanHistory, refetchInterval: scanRefreshIntervalMs });
   const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000 });
   const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000 });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness });
@@ -131,9 +132,18 @@ export function Scanner() {
     queryFn: () => getScan(previousScanId as number, 200),
     enabled: typeof previousScanId === "number",
   });
+  const latest = scanQuery.data?.latest ?? null;
+  const recentScans = scanHistoryQuery.data?.scans ?? [];
+  const fallbackScanId = latest?.result_count ? null : recentScans.find((scan) => scan.id !== latest?.id && scan.result_count > 0)?.id ?? null;
+  const fallbackScanQuery = useQuery({
+    queryKey: ["scans", fallbackScanId, "persisted", 2000],
+    queryFn: () => getScan(fallbackScanId as number, 2000),
+    enabled: typeof fallbackScanId === "number",
+  });
   const coreQueriesLoading =
     scanQuery.isLoading ||
     scanHistoryQuery.isLoading ||
+    fallbackScanQuery.isLoading ||
     readinessQuery.isLoading ||
     scanStatusQuery.isLoading ||
     providersQuery.isLoading ||
@@ -220,25 +230,25 @@ export function Scanner() {
     updateFilters(next);
   }
 
-  const latest = scanQuery.data?.latest ?? null;
   const calibration = calibrationQuery.data;
   const previousScan = previousScanQuery.data ?? null;
+  const persistedScan = latest?.result_count ? latest : fallbackScanQuery.data ?? latest;
   const calibrationUnavailable = Boolean(calibrationQuery.error);
   const previousScanUnavailable = Boolean(previousScanQuery.error);
   const tuningAudit = tuningAuditQuery.data?.entries ?? [];
-  const recentScans = scanHistoryQuery.data?.scans ?? [];
-  const results = filterScanResults(latest?.results ?? [], filters);
+  const results = filterScanResults(persistedScan?.results ?? [], filters);
   const useVirtualizedResults = results.length > 300;
   const categoryOptions = Array.from(
-    new Set((latest?.results ?? []).map((result) => result.item_class_name).filter((value): value is string => !!value)),
+    new Set((persistedScan?.results ?? []).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
   const inferredPreset = (presetsQuery.data ?? []).find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
     (presetsQuery.data ?? []).find((preset) => preset.id === selectedPresetId) ??
     (selectedPresetId === null ? inferredPreset : null);
   const latestWarningText = latest?.warning_text?.toLowerCase() ?? "";
+  const showingPersistedResults = Boolean(persistedScan && latest && persistedScan.id !== latest.id && persistedScan.result_count > 0);
   const showGuidedEmptyState =
-    (!latest || latest.result_count === 0) &&
+    (!persistedScan || persistedScan.result_count === 0) &&
     ((scanBlocked && !canBootstrapFromLiveProvider) || latestWarningText.includes("no listing data found"));
 
   const emptyState = noEnabledRealms
@@ -264,14 +274,14 @@ export function Scanner() {
         };
 
   const diffSummary = (() => {
-    if (!latest || !previousScan) {
+    if (!persistedScan || !previousScan || showingPersistedResults) {
       return null;
     }
     const previousByItem = new Map(previousScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
-    const currentByItem = new Map(latest.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
-    const newItems = latest.results.filter((result) => !previousByItem.has(result.item_id)).slice(0, 4);
+    const currentByItem = new Map(persistedScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
+    const newItems = persistedScan.results.filter((result) => !previousByItem.has(result.item_id)).slice(0, 4);
     const droppedItems = previousScan.results.filter((result) => !currentByItem.has(result.item_id)).slice(0, 4);
-    const movers = latest.results
+    const movers = persistedScan.results
       .map((result, index) => {
         const previous = previousByItem.get(result.item_id);
         if (!previous) {
@@ -309,7 +319,8 @@ export function Scanner() {
         <div className="flex flex-col gap-3 rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="font-display text-xl font-semibold text-ink">Current opportunities</h2>
-            <p className="mt-1 text-sm text-slate-600">{latest ? `Latest scan: ${formatDateTime(latest.generated_at)}` : "No scan recorded yet"}</p>
+            <p className="mt-1 text-sm text-slate-600">{persistedScan ? `Showing results from ${formatDateTime(persistedScan.generated_at)}` : "No scan recorded yet"}</p>
+            {showingPersistedResults ? <p className="mt-2 text-sm text-slate-500">Newest scan is still saved, but it returned no listings, so the last populated scan remains visible.</p> : null}
             {latest?.warning_text ? <p className="mt-2 text-sm text-amber-700">{latest.warning_text}</p> : null}
             <p className={`mt-2 text-sm ${readiness.status === "blocked" ? "text-rose-700" : readiness.status === "caution" ? "text-amber-700" : "text-emerald-700"}`}>
               {readiness.message}
@@ -528,7 +539,7 @@ export function Scanner() {
 
         {showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
-        ) : latest ? (
+        ) : persistedScan ? (
           useVirtualizedResults ? (
             <VirtualizedScannerList
               results={results}
@@ -558,7 +569,7 @@ export function Scanner() {
           <div className="rounded-3xl border border-white/70 bg-white/80 p-4 shadow-card">
             <h3 className="font-display text-lg font-semibold text-ink">Since last scan</h3>
             <p className="mt-1 text-sm text-slate-600">
-              Comparing {formatDateTime(latest!.generated_at)} to {formatDateTime(previousScan!.generated_at)}.
+              Comparing {formatDateTime(persistedScan!.generated_at)} to {formatDateTime(previousScan!.generated_at)}.
             </p>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl bg-slate-50 px-4 py-3">
