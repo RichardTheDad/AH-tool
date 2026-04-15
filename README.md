@@ -1,4 +1,4 @@
-# AzerothFlipLocal
+# Azeroth Flip
 
 **Real-time World of Warcraft auction house monitoring and market analysis platform for gold traders.**
 

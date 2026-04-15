@@ -7,60 +7,60 @@ export interface DocumentMetadata {
 }
 
 const DEFAULT_METADATA: DocumentMetadata = {
-  title: "AzerothFlipLocal - WoW Market Flipping Tool",
+  title: "Azeroth Flip - WoW Market Flipping Tool",
   description: "Monitor WoW realm markets and find profitable flipping opportunities.",
   noindex: true,
 };
 
 const ROUTE_METADATA: Record<string, DocumentMetadata> = {
   "/": {
-    title: "AzerothFlipLocal - WoW Market Flipping Tool",
+    title: "Azeroth Flip - WoW Market Flipping Tool",
     description: "Find profitable market opportunities in World of Warcraft.",
     noindex: false,
   },
   "/home": {
-    title: "AzerothFlipLocal - WoW Market Flipping Tool",
+    title: "Azeroth Flip - WoW Market Flipping Tool",
     description: "Find profitable market opportunities in World of Warcraft. Monitor realm markets, track price trends, and optimize your gold strategies with real-time auction house data.",
     noindex: false,
   },
   "/public/docs": {
-    title: "Documentation - AzerothFlipLocal",
-    description: "Public documentation for AzerothFlipLocal. Learn about features, data freshness, API capabilities, and trust boundaries.",
+    title: "Documentation - Azeroth Flip",
+    description: "Public documentation for Azeroth Flip. Learn about features, data freshness, API capabilities, and trust boundaries.",
     noindex: false,
   },
   "/app": {
-    title: "Scanner - AzerothFlipLocal",
+    title: "Scanner - Azeroth Flip",
     description: "Real-time WoW auction house scanner and market analysis.",
     noindex: true,
   },
   "/app/": {
-    title: "Scanner - AzerothFlipLocal",
+    title: "Scanner - Azeroth Flip",
     description: "Real-time WoW auction house scanner and market analysis.",
     noindex: true,
   },
   "/app/suggested-realms": {
-    title: "Suggested Realms - AzerothFlipLocal",
+    title: "Suggested Realms - Azeroth Flip",
     description: "Discover high-opportunity realms based on market activity.",
     noindex: true,
   },
   "/app/realms": {
-    title: "Realms - AzerothFlipLocal",
+    title: "Realms - Azeroth Flip",
     description: "Manage tracked WoW realms and market monitors.",
     noindex: true,
   },
   "/app/presets": {
-    title: "Presets - AzerothFlipLocal",
+    title: "Presets - Azeroth Flip",
     description: "Create and manage scanner filter presets.",
     noindex: true,
   },
   "/login": {
-    title: "Login - AzerothFlipLocal",
-    description: "Sign in to your AzerothFlipLocal account.",
+    title: "Login - Azeroth Flip",
+    description: "Sign in to your Azeroth Flip account.",
     noindex: true,
   },
   "/reset-password": {
-    title: "Reset Password - AzerothFlipLocal",
-    description: "Reset your AzerothFlipLocal account password.",
+    title: "Reset Password - Azeroth Flip",
+    description: "Reset your Azeroth Flip account password.",
     noindex: true,
   },
 };

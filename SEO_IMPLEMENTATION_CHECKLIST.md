@@ -69,11 +69,11 @@ curl -I https://azerothfliplocal.com/sitemap.xml
 ```bash
 # Test homepage
 curl -s https://azerothfliplocal.com/home | grep -o "<title>.*</title>"
-# Expected: <title>AzerothFlipLocal - WoW Market Flipping Tool</title>
+# Expected: <title>Azeroth Flip - WoW Market Flipping Tool</title>
 
 # Test docs
 curl -s https://azerothfliplocal.com/public/docs | grep -o "<title>.*</title>"
-# Expected: <title>Documentation - AzerothFlipLocal</title>
+# Expected: <title>Documentation - Azeroth Flip</title>
 ```
 
 #### 3. Metadata Presence ✓

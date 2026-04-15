@@ -21,8 +21,8 @@ class Settings(BaseSettings):
         enable_decoding=False,
     )
 
-    app_name: str = "AzerothFlipLocal"
-    api_title: str = "AzerothFlipLocal API"
+    app_name: str = "Azeroth Flip"
+    api_title: str = "Azeroth Flip API"
     api_version: str = "0.1.0"
     database_url: str = f"sqlite:///{(BACKEND_ROOT / 'azerothfliplocal.db').as_posix()}"
     cors_origins: list[str] = Field(

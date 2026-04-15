@@ -1,4 +1,4 @@
-# AzerothFlipLocal Crawl Policy
+# Azeroth Flip Crawl Policy
 # Allow crawlers to index public pages
 # Protect private user data and authenticated app routes
 

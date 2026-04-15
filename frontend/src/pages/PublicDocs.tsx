@@ -6,8 +6,8 @@ export function PublicDocs() {
 
   // This is a public docs page, not noindex
   useDocumentTitle("/public/docs", {
-    title: "Documentation - AzerothFlipLocal",
-    description: "Public documentation for AzerothFlipLocal. Learn about features, data freshness, API capabilities, and trust boundaries.",
+    title: "Documentation - Azeroth Flip",
+    description: "Public documentation for Azeroth Flip. Learn about features, data freshness, API capabilities, and trust boundaries.",
   });
 
   return (
@@ -26,14 +26,14 @@ export function PublicDocs() {
 
       {/* Main Content */}
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-4xl font-bold mb-2">AzerothFlipLocal Documentation</h1>
+        <h1 className="text-4xl font-bold mb-2">Azeroth Flip Documentation</h1>
         <p className="text-slate-300 mb-12">Public documentation for product features, data freshness, and trust boundaries.</p>
 
         {/* Product Overview */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-4 text-ember">Product Overview</h2>
           <p className="text-slate-300 mb-4">
-            AzerothFlipLocal is a real-time World of Warcraft auction house monitoring and analysis platform. It helps gold traders identify profitable flipping opportunities by analyzing market trends, price patterns, and profit margins across WoW realms.
+            Azeroth Flip is a real-time World of Warcraft auction house monitoring and analysis platform. It helps gold traders identify profitable flipping opportunities by analyzing market trends, price patterns, and profit margins across WoW realms.
           </p>
           <p className="text-slate-300">
             The platform continuously scans auction house data and surfaces opportunities matching user-defined profit criteria, enabling traders to execute profitable transactions efficiently.
@@ -75,7 +75,7 @@ export function PublicDocs() {
         <section className="mb-12 border border-white/10 rounded-lg p-6 bg-white/5">
           <h2 className="text-2xl font-bold mb-4 text-ember">Data Freshness & Update Frequency</h2>
           <p className="text-slate-300 mb-4">
-            AzerothFlipLocal maintains data freshness through scheduled market scans tied to user realm configurations. Here's our typical update schedule:
+            Azeroth Flip maintains data freshness through scheduled market scans tied to user realm configurations. Here's our typical update schedule:
           </p>
           <ul className="space-y-3 text-slate-300 ml-4">
             <li><strong>Auction House Data:</strong> Updated hourly per realm (Blizzard API source)</li>
@@ -93,7 +93,7 @@ export function PublicDocs() {
         <section className="mb-12 border border-white/10 rounded-lg p-6 bg-white/5">
           <h2 className="text-2xl font-bold mb-4 text-ember">Trust Boundaries & Security</h2>
           <p className="text-slate-300 mb-4">
-            All user data is private and account-protected. AzerothFlipLocal does not share, sell, or expose user information.
+            All user data is private and account-protected. Azeroth Flip does not share, sell, or expose user information.
           </p>
           <h3 className="text-lg font-semibold mb-3 text-slate-100">Public Data</h3>
           <p className="text-slate-300 mb-4">Only this documentation and product marketing materials are publicly indexable. No user-specific data is ever exposed.</p>
@@ -157,7 +157,7 @@ export function PublicDocs() {
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-4 text-ember">API Capabilities</h2>
           <p className="text-slate-300 mb-4">
-            AzerothFlipLocal provides a comprehensive REST API for authenticated users to programmatically access their account and market data.
+            Azeroth Flip provides a comprehensive REST API for authenticated users to programmatically access their account and market data.
           </p>
           <div className="space-y-4">
             <div className="border border-white/10 rounded p-4 bg-white/5">
@@ -196,7 +196,7 @@ export function PublicDocs() {
 
         {/* Footer */}
         <footer className="border-t border-white/10 pt-8 mt-12 text-slate-400 text-sm">
-          <p>© 2026 AzerothFlipLocal. World of Warcraft is a trademark of Blizzard Entertainment.</p>
+          <p>© 2026 Azeroth Flip. World of Warcraft is a trademark of Blizzard Entertainment.</p>
           <p className="text-slate-500 text-xs mt-2">
             This documentation reflects the current state as of April 15, 2026. For the latest information, please visit the app directly.
           </p>

@@ -93,7 +93,7 @@ curl -I https://azerothfliplocal.com/sitemap.xml
 
 #### 2. Public Route Accessibility
 ```bash
-curl -s https://azerothfliplocal.com/home | grep -q "AzerothFlipLocal"
+curl -s https://azerothfliplocal.com/home | grep -q "Azeroth Flip"
 # Expected: Exit code 0 (content found)
 
 curl -s https://azerothfliplocal.com/public/docs | grep -q "Documentation"

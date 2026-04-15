@@ -2,7 +2,7 @@
 
 ## Prerender Strategy
 
-AzerothFlipLocal uses a **hybrid approach** to optimize indexing while keeping the app responsive:
+Azeroth Flip uses a **hybrid approach** to optimize indexing while keeping the app responsive:
 
 - **Public pages** (`/home`, `/public/docs`): Static content that can be prerendered or cached long-term for search engine crawlers
 - **Protected routes** (`/app/*`): Client-side React SPA requiring authentication, no indexing needed

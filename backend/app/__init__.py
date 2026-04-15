@@ -1,2 +1,2 @@
-"""AzerothFlipLocal backend package."""
+"""Azeroth Flip backend package."""
 

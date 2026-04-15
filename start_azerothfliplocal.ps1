@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 
 function Write-Step {
     param([string]$Message)
-    Write-Host "[AzerothFlipLocal] $Message" -ForegroundColor Cyan
+    Write-Host "[Azeroth Flip] $Message" -ForegroundColor Cyan
 }
 
 function Resolve-PythonPath {
@@ -120,7 +120,7 @@ function Ensure-FrontendDependencies {
 
 function Start-BackendWindow {
     $command = @"
-`$Host.UI.RawUI.WindowTitle = 'AzerothFlipLocal Backend'
+`$Host.UI.RawUI.WindowTitle = 'Azeroth Flip Backend'
 Set-Location '$script:backendDir'
 `$env:PYTHONPATH = '$script:backendDepsDir;$script:backendDir'
 `$env:TEMP = '$script:backendTempDir'
@@ -146,7 +146,7 @@ Write-Host 'Backend starting on http://127.0.0.1:8000' -ForegroundColor Green
 
 function Start-FrontendWindow {
     $command = @"
-`$Host.UI.RawUI.WindowTitle = 'AzerothFlipLocal Frontend'
+`$Host.UI.RawUI.WindowTitle = 'Azeroth Flip Frontend'
 Set-Location '$script:frontendDir'
 `$env:VITE_API_BASE_URL = 'http://127.0.0.1:8000'
 Write-Host 'Frontend starting on http://127.0.0.1:5173' -ForegroundColor Green
