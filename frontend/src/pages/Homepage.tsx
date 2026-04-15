@@ -110,6 +110,19 @@ export function Homepage() {
                   <Button variant="secondary" size="lg">Read docs</Button>
                 </Link>
               </div>
+              <div className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-sm text-slate-600">
+                <p>
+                  Feel free to donate. Support helps expand infrastructure so Azeroth Flip can process more scan data.
+                  {" "}
+                  <Link
+                    to="https://ko-fi.com/richardthedad"
+                    external
+                    className="font-semibold text-ember hover:text-ink"
+                  >
+                    Donate on Ko-fi
+                  </Link>
+                </p>
+              </div>
             </div>
 
             <section className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-sm">

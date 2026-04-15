@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../common/Button";
+import { Link } from "../common/Link";
 
 const navItems = [
   { to: "/app", label: "Scanner" },
@@ -44,6 +45,14 @@ export function AppShell({ children }: PropsWithChildren) {
           </div>
           {user && (
             <div className="flex items-center gap-3">
+              <Link
+                to="https://ko-fi.com/richardthedad"
+                external
+                variant="muted"
+                className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 no-underline hover:border-amber-200 hover:text-ember lg:inline-flex"
+              >
+                Support data expansion
+              </Link>
               <span className="text-xs text-slate-500 hidden sm:inline">{user.email}</span>
               <Button 
                 variant="secondary" 
