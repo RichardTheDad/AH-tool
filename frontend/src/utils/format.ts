@@ -43,3 +43,26 @@ export function formatDateTime(value: string | null | undefined) {
     timeStyle: "short",
   }).format(new Date(value));
 }
+
+/** Compact gold label for chart Y-axes — drops copper, abbreviates to just gold for large values. */
+export function formatGoldChartLabel(value: number | null | undefined): string {
+  if (value === null || value === undefined) return "--";
+  const sign = value < 0 ? "-" : "";
+  const totalCopper = Math.round(Math.abs(value));
+  const gold = Math.floor(totalCopper / 10000);
+  const silver = Math.floor((totalCopper % 10000) / 100);
+  if (gold >= 1000) return `${sign}${gold.toLocaleString("en-US")}g`;
+  if (gold > 0) return silver > 0 ? `${sign}${gold.toLocaleString("en-US")}g ${silver}s` : `${sign}${gold.toLocaleString("en-US")}g`;
+  return `${sign}${silver}s`;
+}
+
+/** Splits a copper value into parts for icon-based currency rendering. */
+export function formatGoldParts(value: number | null | undefined): { sign: string; gold: number; silver: number; copper: number } | null {
+  if (value === null || value === undefined) return null;
+  const sign = value < 0 ? "-" : "";
+  const totalCopper = Math.round(Math.abs(value));
+  const gold = Math.floor(totalCopper / 10000);
+  const silver = Math.floor((totalCopper % 10000) / 100);
+  const copper = totalCopper % 100;
+  return { sign, gold, silver, copper };
+}

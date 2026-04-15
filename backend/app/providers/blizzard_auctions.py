@@ -228,7 +228,11 @@ class BlizzardAuctionListingProvider(ListingProvider):
             },
         )
         captured_at = self._extract_captured_at(headers)
-        auctions = payload.get("auctions", []) if isinstance(payload, dict) else []
+        # Extract and detach the auctions list from the response payload, then free
+        # the rest of the response (metadata, links, etc.) as early as possible to
+        # reduce peak memory when processing many realms in a single batch.
+        auctions: list[Any] = (payload.pop("auctions", []) if isinstance(payload, dict) else [])
+        del payload
 
         aggregated: dict[int, dict[str, float]] = {}
         for auction in auctions:

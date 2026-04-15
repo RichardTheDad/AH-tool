@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
+import { GoldAmount } from "../common/GoldAmount";
 import type { ScanResult, ScannerFilters } from "../../types/models";
 import { formatGold, formatPercent, formatScore } from "../../utils/format";
 
@@ -150,7 +151,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
               <th className="px-3 py-3 min-w-[13rem]">Explanation</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-slate-200">
             {results.map((result) => (
               <tr key={result.id} className="hover:bg-slate-50 transition">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
@@ -190,7 +191,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                   </div>
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{result.cheapest_buy_realm}</td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">{formatGold(result.cheapest_buy_price)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap"><GoldAmount value={result.cheapest_buy_price} /></td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">{result.best_sell_realm}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   <div className="space-y-1">
@@ -204,11 +205,11 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, onO
                       {formatGold(result.best_sell_price)}
                     </div>
                     {result.observed_sell_price != null ? (
-                      <div className="text-[11px] text-slate-500">Observed {formatGold(result.observed_sell_price)}</div>
+                      <div className="text-[11px] text-slate-500">Observed <GoldAmount value={result.observed_sell_price} /></div>
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700">{formatGold(result.estimated_profit)}</td>
+                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700"><GoldAmount value={result.estimated_profit} /></td>
                 <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-700">{formatPercent(result.roi)}</td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
                   {(() => {

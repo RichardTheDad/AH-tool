@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import type { ScanResult, ScannerFilters } from "../../types/models";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
+import { GoldAmount } from "../common/GoldAmount";
 import { formatGold, formatPercent, formatScore } from "../../utils/format";
 
 interface VirtualizedScannerListProps {
@@ -86,7 +87,7 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
   const gated = isEvidenceGated(result);
 
   return (
-    <div style={style} className="border-b border-slate-100 px-4 py-3">
+    <div style={style} className="border-b border-slate-200 px-4 py-3">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -131,17 +132,17 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
 
         <div className="min-w-0 text-slate-700">
           <div className="font-medium">{result.cheapest_buy_realm}</div>
-          <div>{formatGold(result.cheapest_buy_price)}</div>
+          <div><GoldAmount value={result.cheapest_buy_price} /></div>
         </div>
 
         <div className="min-w-0 text-slate-700">
           <div className="font-medium">{result.best_sell_realm}</div>
-          <div>{formatGold(result.best_sell_price)}</div>
-          {result.observed_sell_price != null ? <div className="text-xs text-slate-500">Obs {formatGold(result.observed_sell_price)}</div> : null}
+          <div><GoldAmount value={result.best_sell_price} /></div>
+          {result.observed_sell_price != null ? <div className="text-xs text-slate-500">Obs <GoldAmount value={result.observed_sell_price} /></div> : null}
         </div>
 
         <div className="min-w-0">
-          <div className="font-semibold text-emerald-700">{formatGold(result.estimated_profit)}</div>
+          <div className="font-semibold text-emerald-700"><GoldAmount value={result.estimated_profit} /></div>
           <div className="text-slate-700">{formatPercent(result.roi)}</div>
         </div>
 

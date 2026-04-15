@@ -68,7 +68,7 @@ export function ScannerStatusBar({
         {nextScheduledScanLabel && (
           <span>Next scan: {nextScheduledScanLabel}</span>
         )}
-        {latestScan?.warning_text && (
+        {latestScan?.warning_text && !latestScan.warning_text.includes("incomplete item details") && (
           <span className="text-amber-700 font-medium">⚠️ {latestScan.warning_text}</span>
         )}
         {readiness.status === "caution" && !latestScan?.warning_text && (

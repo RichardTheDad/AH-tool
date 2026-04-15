@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ItemRealmHistory } from "../../types/models";
-import { formatDateTime, formatGold } from "../../utils/format";
+import { formatDateTime, formatGold, formatGoldChartLabel } from "../../utils/format";
+import { GoldAmount } from "../common/GoldAmount";
 
 interface AuctionHistoryChartProps {
   history: ItemRealmHistory[];
@@ -32,7 +33,7 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
 
   const width = 760;
   const height = 260;
-  const paddingLeft = 54;
+  const paddingLeft = 92;
   const paddingRight = 18;
   const paddingTop = 20;
   const paddingBottom = 40;
@@ -84,11 +85,11 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
         </div>
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
           <p className="text-xs uppercase tracking-detail text-slate-500">First observed</p>
-          <p className="mt-1 font-semibold text-ink">{formatGold(firstPoint.lowest_price)}</p>
+          <p className="mt-1 font-semibold text-ink"><GoldAmount value={firstPoint.lowest_price} /></p>
         </div>
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
           <p className="text-xs uppercase tracking-detail text-slate-500">Latest observed</p>
-          <p className="mt-1 font-semibold text-ink">{formatGold(latestPoint.lowest_price)}</p>
+          <p className="mt-1 font-semibold text-ink"><GoldAmount value={latestPoint.lowest_price} /></p>
         </div>
         <div className="rounded-2xl bg-slate-50 px-3 py-3">
           <p className="text-xs uppercase tracking-detail text-slate-500">Latest depth</p>
@@ -136,8 +137,8 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
           {[minValue, minValue + range / 2, maxValue].map((labelValue, index) => {
             const y = height - paddingBottom - ((labelValue - minValue) / range) * (height - paddingTop - paddingBottom);
             return (
-              <text key={index} x={6} y={y + 4} fontSize="11" fill="#64748b">
-                {formatGold(labelValue)}
+              <text key={index} x={paddingLeft - 5} y={y + 4} textAnchor="end" fontSize="11" fill="#64748b">
+                {formatGoldChartLabel(labelValue)}
               </text>
             );
           })}
@@ -157,18 +158,30 @@ export function AuctionHistoryChart({ history }: AuctionHistoryChartProps) {
               <title>{`${formatDateTime(chartPoints[index]?.captured_at)} | Average ${formatGold(chartPoints[index]?.average_price)}`}</title>
             </circle>
           ))}
-          {chartPoints.map((point, index) => (
-            <text
-              key={`label-${index}`}
-              x={paddingLeft + stepX * index}
-              y={height - 12}
-              textAnchor={index === 0 ? "start" : index === chartPoints.length - 1 ? "end" : "middle"}
-              fontSize="10"
-              fill="#64748b"
-            >
-              {new Date(point.captured_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-            </text>
-          ))}
+          {(() => {
+            const chartDates = chartPoints.map((p) => new Date(p.captured_at).toDateString());
+            const hasSameDayPoints = new Set(chartDates).size < chartPoints.length;
+            const labelInterval = Math.max(1, Math.ceil(chartPoints.length / 7));
+            return chartPoints.map((point, index) => {
+              if (index !== 0 && index !== chartPoints.length - 1 && index % labelInterval !== 0) return null;
+              const d = new Date(point.captured_at);
+              const label = hasSameDayPoints
+                ? d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric" })
+                : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+              return (
+                <text
+                  key={`label-${index}`}
+                  x={paddingLeft + stepX * index}
+                  y={height - 12}
+                  textAnchor={index === 0 ? "start" : index === chartPoints.length - 1 ? "end" : "middle"}
+                  fontSize="10"
+                  fill="#64748b"
+                >
+                  {label}
+                </text>
+              );
+            });
+          })()}
         </svg>
 
         <div className="mt-3 flex flex-wrap gap-4 text-xs text-slate-600">

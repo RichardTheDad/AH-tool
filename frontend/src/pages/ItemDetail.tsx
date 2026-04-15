@@ -3,10 +3,11 @@ import { useParams } from "react-router-dom";
 import { getItem } from "../api/items";
 import { Card } from "../components/common/Card";
 import { ErrorState } from "../components/common/ErrorState";
+import { GoldAmount } from "../components/common/GoldAmount";
 import { LoadingState } from "../components/common/LoadingState";
 import { AuctionHistoryChart } from "../components/items/AuctionHistoryChart";
 import { ItemListingsTable } from "../components/items/ItemListingsTable";
-import { formatDateTime, formatGold, formatMarketPerDay, formatMarketPercent, formatPercent, formatScore } from "../utils/format";
+import { formatDateTime, formatMarketPerDay, formatMarketPercent, formatPercent, formatScore } from "../utils/format";
 
 export function ItemDetail() {
   const params = useParams();
@@ -69,7 +70,7 @@ export function ItemDetail() {
           <div className="grid gap-4 lg:grid-cols-4">
             <div>
               <p className="text-xs uppercase tracking-detail text-slate-500">Profit</p>
-              <p className="mt-1 font-semibold text-emerald-700">{formatGold(item.recent_scan.estimated_profit)}</p>
+              <p className="mt-1 font-semibold text-emerald-700"><GoldAmount value={item.recent_scan.estimated_profit} /></p>
             </div>
             <div>
               <p className="text-xs uppercase tracking-detail text-slate-500">ROI</p>
@@ -129,15 +130,15 @@ export function ItemDetail() {
               <div className="mt-3 grid gap-4 lg:grid-cols-5">
                 <div>
                   <p className="text-xs uppercase tracking-detail text-slate-500">Region market avg</p>
-                  <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_market_avg)}</p>
+                  <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_region_stats.db_region_market_avg} /></p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-detail text-slate-500">Region historical</p>
-                  <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_historical)}</p>
+                  <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_region_stats.db_region_historical} /></p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-detail text-slate-500">Region sale avg</p>
-                  <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_region_stats.db_region_sale_avg)}</p>
+                  <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_region_stats.db_region_sale_avg} /></p>
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-detail text-slate-500">Region sale rate</p>
@@ -189,9 +190,9 @@ export function ItemDetail() {
                     {item.tsm_realm_stats.map((row) => (
                       <tr key={row.realm} className="border-b border-slate-100 last:border-b-0">
                         <td className="px-3 py-2 font-semibold text-ink">{row.realm}</td>
-                        <td className="px-3 py-2 text-slate-700">{formatGold(row.market_value_recent)}</td>
-                        <td className="px-3 py-2 text-slate-700">{formatGold(row.historical)}</td>
-                        <td className="px-3 py-2 text-slate-700">{formatGold(row.min_buyout)}</td>
+                        <td className="px-3 py-2 text-slate-700"><GoldAmount value={row.market_value_recent} /></td>
+                        <td className="px-3 py-2 text-slate-700"><GoldAmount value={row.historical} /></td>
+                        <td className="px-3 py-2 text-slate-700"><GoldAmount value={row.min_buyout} /></td>
                         <td className="px-3 py-2 text-slate-700">{row.num_auctions?.toFixed(0) ?? "--"}</td>
                       </tr>
                     ))}
@@ -217,7 +218,7 @@ export function ItemDetail() {
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-detail text-slate-500">Avg unit sold</p>
-                    <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_ledger_summary.auction_avg_unit_sale_price)}</p>
+                    <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_ledger_summary.auction_avg_unit_sale_price} /></p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-detail text-slate-500">Last sale</p>
@@ -233,7 +234,7 @@ export function ItemDetail() {
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-detail text-slate-500">Avg unit bought</p>
-                    <p className="mt-1 font-semibold text-ink">{formatGold(item.tsm_ledger_summary.auction_avg_unit_buy_price)}</p>
+                    <p className="mt-1 font-semibold text-ink"><GoldAmount value={item.tsm_ledger_summary.auction_avg_unit_buy_price} /></p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-detail text-slate-500">Last buy</p>
@@ -276,7 +277,7 @@ export function ItemDetail() {
                             <tr key={`${sale.realm}-${sale.time ?? "unknown"}-${index}`} className="border-b border-slate-100 last:border-b-0">
                               <td className="px-3 py-2 font-semibold text-ink">{sale.realm}</td>
                               <td className="px-3 py-2 text-slate-700">{sale.quantity ?? "--"}</td>
-                              <td className="px-3 py-2 text-slate-700">{formatGold(sale.price)}</td>
+                              <td className="px-3 py-2 text-slate-700"><GoldAmount value={sale.price} /></td>
                               <td className="px-3 py-2 text-slate-700">{sale.other_player ?? "Unknown"}</td>
                               <td className="px-3 py-2 text-slate-700">{formatDateTime(sale.time)}</td>
                             </tr>

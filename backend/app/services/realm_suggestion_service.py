@@ -19,7 +19,7 @@ from app.services.scoring_service import ScoreBreakdown
 from app.services.undermine_service import build_undermine_item_url
 
 
-DISCOVERY_BATCH_SIZE = 24
+DISCOVERY_BATCH_SIZE = 8
 CONSISTENCY_WINDOW = 6
 
 
