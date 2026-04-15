@@ -362,63 +362,77 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest) -> Sc
         session.flush()
 
         mark_scan_stage("Scoring cross-realm opportunities.")
-        results: list[ScanResult] = []
-        skipped_missing_metadata = 0
-        included_unverified_metadata = 0
         metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
         history_by_item = get_recent_snapshot_history_for_items(session, list(grouped.keys()), realms)
-        for item_id, snapshots in grouped.items():
-            item = session.get(Item, item_id)
-            if item is None:
-                continue
-            if app_settings.non_commodity_only and item.is_commodity:
-                continue
-            if app_settings.non_commodity_only and item_has_missing_metadata(item):
-                if item_is_noncommodity_trusted(item):
-                    pass
-                elif metadata_configured:
-                    skipped_missing_metadata += 1
+
+        def build_scan_results(include_losers: bool) -> tuple[list[ScanResult], int, int]:
+            local_results: list[ScanResult] = []
+            skipped_missing_metadata_local = 0
+            included_unverified_metadata_local = 0
+
+            for item_id, snapshots in grouped.items():
+                item = session.get(Item, item_id)
+                if item is None:
                     continue
-                else:
-                    included_unverified_metadata += 1
-            if len(snapshots) < 2:
-                continue
+                if app_settings.non_commodity_only and item.is_commodity:
+                    continue
+                if app_settings.non_commodity_only and item_has_missing_metadata(item):
+                    if item_is_noncommodity_trusted(item):
+                        pass
+                    elif metadata_configured:
+                        skipped_missing_metadata_local += 1
+                        continue
+                    else:
+                        included_unverified_metadata_local += 1
+                if len(snapshots) < 2:
+                    continue
 
-            buy_snapshot = select_cheapest_buy_snapshot(snapshots)
-            best_candidate, best_score = select_best_sell_snapshot(
-                item,
-                buy_snapshot,
-                snapshots,
-                app_settings,
-                payload.include_losers,
-                history_by_realm=history_by_item.get(item_id),
-            )
+                buy_snapshot = select_cheapest_buy_snapshot(snapshots)
+                best_candidate, best_score = select_best_sell_snapshot(
+                    item,
+                    buy_snapshot,
+                    snapshots,
+                    app_settings,
+                    include_losers,
+                    history_by_realm=history_by_item.get(item_id),
+                )
 
-            if best_candidate is None or best_score is None:
-                continue
+                if best_candidate is None or best_score is None:
+                    continue
 
-            result = ScanResult(
-                scan_session_id=scan_session.id,
-                item_id=item_id,
-                cheapest_buy_realm=buy_snapshot.realm,
-                cheapest_buy_price=buy_snapshot.lowest_price or 0,
-                best_sell_realm=best_candidate.realm,
-                best_sell_price=best_score.recommended_sell_price,
-                estimated_profit=best_score.estimated_profit,
-                roi=best_score.roi,
-                confidence_score=best_score.confidence_score,
-                sellability_score=best_score.sellability_score,
-                liquidity_score=best_score.liquidity_score,
-                volatility_score=best_score.volatility_score,
-                bait_risk_score=best_score.bait_risk_score,
-                final_score=best_score.final_score,
-                turnover_label=best_score.turnover_label,
-                score_provenance_json=best_score.score_provenance,
-                explanation=best_score.explanation,
-                has_stale_data=best_score.has_stale_data,
-                is_risky=best_score.is_risky,
-            )
-            results.append(result)
+                local_results.append(
+                    ScanResult(
+                        scan_session_id=scan_session.id,
+                        item_id=item_id,
+                        cheapest_buy_realm=buy_snapshot.realm,
+                        cheapest_buy_price=buy_snapshot.lowest_price or 0,
+                        best_sell_realm=best_candidate.realm,
+                        best_sell_price=best_score.recommended_sell_price,
+                        estimated_profit=best_score.estimated_profit,
+                        roi=best_score.roi,
+                        confidence_score=best_score.confidence_score,
+                        sellability_score=best_score.sellability_score,
+                        liquidity_score=best_score.liquidity_score,
+                        volatility_score=best_score.volatility_score,
+                        bait_risk_score=best_score.bait_risk_score,
+                        final_score=best_score.final_score,
+                        turnover_label=best_score.turnover_label,
+                        score_provenance_json=best_score.score_provenance,
+                        explanation=best_score.explanation,
+                        has_stale_data=best_score.has_stale_data,
+                        is_risky=best_score.is_risky,
+                    )
+                )
+
+            return local_results, skipped_missing_metadata_local, included_unverified_metadata_local
+
+        results, skipped_missing_metadata, included_unverified_metadata = build_scan_results(payload.include_losers)
+        if not results and grouped and not payload.include_losers:
+            results, skipped_missing_metadata, included_unverified_metadata = build_scan_results(True)
+            if results:
+                warning_parts.append(
+                    "No profitable flips cleared the current thresholds, so the scanner is showing the best-ranked listings instead."
+                )
 
         if skipped_missing_metadata:
             warning_parts.append(

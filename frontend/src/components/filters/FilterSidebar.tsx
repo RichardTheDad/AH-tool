@@ -17,6 +17,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Min profit
         <input
+          id="scanner-filter-min-profit"
+          name="minProfit"
           value={filters.minProfit}
           onChange={(event) => onChange({ minProfit: event.target.value })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -26,6 +28,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Min ROI
         <input
+          id="scanner-filter-min-roi"
+          name="minRoi"
           value={filters.minRoi}
           onChange={(event) => onChange({ minRoi: event.target.value })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -35,6 +39,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Max buy price
         <input
+          id="scanner-filter-max-buy-price"
+          name="maxBuyPrice"
           value={filters.maxBuyPrice}
           onChange={(event) => onChange({ maxBuyPrice: event.target.value })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -44,6 +50,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Min confidence
         <input
+          id="scanner-filter-min-confidence"
+          name="minConfidence"
           value={filters.minConfidence}
           onChange={(event) => onChange({ minConfidence: event.target.value })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -53,6 +61,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Category
         <select
+          id="scanner-filter-category"
+          name="category"
           value={filters.category}
           onChange={(event) => onChange({ category: event.target.value })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -68,6 +78,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Sort by
         <select
+          id="scanner-filter-sort-by"
+          name="sortBy"
           value={filters.sortBy}
           onChange={(event) => onChange({ sortBy: event.target.value as ScannerFilters["sortBy"] })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -82,6 +94,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       <label className="block text-sm text-slate-700">
         Sort direction
         <select
+          id="scanner-filter-sort-direction"
+          name="sortDirection"
           value={filters.sortDirection}
           onChange={(event) => onChange({ sortDirection: event.target.value as ScannerFilters["sortDirection"] })}
           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2"
@@ -92,11 +106,11 @@ export function FilterSidebar({ filters, onChange, categoryOptions }: FilterSide
       </label>
       <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
         Include stale data
-        <input type="checkbox" checked={filters.allowStale} onChange={(event) => onChange({ allowStale: event.target.checked })} />
+        <input id="scanner-filter-allow-stale" name="allowStale" type="checkbox" checked={filters.allowStale} onChange={(event) => onChange({ allowStale: event.target.checked })} />
       </label>
       <label className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
         Hide risky flips
-        <input type="checkbox" checked={filters.hideRisky} onChange={(event) => onChange({ hideRisky: event.target.checked })} />
+        <input id="scanner-filter-hide-risky" name="hideRisky" type="checkbox" checked={filters.hideRisky} onChange={(event) => onChange({ hideRisky: event.target.checked })} />
       </label>
     </aside>
   );
