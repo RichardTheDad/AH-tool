@@ -357,14 +357,9 @@ export function Scanner() {
                 });
               }}
               disabled={scanBlocked || scanMutation.isPending || scanRunning}
-              className="flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-full bg-ink px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {scanMutation.isPending || scanRunning ? (
-                <>
-                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Running{elapsedSeconds > 0 ? ` (${elapsedSeconds}s)` : ""}
-                </>
-              ) : "Run scan"}
+                Run scan
             </button>
             <button
               type="button"
