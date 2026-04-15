@@ -87,7 +87,7 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
   const gated = isEvidenceGated(result);
 
   return (
-    <div style={style} className="border-b border-slate-200 px-4 py-3">
+    <div style={style} className="overflow-hidden border-b border-slate-200 px-4 py-3">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -107,22 +107,24 @@ function Row({ index, style, results, onOpenProvenance }: RowComponentProps<{ re
           </div>
           <p className="mt-1 line-clamp-2 text-xs text-slate-600">{result.explanation}</p>
           {provenance ? (
-            <p className="mt-1 text-[11px] text-slate-500">
-              Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
-              {provenance.gateApplied ? " | evidence gate" : ""}
-              {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
+            <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+              <span className="min-w-0 truncate">
+                Signals L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
+                {provenance.gateApplied ? " | evidence gate" : ""}
+                {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
+              </span>
               {onOpenProvenance ? (
                 <button
                   type="button"
                   onClick={() => onOpenProvenance(result)}
-                  className="ml-2 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
+                  className="shrink-0 rounded-full border border-slate-300 px-2 py-0.5 text-[10px] font-semibold text-slate-700"
                 >
                   Details
                 </button>
               ) : null}
-            </p>
+            </div>
           ) : null}
-          <div className="mt-2 flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-nowrap gap-1 overflow-hidden">
             {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
             {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
             {gated ? <Badge tone="warning">Evidence gate</Badge> : null}
@@ -195,7 +197,7 @@ export function VirtualizedScannerList({ results, sortBy, sortDirection, onSortC
       <List
         style={{ height }}
         rowCount={results.length}
-        rowHeight={124}
+        rowHeight={156}
         rowComponent={Row}
         rowProps={{ results, onOpenProvenance }}
         overscanCount={6}
