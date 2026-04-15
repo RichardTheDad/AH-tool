@@ -4,6 +4,15 @@ import { Link } from "../components/common/Link";
 import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
+type PreviewRow = {
+  item: string;
+  buyRealm: string;
+  sellRealm: string;
+  profit: string;
+  roi: string;
+  confidence: string;
+};
+
 export function Homepage() {
   // This is a public page, not noindex
   useDocumentTitle("/", { 
@@ -13,125 +22,199 @@ export function Homepage() {
 
   const featureCards = [
     {
-      title: "Real-Time Analytics",
-      description: "Monitor auction house prices across tracked realms with fresh scan snapshots and cross-realm spread visibility.",
-      badge: "Live scan surface",
+      title: "Find profitable spreads fast",
+      description: "Compare buy and sell listings across realms to surface stronger arbitrage opportunities quickly.",
     },
     {
-      title: "Smart Filtering",
-      description: "Apply confidence, ROI, and risk filters to focus only on opportunities that fit your trading style.",
-      badge: "Preset-ready workflows",
+      title: "Filter out bad flips",
+      description: "Set ROI, profit, confidence, and risk thresholds to remove low-quality opportunities.",
     },
     {
-      title: "Realm Discovery",
-      description: "Identify high-opportunity realms from scanner output and suggested-realm insights without manual guesswork.",
-      badge: "Cross-realm edge",
+      title: "Spot stronger destination realms",
+      description: "See where demand and spread quality align so you can route flips to better sell-side markets.",
     },
   ];
 
   const steps = [
     {
-      title: "Connect and track realms",
-      description: "Enable the realms you trade in so scans can compare buy and sell edges across your market coverage.",
+      title: "Add realms",
+      description: "Select your buy and sell realms.",
     },
     {
-      title: "Set your quality bar",
-      description: "Tune minimum profit, ROI, confidence, and risk to fit your bankroll and posting strategy.",
+      title: "Set filters",
+      description: "Tune ROI, profit, and risk thresholds.",
     },
     {
-      title: "Scan and prioritize",
-      description: "Review ranked opportunities, inspect movement since last scan, and focus on the highest-signal flips first.",
+      title: "Scan opportunities",
+      description: "Rank higher-confidence flips.",
     },
     {
-      title: "Execute with context",
-      description: "Use realm-level pricing context and item details to post smarter and capture spread efficiently.",
+      title: "Execute flips",
+      description: "Use item context and post efficiently.",
+    },
+  ];
+
+  const previewRows: PreviewRow[] = [
+    {
+      item: "Stormscale Boots",
+      buyRealm: "Stormrage",
+      sellRealm: "Area 52",
+      profit: "12,400g",
+      roi: "31%",
+      confidence: "84",
+    },
+    {
+      item: "Siren's Ruby Ring",
+      buyRealm: "Tichondrius",
+      sellRealm: "Illidan",
+      profit: "9,850g",
+      roi: "24%",
+      confidence: "78",
+    },
+    {
+      item: "Runebound Chestplate",
+      buyRealm: "Frostmourne",
+      sellRealm: "Sargeras",
+      profit: "7,600g",
+      roi: "19%",
+      confidence: "72",
     },
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_15%_0%,rgba(213,173,109,0.16),transparent_34%),radial-gradient(circle_at_88%_12%,rgba(184,88,42,0.11),transparent_38%),linear-gradient(180deg,#fcf6eb_0%,#fffaf2_48%,#fffdf8_100%)]">
       <PublicHeader subtitle="Cross-realm scanner" secondaryCtaLabel="Documentation" secondaryCtaTo="/public/docs" />
 
-      <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-5 sm:px-6 lg:px-8">
         <Card
           variant="elevated"
           className="overflow-hidden"
-          title="A better scanner workflow for serious gold makers"
-          subtitle="Scan cross-realm opportunities, compare deltas between runs, and act on high-confidence flips faster."
+          title="Find cross-realm flips faster"
+          subtitle="Compare buy vs. sell realms, track price movement between scans, and focus on higher-confidence opportunities."
         >
-          <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid items-start gap-6 lg:grid-cols-[1fr_1.15fr]">
             <div className="space-y-4">
-              <p className="text-sm text-slate-700">
-                Azeroth Flip keeps market decisions crisp: ranked opportunities, confidence-weighted scoring, and clear movement between scans.
-                No bloated dashboards, just the signal you need to choose what to post next.
+              <p className="max-w-xl text-base leading-relaxed text-slate-700">
+                Azeroth Flip is built around scanner decisions: where to buy, where to sell, and which items still hold believable spread after fees and risk filters.
               </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Profit + ROI aware</span>
-                <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">Confidence scoring</span>
-                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">Risk filters</span>
-                <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">Realm comparison</span>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">Compare realms</span>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800">Rank by confidence</span>
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">Track scan deltas</span>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Link to="/login" variant="default">
-                  <Button variant="primary">Open scanner</Button>
+                  <Button variant="primary" size="lg">Open scanner</Button>
                 </Link>
                 <Link to="/public/docs" variant="default">
-                  <Button variant="secondary">Read docs</Button>
+                  <Button variant="secondary" size="lg">Read docs</Button>
                 </Link>
               </div>
             </div>
 
-            <div className="grid gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm">
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs uppercase tracking-label text-slate-500">Use case</p>
-                <p className="mt-1 font-medium text-ink">Find cross-realm buy/sell spreads quickly</p>
+            <section className="rounded-2xl border border-slate-200/90 bg-white p-3 shadow-sm">
+              <div className="mb-2 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-700">Static product preview</p>
+                  <p className="text-xs text-slate-600">Scanner-style row ranking</p>
+                </div>
+                <span className="rounded-full border border-slate-300 bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">Demo</span>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs uppercase tracking-label text-slate-500">Workflow</p>
-                <p className="mt-1 font-medium text-ink">Filter → scan → compare change summary → execute</p>
+
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="grid grid-cols-[1.9fr_1fr_1fr_1.2fr_0.9fr] gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600">
+                  <span>Item</span>
+                  <span>Buy</span>
+                  <span>Sell</span>
+                  <span>Profit / ROI</span>
+                  <span>Confidence</span>
+                </div>
+                {previewRows.map((row) => (
+                  <div key={row.item} className="grid grid-cols-[1.9fr_1fr_1fr_1.2fr_0.9fr] items-center gap-2 border-b border-slate-100 px-3 py-2 text-sm last:border-b-0">
+                    <span className="truncate pr-2 font-semibold text-ink">{row.item}</span>
+                    <span className="text-slate-700">{row.buyRealm}</span>
+                    <span className="text-slate-700">{row.sellRealm}</span>
+                    <span className="text-emerald-700">
+                      <span className="font-semibold">{row.profit}</span>
+                      <span className="ml-1 text-slate-500">{row.roi}</span>
+                    </span>
+                    <span>
+                      <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700">{row.confidence}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                <p className="text-xs uppercase tracking-label text-slate-500">Built for</p>
-                <p className="mt-1 font-medium text-ink">Repeatable decisions, not one-off guesswork</p>
+
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 sm:grid-cols-4">
+                <div>
+                  <p className="font-semibold text-ink">Tracked realms</p>
+                  <p>Configured in app</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink">Filter controls</p>
+                  <p>ROI, profit, risk</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink">Scan cadence</p>
+                  <p>Scheduled + manual</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-ink">Ranking model</p>
+                  <p>Confidence-aware</p>
+                </div>
               </div>
-            </div>
+            </section>
           </div>
         </Card>
 
-        <section className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-3 md:grid-cols-3">
           {featureCards.map((card) => (
             <Card key={card.title} title={card.title} className="h-full" variant="default">
-              <p className="mb-3 text-sm text-slate-700">{card.description}</p>
-              <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700">
-                {card.badge}
-              </span>
+              <p className="text-sm leading-relaxed text-slate-700">{card.description}</p>
             </Card>
           ))}
         </section>
 
-        <Card title="How the flow works" subtitle="Compact, repeatable loop from setup to execution.">
-          <div className="grid gap-2 md:grid-cols-2">
-            {steps.map((step, index) => (
-              <div key={step.title} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ember/30 bg-ember/10 text-xs font-semibold text-ember">
-                    {index + 1}
+        <Card title="How it works" subtitle="A compact loop you can repeat every scan cycle.">
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {steps.map((step, index) => (
+                <div key={step.title} className="relative rounded-xl border border-slate-200 bg-white px-3 py-3">
+                  {index < steps.length - 1 ? (
+                    <span className="pointer-events-none absolute -right-2 top-7 hidden text-amber-400 xl:inline">-&gt;</span>
+                  ) : null}
+                  <div className="mb-2 flex items-center gap-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ember/35 bg-ember/10 text-xs font-semibold text-ember">
+                      {index + 1}
+                    </div>
+                    <h3 className="font-display text-base font-semibold leading-tight text-ink">{step.title}</h3>
                   </div>
-                  <div>
-                    <h3 className="font-display text-sm font-semibold text-ink">{step.title}</h3>
-                    <p className="mt-1 text-xs text-slate-600">{step.description}</p>
-                  </div>
+                  <p className="text-xs leading-relaxed text-slate-600">{step.description}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-700">+</span>
+                  <span>Tracked realms</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-700">+</span>
+                  <span>Scanned items</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-700">+</span>
+                  <span>Last scan freshness</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-700">+</span>
+                  <span>Confidence-based ranking</span>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        </Card>
-
-        <Card variant="flat" className="border-slate-300" title="Designed for repeatable execution">
-          <p className="text-sm text-slate-700">
-            Public pages explain what the platform does. The authenticated workspace focuses on doing the work:
-            scan, compare, decide, and post. No duplicated marketing layers after login.
-          </p>
         </Card>
       </main>
     </div>
