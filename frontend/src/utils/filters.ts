@@ -7,11 +7,15 @@ function toSortValue(result: ScanResult, sortBy: ScannerFilters["sortBy"]) {
 function matchesFilters(result: ScanResult, filters: ScannerFilters) {
   const minProfit = Number(filters.minProfit || 0);
   const minRoi = Number(filters.minRoi || 0);
+  const minSpread = Number(filters.minSpread || 0);
+  const maxSpread = Number(filters.maxSpread || 0);
   const maxBuyPrice = Number(filters.maxBuyPrice || 0);
   const minConfidence = Number(filters.minConfidence || 0);
 
   if (minProfit && result.estimated_profit < minProfit) return false;
   if (minRoi && result.roi < minRoi) return false;
+  if (minSpread && Number(result.spread_percent ?? 0) < minSpread) return false;
+  if (maxSpread && Number(result.spread_percent ?? 0) > maxSpread) return false;
   if (maxBuyPrice && result.cheapest_buy_price > maxBuyPrice) return false;
   if (minConfidence && result.confidence_score < minConfidence) return false;
   if (filters.hideRisky && result.is_risky) return false;

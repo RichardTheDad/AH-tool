@@ -397,6 +397,8 @@ export interface ListingImportResponse {
 export interface ScannerFilters {
   minProfit: string;
   minRoi: string;
+  minSpread: string;
+  maxSpread: string;
   maxBuyPrice: string;
   minConfidence: string;
   category: string;

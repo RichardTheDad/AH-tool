@@ -29,6 +29,8 @@ export function useScannerFilters() {
   const filters: ScannerFilters = {
     minProfit: searchParams.get("minProfit") ?? "",
     minRoi: searchParams.get("minRoi") ?? "",
+    minSpread: searchParams.get("minSpread") ?? "",
+    maxSpread: searchParams.get("maxSpread") ?? "",
     maxBuyPrice: searchParams.get("maxBuyPrice") ?? "",
     minConfidence: searchParams.get("minConfidence") ?? "",
     category: searchParams.get("category") ?? "",

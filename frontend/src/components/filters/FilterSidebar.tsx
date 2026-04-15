@@ -95,6 +95,24 @@ export function FilterSidebar({ filters, onChange, categoryOptions, realmOptions
             </option>
           ))}
         </Select>
+        <Input
+          id="scanner-filter-min-spread"
+          name="minSpread"
+          type="number"
+          value={filters.minSpread}
+          onChange={(event) => onChange({ minSpread: event.target.value })}
+          placeholder="Min spread (ratio, e.g. 0.20)"
+          isCompact
+        />
+        <Input
+          id="scanner-filter-max-spread"
+          name="maxSpread"
+          type="number"
+          value={filters.maxSpread}
+          onChange={(event) => onChange({ maxSpread: event.target.value })}
+          placeholder="Max spread (ratio, e.g. 2.00)"
+          isCompact
+        />
         <Select
           id="scanner-filter-buy-realm"
           name="buyRealm"

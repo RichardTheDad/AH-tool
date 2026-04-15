@@ -59,6 +59,8 @@ function applyPresetToFilterState(preset: ScanPreset) {
   return {
     minProfit: preset.min_profit?.toString() ?? "",
     minRoi: preset.min_roi?.toString() ?? "",
+    minSpread: "",
+    maxSpread: "",
     maxBuyPrice: preset.max_buy_price?.toString() ?? "",
     minConfidence: preset.min_confidence?.toString() ?? "",
     category: preset.category_filter ?? "",
@@ -484,7 +486,7 @@ export function Scanner() {
         onChange={handleFilterChange} 
         categoryOptions={categoryOptions}
         realmOptions={realmOptions}
-        onReset={() => updateFilters({ minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", category: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
+        onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
       />
 
       <div className="space-y-4">
