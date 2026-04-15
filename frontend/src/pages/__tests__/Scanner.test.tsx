@@ -9,7 +9,6 @@ vi.mock("../../api/scans", () => ({
   getScanHistory: vi.fn(),
   getScanReadiness: vi.fn(),
   getScanStatus: vi.fn(),
-  runScan: vi.fn(),
 }));
 
 vi.mock("../../api/settings", () => ({
@@ -33,7 +32,7 @@ vi.mock("../../api/presets", () => ({
   getPresets: vi.fn(),
 }));
 
-import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../../api/scans";
+import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../../api/scans";
 import { refreshMissingMetadata } from "../../api/items";
 import { getProviderStatus } from "../../api/providers";
 import { getRealms } from "../../api/realms";
@@ -104,13 +103,6 @@ const scanStatusResponse = {
 
 describe("Scanner page", () => {
   beforeEach(() => {
-    vi.mocked(runScan).mockResolvedValue({
-      id: 1,
-      provider_name: "file_import",
-      generated_at: new Date().toISOString(),
-      result_count: 0,
-      results: [],
-    });
     vi.mocked(refreshMissingMetadata).mockResolvedValue({ queued_count: 0, warnings: [] });
     vi.mocked(getProviderStatus).mockResolvedValue(providerResponse);
     vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);

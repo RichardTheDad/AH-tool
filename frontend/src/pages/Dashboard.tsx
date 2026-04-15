@@ -117,7 +117,7 @@ export function Dashboard() {
               onSortChange={() => undefined}
             />
           ) : (
-            <EmptyState title="No scan results yet" description="Run the scanner to pull live Blizzard listings into your local cache, or import listing snapshots as a fallback." />
+            <EmptyState title="No scan results yet" description="Scheduled scanner cycles pull live Blizzard listings into your local cache automatically." />
           )}
         </Card>
 

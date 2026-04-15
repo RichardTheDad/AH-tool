@@ -246,7 +246,7 @@ export function Homepage() {
           <div className="mt-3 rounded-lg border border-white/10 bg-zinc-900/25 px-3 py-2">
             <div className="grid gap-2 text-xs text-zinc-300 sm:grid-cols-2 lg:grid-cols-4">
               <p><span className="font-semibold text-zinc-100">Capability:</span> Compare buy vs. sell realms</p>
-              <p><span className="font-semibold text-zinc-100">Coverage:</span> Scheduled and manual scans</p>
+              <p><span className="font-semibold text-zinc-100">Coverage:</span> Scheduled scans</p>
               <p><span className="font-semibold text-zinc-100">Ranking:</span> Confidence-aware scoring</p>
               <p><span className="font-semibold text-zinc-100">Control:</span> Filter by profit, ROI, and risk</p>
             </div>

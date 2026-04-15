@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
-import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus, runScan } from "../api/scans";
+import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../api/scans";
 import { applyTuningPreset, getTuningAudit } from "../api/settings";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
@@ -155,15 +155,6 @@ export function Scanner() {
       queryClient.invalidateQueries({ queryKey: ["settings", "tuning-audit"] });
     },
   });
-  const runScanMutation = useMutation({
-    mutationFn: runScan,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["scans", "latest"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "history"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "status"] });
-      queryClient.invalidateQueries({ queryKey: ["scans", "readiness"] });
-    },
-  });
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
   const activeProvider = providers.find((p) => p.name === "blizzard_auctions") ?? providers[0] ?? null;
   const readinessLoaded = Boolean(readinessQuery.data);
@@ -202,7 +193,6 @@ export function Scanner() {
   const notEnoughRealmCoverage = readinessLoaded && readiness.enabled_realm_count > 0 && readiness.realms_with_data < 2;
   const canBootstrapFromLiveProvider = !!activeProvider?.supports_live_fetch && activeProvider.available;
   const scanRunning = scanStatus?.status === "running";
-  const runDisabled = scanRunning || runScanMutation.isPending || noEnabledRealms;
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -261,7 +251,6 @@ export function Scanner() {
   const activePreset =
     (presetsQuery.data ?? []).find((preset) => preset.id === selectedPresetId) ??
     (selectedPresetId === null ? inferredPreset : null);
-  const scopeActive = Boolean(filters.buyRealm || filters.sellRealm || activePreset?.buy_realms?.length || activePreset?.sell_realms?.length);
   const latestWarningText = latest?.warning_text?.toLowerCase() ?? "";
   const showingPersistedResults = Boolean(persistedScan && latest && persistedScan.id !== latest.id && persistedScan.result_count > 0);
   const loadingPersistedScan = Boolean(!latest?.result_count && fallbackScanId && fallbackScanQuery.isLoading && !fallbackScanQuery.data);
@@ -279,7 +268,7 @@ export function Scanner() {
       ? {
           title: canBootstrapFromLiveProvider ? "No local listing cache yet" : "No listing data found",
           description: canBootstrapFromLiveProvider
-            ? "Run the scan to pull fresh Blizzard listings into the local cache."
+            ? "Automatic scheduled scans will pull fresh Blizzard listings into the local cache."
             : "Live Blizzard listing refresh is not available right now. Check your Blizzard API credentials in Settings.",
         }
       : notEnoughRealmCoverage
@@ -289,7 +278,7 @@ export function Scanner() {
           }
       : {
           title: "Scanner is empty",
-          description: "Run the scan to pull fresh listings from the Blizzard Auction House.",
+          description: "Wait for the next scheduled scan cycle to pull fresh listings from the Blizzard Auction House.",
         };
 
   const diffSummary = (() => {
@@ -498,41 +487,9 @@ export function Scanner() {
           nextScheduledScanLabel={nextScheduledScanLabel}
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 backdrop-blur-xl">
-          <div className="text-sm text-zinc-300">
-            {scopeActive
-              ? "Running now uses your selected buy/sell scope. Clear realm filters for broad discovery mode."
-              : "Running now uses broad discovery mode across enabled realms."}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              disabled={runDisabled}
-              onClick={() => {
-                const payload: Parameters<typeof runScan>[0] = {
-                  refresh_live: canBootstrapFromLiveProvider,
-                  include_losers: false,
-                };
-                if (activePreset?.id) {
-                  payload.preset_id = activePreset.id;
-                }
-                if (filters.buyRealm) {
-                  payload.buy_realms = [filters.buyRealm];
-                }
-                if (filters.sellRealm) {
-                  payload.sell_realms = [filters.sellRealm];
-                }
-                runScanMutation.mutate(payload);
-              }}
-            >
-              {runScanMutation.isPending ? "Running scan..." : "Run scan now"}
-            </Button>
-          </div>
+        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300 backdrop-blur-xl">
+          Scanner runs automatically on the scheduler. Use your personal settings and filters to control what you see.
         </div>
-
-        {runScanMutation.error ? (
-          <ErrorState message={(runScanMutation.error as Error).message} />
-        ) : null}
 
         {/* Preset selection buttons */}
         {(presetsQuery.data ?? []).length > 0 && (
@@ -712,7 +669,7 @@ export function Scanner() {
             />
           )
         ) : (
-          <EmptyState title="Scanner is empty" description="Run the scan to pull fresh listings from the Blizzard Auction House." />
+          <EmptyState title="Scanner is empty" description="Wait for the next scheduled scan cycle to pull fresh listings from the Blizzard Auction House." />
         )}
 
         {previousScanQuery.isLoading ? (

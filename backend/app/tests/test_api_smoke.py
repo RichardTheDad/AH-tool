@@ -152,6 +152,12 @@ def test_tuning_preset_cooldown_and_audit_history(client) -> None:
     assert entries[1]["blocked"] is False
 
 
+def test_manual_scan_endpoint_is_disabled(client) -> None:
+    response = client.post("/scans/run", json={"refresh_live": False, "include_losers": False})
+    assert response.status_code == 403
+    assert "scheduler-driven" in response.json()["detail"].lower()
+
+
 def test_duplicate_import_rows_are_skipped_gracefully(client) -> None:
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
 

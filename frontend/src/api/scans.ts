@@ -1,14 +1,6 @@
 import { apiRequest } from "./client";
 import type { LatestScanResponse, ScanCalibrationSummary, ScanHistoryResponse, ScanReadiness, ScanRuntimeStatus, ScanSession } from "../types/models";
 
-export interface RunScanPayload {
-  preset_id?: number;
-  refresh_live?: boolean;
-  include_losers?: boolean;
-  buy_realms?: string[];
-  sell_realms?: string[];
-}
-
 function normalizeScanSession(session: ScanSession | null | undefined): ScanSession | null {
   if (!session) {
     return null;
@@ -19,13 +11,6 @@ function normalizeScanSession(session: ScanSession | null | undefined): ScanSess
     result_count: typeof session.result_count === "number" ? session.result_count : Array.isArray(session.results) ? session.results.length : 0,
     results: Array.isArray(session.results) ? session.results : [],
   };
-}
-
-export function runScan(payload: RunScanPayload) {
-  return apiRequest<ScanSession>("/scans/run", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  }).then((session) => normalizeScanSession(session) as ScanSession);
 }
 
 export function getLatestScan(limit?: number) {
