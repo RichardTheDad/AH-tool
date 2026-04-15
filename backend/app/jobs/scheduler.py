@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.core.config import get_settings
 from app.jobs.refresh_jobs import run_refresh_cycle
+
+
+logger = logging.getLogger(__name__)
 
 
 def _last_scan_session_at() -> datetime | None:
@@ -40,29 +44,52 @@ class SchedulerManager:
             self.scheduler.shutdown(wait=False)
 
     def reconfigure(self) -> None:
+        # Policy:
+        # 1) First eligibility check runs 1 minute after backend startup.
+        # 2) After each check, schedule the next check exactly when the 65-minute
+        #    scan eligibility window opens (based on the latest completed scan).
+        now = datetime.now(timezone.utc)
+        self._schedule_next_check(now + timedelta(minutes=1))
+
+    def _schedule_next_check(self, run_at: datetime) -> None:
+        self.scheduler.add_job(
+            self._run_refresh_cycle_if_due,
+            "date",
+            id="refresh-cycle",
+            replace_existing=True,
+            run_date=run_at,
+        )
+
+    def _run_refresh_cycle_if_due(self) -> None:
         interval = get_settings().scheduler_refresh_interval_minutes
         now = datetime.now(timezone.utc)
 
         try:
-            last = _last_scan_session_at()
+            last_before = _last_scan_session_at()
         except Exception:
-            last = None
+            last_before = None
 
-        if last is None or (now - last) >= timedelta(minutes=interval):
-            # Either no scan has ever run, or we've been down long enough — fire immediately.
-            next_run_time = now
+        should_run = last_before is None or (now - last_before) >= timedelta(minutes=interval)
+        if should_run:
+            logger.info("Scheduler eligibility check passed; starting refresh cycle.")
+            run_refresh_cycle()
         else:
-            # Resume the window: schedule for when the next cycle would naturally be due.
-            next_run_time = last + timedelta(minutes=interval)
+            logger.info("Scheduler eligibility check skipped; next run opens at %s.", (last_before + timedelta(minutes=interval)).isoformat())
 
-        self.scheduler.add_job(
-            run_refresh_cycle,
-            "interval",
-            id="refresh-cycle",
-            replace_existing=True,
-            minutes=interval,
-            next_run_time=next_run_time,
-        )
+        try:
+            last_after = _last_scan_session_at()
+        except Exception:
+            last_after = None
+
+        if last_after is None:
+            # If we still have no completed scan timestamp, retry eligibility in 1 minute.
+            next_run_time = now + timedelta(minutes=1)
+        else:
+            eligible_at = last_after + timedelta(minutes=interval)
+            # Never schedule in the past to avoid immediate tight loops.
+            next_run_time = eligible_at if eligible_at > now else now + timedelta(minutes=1)
+
+        self._schedule_next_check(next_run_time)
 
     def status(self) -> dict[str, object]:
         refresh_job = self.scheduler.get_job("refresh-cycle")
