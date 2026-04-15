@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -8,6 +9,9 @@ export function ResetPassword() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Ensure this route is marked as noindex
+  useDocumentTitle("/reset-password");
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

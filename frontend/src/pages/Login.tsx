@@ -2,12 +2,16 @@ import { type FormEvent, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function Login() {
   const location = useLocation();
   const navigate = useNavigate();
   const { session } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+
+  // Ensure this route is marked as noindex
+  useDocumentTitle("/login");
 
   useEffect(() => {
     if (session) navigate("/", { replace: true });

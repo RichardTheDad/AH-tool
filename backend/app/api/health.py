@@ -1,3 +1,10 @@
+import logging
+from fastapi import Request
+
+from __future__ import annotations
+from app.core.logging import is_search_crawler
+
+logger = logging.getLogger(__name__)
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -40,7 +47,16 @@ def require_health_diagnostics_access(
 
 
 @router.get("/health")
-def health_check(db: Session = Depends(get_db)) -> dict[str, object]:
+def health_check(
+    db: Session = Depends(get_db),
+    request: Request | None = None
+) -> dict[str, object]:
+    # Log crawler access for SEO monitoring (Phase 6)
+    if request and is_search_crawler(request.headers.get("user-agent")):
+        logger.info(
+            f"Crawler health check: {request.headers.get('user-agent')} from {request.client.host if request.client else 'unknown'}"
+        )
+
     try:
         db.execute(text("SELECT 1"))
         db_status = "ok"

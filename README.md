@@ -1,12 +1,45 @@
 # AzerothFlipLocal
 
+**Real-time World of Warcraft auction house monitoring and market analysis platform for gold traders.**
+
+Find profitable flipping opportunities by analyzing market trends and price patterns across WoW realms.
+
+- **Public Documentation**: [https://azerothfliplocal.com/public/docs](https://azerothfliplocal.com/public/docs)
+- **Homepage**: [https://azerothfliplocal.com/home](https://azerothfliplocal.com/home)
+- **Privacy**: All user data is private and account-protected. No user information is shared or sold.
+
+## Product Features
+
+- **Real-Time Scanner**: Live auction house analysis with automated profit opportunity detection
+- **Smart Filtering**: Customizable profit targets, price thresholds, and item-quality filters
+- **Multi-Realm Support**: Track and manage multiple World of Warcraft realms independently
+- **Preset System**: Save and manage scanner configurations for quick switching between strategies
+- **Market Insights**: Suggested realms based on market opportunity density and volatility
+- **Item Details**: Rich item metadata including pricing history and trend analysis
+- **Data Freshness**: Hourly market scans tied to realm configurations (Blizzard API source)
+
+## Data & Trust
+
+- All data is sourced from official Blizzard APIs (auction house, items, realm status)
+- No fake listings, demo data, or market fabrication
+- Scan results reflect the most recent local snapshot (typically within 1 hour)
+- Private user data (realms, filters, results) is never exposed or shared
+- See [public documentation](https://azerothfliplocal.com/public/docs) for full trust boundaries and data freshness details
+
+## Technology Stack
+
+- **Frontend**: React 18, TypeScript, Tailwind CSS, TanStack Query, Vite
+- **Backend**: FastAPI, SQLAlchemy, Pydantic, APScheduler
+- **Database**: SQLite 
+- **Deployment**: Fly.io (backend), Vercel (frontend SPA)
+
+---
+
+## Developer Documentation
+
+### API-Driven Architecture
+
 API-driven World of Warcraft flipping analysis focused on current non-commodity opportunities across a user-managed realm list.
-
-## Stack
-
-- Frontend: React, Vite, TypeScript, Tailwind, TanStack Query
-- Backend: FastAPI, SQLAlchemy, Pydantic, APScheduler
-- Database: SQLite 
 
 ## Real Data Model
 

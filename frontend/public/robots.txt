@@ -1,0 +1,41 @@
+# AzerothFlipLocal Crawl Policy
+# Allow crawlers to index public pages
+# Protect private user data and authenticated app routes
+
+# Default rules for all bots
+User-agent: *
+# Allow public routes
+Allow: /home
+Allow: /public/
+Allow: /login
+Allow: /reset-password
+# Disallow private app routes (behind auth)
+Disallow: /app
+
+# Allow specific search engines
+User-agent: Googlebot
+Allow: /home
+Allow: /public/
+Allow: /login
+Allow: /reset-password
+Disallow: /app
+
+User-agent: Bingbot
+Allow: /home
+Allow: /public/
+Allow: /login
+Allow: /reset-password
+Disallow: /app
+
+User-agent: Slurp
+Allow: /home
+Allow: /public/
+Allow: /login
+Allow: /reset-password
+Disallow: /app
+
+# Sitemap location (served from static files)
+Sitemap: https://azerothfliplocal.com/sitemap.xml
+
+# Crawl delay to prevent overload (5 second delay)
+Crawl-delay: 5
