@@ -6,9 +6,13 @@ declare const _default: {
                 ink: string;
                 ember: string;
                 brass: string;
-                moss: string;
-                slate: string;
                 parchment: string;
+            };
+            letterSpacing: {
+                display: string;
+                label: string;
+                detail: string;
+                link: string;
             };
             boxShadow: {
                 card: string;

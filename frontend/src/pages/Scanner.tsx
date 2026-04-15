@@ -12,7 +12,7 @@ import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
 import { useScannerFilters } from "../hooks/useScannerFilters";
-import type { ScanPreset, ScanResult } from "../types/models";
+import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus } from "../types/models";
 import { filterScanResults } from "../utils/filters";
 import { formatDateTime } from "../utils/format";
 import { readinessTextColor } from "../utils/statusStyles";
@@ -141,21 +141,6 @@ export function Scanner() {
     queryFn: () => getScan(fallbackScanId as number, 2000),
     enabled: typeof fallbackScanId === "number",
   });
-  const coreQueriesLoading =
-    scanQuery.isLoading ||
-    scanHistoryQuery.isLoading ||
-    readinessQuery.isLoading ||
-    providersQuery.isLoading ||
-    presetsQuery.isLoading ||
-    realmsQuery.isLoading;
-  const coreQueriesErrored =
-    scanQuery.error ||
-    scanHistoryQuery.error ||
-    readinessQuery.error ||
-    providersQuery.error ||
-    presetsQuery.error ||
-    realmsQuery.error;
-
   const scanMutation = useMutation({
     mutationFn: runScan,
     onSettled: () => setScanStartedAt(null),
@@ -193,13 +178,41 @@ export function Scanner() {
   });
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
   const activeProvider = providers.find((p) => p.name === "blizzard_auctions") ?? providers[0] ?? null;
-  const readiness = readinessQuery.data;
-  const scanStatus = scanStatusQuery.data;
-  const noEnabledRealms = !!readiness && readiness.enabled_realm_count === 0;
-  const noUsableListingData = !!readiness && readiness.enabled_realm_count > 0 && readiness.realms_with_data === 0;
-  const notEnoughRealmCoverage = !!readiness && readiness.enabled_realm_count > 0 && readiness.realms_with_data < 2;
+  const readinessLoaded = Boolean(readinessQuery.data);
+  const readiness: ScanReadiness =
+    readinessQuery.data ??
+    {
+      status: "caution",
+      ready_for_scan: true,
+      message: readinessQuery.isLoading
+        ? "Checking scanner readiness..."
+        : "Readiness telemetry is unavailable right now. You can still run a scan.",
+      enabled_realm_count: 0,
+      realms_with_data: 0,
+      realms_with_fresh_data: 0,
+      unique_item_count: 0,
+      items_missing_metadata: 0,
+      stale_realm_count: 0,
+      missing_realms: [],
+      stale_realms: [],
+      oldest_snapshot_at: null,
+      latest_snapshot_at: null,
+      realms: [],
+    };
+  const scanStatus: ScanRuntimeStatus =
+    scanStatusQuery.data ??
+    {
+      status: "idle",
+      message: scanStatusQuery.isLoading ? "Checking scan runtime status..." : "Scan runtime status unavailable.",
+      provider_name: null,
+      started_at: null,
+      finished_at: null,
+    };
+  const noEnabledRealms = readinessLoaded && readiness.enabled_realm_count === 0;
+  const noUsableListingData = readinessLoaded && readiness.enabled_realm_count > 0 && readiness.realms_with_data === 0;
+  const notEnoughRealmCoverage = readinessLoaded && readiness.enabled_realm_count > 0 && readiness.realms_with_data < 2;
   const canBootstrapFromLiveProvider = !!activeProvider?.supports_live_fetch && activeProvider.available;
-  const scanBlocked = noEnabledRealms || (!readiness?.ready_for_scan && !canBootstrapFromLiveProvider);
+  const scanBlocked = noEnabledRealms || (readinessLoaded && !readiness.ready_for_scan && !canBootstrapFromLiveProvider);
   const scanRunning = scanStatus?.status === "running";
   const isActivelyScanning = scanMutation.isPending || scanRunning;
   const elapsedSeconds = scanStartedAt != null ? Math.floor((nowMs - scanStartedAt) / 1000) : 0;
@@ -210,14 +223,6 @@ export function Scanner() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
-
-  if (coreQueriesLoading) {
-    return <LoadingState label="Loading scanner..." />;
-  }
-
-  if (coreQueriesErrored || !readiness || !scanStatus) {
-    return <ErrorState message="Scanner data could not be loaded." />;
-  }
 
   function handleFilterChange(next: Parameters<typeof updateFilters>[0]) {
     const changedKeys = Object.keys(next);
