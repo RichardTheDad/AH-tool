@@ -44,7 +44,7 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
               <Button
                 variant="primary"
                 size="sm"
-                className="border-orange-500 bg-orange-500 text-white shadow-[0_0_12px_rgba(249,115,22,0.25)] hover:bg-orange-400"
+                className="border-orange-500 bg-orange-500 text-white shadow-[0_0_28px_rgba(249,115,22,0.35)] hover:bg-orange-400"
                 onClick={() => navigate("/app")}
               >
                 Open app
