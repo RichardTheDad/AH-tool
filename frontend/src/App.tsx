@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { AppErrorBoundary } from "./components/common/AppErrorBoundary";
 import { AppShell } from "./components/layout/AppShell";
+import { Account } from "./pages/Account";
 import { ItemDetail } from "./pages/ItemDetail";
 import { Login } from "./pages/Login";
 import { Presets } from "./pages/Presets";
@@ -30,6 +31,7 @@ function AppRoutes() {
           <Route path="/suggested-realms" element={<ProtectedRoute><SuggestedRealms /></ProtectedRoute>} />
           <Route path="/realms" element={<ProtectedRoute guestAllowed><Realms /></ProtectedRoute>} />
           <Route path="/presets" element={<ProtectedRoute guestAllowed><Presets /></ProtectedRoute>} />
+          <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
           <Route path="/items/:itemId" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
         </Routes>
       </AppShell>

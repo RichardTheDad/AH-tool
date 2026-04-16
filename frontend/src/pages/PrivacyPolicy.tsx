@@ -45,6 +45,7 @@ export function PrivacyPolicy() {
               <p>Passwords are handled by Supabase Authentication, not by our backend application.</p>
               <p>Supabase stores passwords as one-way salted password hashes, not as decryptable plain text. This means the original password cannot be read back from storage.</p>
               <p>Password submissions are sent over HTTPS/TLS in transit, and our application database does not store reusable password values.</p>
+              <p>Signed-in users can change their password from the Account page in the app.</p>
               <p>Discord sign-in is handled through Supabase OAuth and Discord's authorization flow.</p>
             </div>
           </Card>
@@ -70,7 +71,7 @@ export function PrivacyPolicy() {
           <div className="space-y-3 text-sm leading-6 text-zinc-300">
             <p>We do not sell personal data and do not share account information for advertising.</p>
             <p>Operational scan data is retained to keep the scanner useful and is pruned automatically over time. Account-specific saved data is not exposed publicly.</p>
-            <p>If you want account data removed, contact the operator or remove your account through the authentication provider flow where available.</p>
+            <p>Signed-in users can permanently delete their account from the Account page. Deletion removes account data from this app and requests account removal from Supabase Authentication.</p>
           </div>
         </Card>
       </main>

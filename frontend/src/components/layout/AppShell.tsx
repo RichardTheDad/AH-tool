@@ -9,6 +9,7 @@ const navItems = [
   { to: "/app/realms", label: "Realms", guestAllowed: true },
   { to: "/app/suggested-realms", label: "Suggested Realms", guestAllowed: false },
   { to: "/app/presets", label: "Presets", guestAllowed: true },
+  { to: "/app/account", label: "Account", guestAllowed: false },
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -62,7 +63,9 @@ export function AppShell({ children }: PropsWithChildren) {
                   <img src="/kofi-logo.svg" alt="Ko-fi" className="h-4 w-4" />
                   Support on Ko-fi
                 </Link>
-                <span className="text-xs text-zinc-400 hidden sm:inline">{user.email}</span>
+                <Button variant="secondary" size="sm" onClick={() => navigate("/app/account")}>
+                  Account
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"

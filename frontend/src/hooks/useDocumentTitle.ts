@@ -58,6 +58,11 @@ const ROUTE_METADATA: Record<string, DocumentMetadata> = {
     description: "Create and manage scanner filter presets.",
     noindex: true,
   },
+  "/app/account": {
+    title: "Account - Azeroth Flip",
+    description: "Manage your Azeroth Flip account security and deletion options.",
+    noindex: true,
+  },
   "/login": {
     title: "Login - Azeroth Flip",
     description: "Sign in to your Azeroth Flip account.",

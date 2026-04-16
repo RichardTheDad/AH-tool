@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     tsm_region_id: int | None = None
     supabase_url: str = ""
     supabase_jwt_secret: str = ""
+    supabase_service_role_key: str = ""
     enforce_auth_startup_validation: bool = True
     restrict_health_diagnostics: bool = False
     health_diagnostics_api_key: str = ""
