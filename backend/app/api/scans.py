@@ -1,3 +1,7 @@
+from threading import Lock
+from time import monotonic
+from typing import Callable, TypeVar
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
@@ -23,6 +27,22 @@ from app.services.scan_service import get_latest_scan, get_scan_history, get_sca
 
 router = APIRouter(tags=["scans"])
 
+_T = TypeVar("_T")
+_CACHE_LOCK = Lock()
+_CACHE: dict[str, tuple[float, object]] = {}
+
+
+def _read_through_cache(key: str, ttl_seconds: float, loader: Callable[[], _T]) -> _T:
+    now = monotonic()
+    with _CACHE_LOCK:
+        cached = _CACHE.get(key)
+        if cached and now - cached[0] <= ttl_seconds:
+            return cached[1]  # type: ignore[return-value]
+    value = loader()
+    with _CACHE_LOCK:
+        _CACHE[key] = (now, value)
+    return value
+
 
 @router.post("/scans/run", response_model=ScanSessionRead)
 @limiter.limit("1/minute")
@@ -38,46 +58,65 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
 
 
 @router.get("/scans/latest", response_model=ScanLatestResponse)
+@limiter.limit("30/minute")
 def latest_scan(
+    request: Request,
     limit: int | None = Query(default=None, ge=1, le=2000),
     db: Session = Depends(get_db),
     current_user: str | None = Depends(get_optional_user),
 ) -> ScanLatestResponse:
+    del request
     del current_user
-    return ScanLatestResponse(latest=get_latest_scan(db, SYSTEM_USER_ID, limit=limit))
+    cache_key = f"scans.latest:{limit}"
+    return _read_through_cache(cache_key, 20.0, lambda: ScanLatestResponse(latest=get_latest_scan(db, SYSTEM_USER_ID, limit=limit)))
 
 
 @router.get("/scans/history", response_model=ScanHistoryResponse)
-def scan_history(db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanHistoryResponse:
+@limiter.limit("30/minute")
+def scan_history(request: Request, db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanHistoryResponse:
+    del request
     del current_user
-    return ScanHistoryResponse(scans=get_scan_history(db, SYSTEM_USER_ID))
+    return _read_through_cache("scans.history", 20.0, lambda: ScanHistoryResponse(scans=get_scan_history(db, SYSTEM_USER_ID)))
 
 
 @router.get("/scans/calibration", response_model=ScanCalibrationSummaryRead)
-def scan_calibration(db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanCalibrationSummaryRead:
+@limiter.limit("18/minute")
+def scan_calibration(request: Request, db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanCalibrationSummaryRead:
+    del request
     del current_user
-    return get_calibration_summary(db, SYSTEM_USER_ID, days=30)
+    return _read_through_cache("scans.calibration", 20.0, lambda: get_calibration_summary(db, SYSTEM_USER_ID, days=30))
 
 
 @router.get("/scans/readiness", response_model=ScanReadinessRead)
-def scan_readiness(db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanReadinessRead:
+@limiter.limit("12/minute")
+def scan_readiness(request: Request, db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanReadinessRead:
+    del request
     del current_user
-    realms = get_all_enabled_realm_names(db)
-    return get_scan_readiness(db, SYSTEM_USER_ID, realms=realms)
+    def _load() -> ScanReadinessRead:
+        realms = get_all_enabled_realm_names(db)
+        return get_scan_readiness(db, SYSTEM_USER_ID, realms=realms)
+
+    return _read_through_cache("scans.readiness", 45.0, _load)
 
 
 @router.get("/scans/status", response_model=ScanRuntimeStatusRead)
-def scan_status(current_user: str | None = Depends(get_optional_user)) -> ScanRuntimeStatusRead:
+@limiter.limit("30/minute")
+def scan_status(request: Request, current_user: str | None = Depends(get_optional_user)) -> ScanRuntimeStatusRead:
+    del request
     del current_user
-    runtime_state = get_scan_runtime_state().__dict__
-    scheduler_status = scheduler_manager.status()
-    refresh_cycle = scheduler_status.get("refresh_cycle") if isinstance(scheduler_status, dict) else None
-    next_scheduled_at = refresh_cycle.get("next_run_time") if isinstance(refresh_cycle, dict) else None
-    payload = {
-        **runtime_state,
-        "next_scheduled_at": next_scheduled_at,
-    }
-    return ScanRuntimeStatusRead.model_validate(payload)
+
+    def _load() -> ScanRuntimeStatusRead:
+        runtime_state = get_scan_runtime_state().__dict__
+        scheduler_status = scheduler_manager.status()
+        refresh_cycle = scheduler_status.get("refresh_cycle") if isinstance(scheduler_status, dict) else None
+        next_scheduled_at = refresh_cycle.get("next_run_time") if isinstance(refresh_cycle, dict) else None
+        payload = {
+            **runtime_state,
+            "next_scheduled_at": next_scheduled_at,
+        }
+        return ScanRuntimeStatusRead.model_validate(payload)
+
+    return _read_through_cache("scans.status", 10.0, _load)
 
 
 @router.get("/scans/{scan_id}", response_model=ScanSessionRead)

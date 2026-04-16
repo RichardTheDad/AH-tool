@@ -21,15 +21,23 @@ def _sqlite_connect_args(database_url: str) -> dict[str, object]:
 
 def _engine_kwargs(database_url: str) -> dict[str, object]:
     settings = get_settings()
+    connect_args = _sqlite_connect_args(database_url)
     kwargs: dict[str, object] = {
         "future": True,
-        "connect_args": _sqlite_connect_args(database_url),
+        "connect_args": connect_args,
     }
     if not database_url.startswith("sqlite"):
-        pool_size = max(4, int(settings.db_pool_size))
-        max_overflow = max(4, int(settings.db_max_overflow))
+        pool_size = max(1, int(settings.db_pool_size))
+        max_overflow = max(0, int(settings.db_max_overflow))
         pool_timeout = max(3, int(settings.db_pool_timeout_seconds))
         pool_recycle = max(300, int(settings.db_pool_recycle_seconds))
+        statement_timeout_ms = max(0, int(settings.db_statement_timeout_ms))
+
+        if statement_timeout_ms > 0 and database_url.startswith(("postgresql://", "postgresql+psycopg2://")):
+            existing_options = str(connect_args.get("options", "")).strip()
+            timeout_option = f"-c statement_timeout={statement_timeout_ms}"
+            connect_args["options"] = f"{existing_options} {timeout_option}".strip() if existing_options else timeout_option
+
         # Keep pool usage bounded but configurable for production traffic bursts.
         kwargs.update(
             {

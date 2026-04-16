@@ -315,3 +315,57 @@ def test_execution_risk_penalty_reduces_spiky_market_without_stacking_extreme_fi
     assert risky.final_score < stable.final_score
     assert risky_adjustments["execution_risk_penalty"] > 0
     assert risky_adjustments["execution_risk_reasons"]
+
+
+def test_rare_item_regional_anchor_softens_thin_market_penalties() -> None:
+    rare_metadata = {
+        "tsm_region_stats": {
+            "db_region_sale_avg": 100_000,
+            "db_region_sale_rate": 0.01,
+            "db_region_sold_per_day": 0.02,
+        }
+    }
+    rare_item = Item(item_id=1, name="Rare Supported Item", metadata_json=rare_metadata, is_commodity=False)
+    unsupported_item = Item(item_id=1, name="Rare Unsupported Item", is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=60_000, average_price=62_000, quantity=4, listing_count=3)
+    thin_sell = make_snapshot(realm="Stormrage", lowest_price=110_000, average_price=108_000, quantity=1, listing_count=1)
+    history = MarketHistoryContext(
+        sell_recent_prices=[102_000],
+        buy_recent_prices=[59_000],
+        freshness_gap_minutes=25,
+    )
+
+    supported = score_opportunity(rare_item, buy, thin_sell, settings, history=history)
+    unsupported = score_opportunity(unsupported_item, buy, thin_sell, settings, history=history)
+
+    supported_anchor = supported.score_provenance["regional_anchor"]
+    supported_adjustments = supported.score_provenance["adjustments"]
+    assert supported.final_score > unsupported.final_score
+    assert supported_anchor["rare_market_supported"] is True
+    assert supported_adjustments["rare_market_liquidity_relief"] > 0
+    assert supported_adjustments["rare_market_bait_relief"] > 0
+    assert "rare-item safeguard" in supported.explanation.lower()
+
+
+def test_regional_anchor_caps_rare_item_fantasy_price() -> None:
+    rare_metadata = {
+        "tsm_region_stats": {
+            "db_region_sale_avg": 100_000,
+            "db_region_sale_rate": 0.01,
+            "db_region_sold_per_day": 0.2,
+        }
+    }
+    item = Item(item_id=1, name="Overpriced Rare Item", metadata_json=rare_metadata, is_commodity=False)
+    settings = AppSettings(id=1, scoring_preset="balanced", ah_cut_percent=0.05, flat_buffer=0)
+    buy = make_snapshot(realm="Area 52", lowest_price=75_000, average_price=76_000, quantity=4, listing_count=3)
+    fantasy_sell = make_snapshot(realm="Stormrage", lowest_price=300_000, average_price=295_000, quantity=1, listing_count=1)
+
+    scored = score_opportunity(item, buy, fantasy_sell, settings)
+    anchor = scored.score_provenance["regional_anchor"]
+
+    assert scored.recommended_sell_price == 145_000
+    assert anchor["regional_cap_applied"] is True
+    assert anchor["overpriced_vs_region"] is True
+    assert anchor["original_target_vs_region"] > 1.75
+    assert "regional value anchor" in scored.explanation.lower()

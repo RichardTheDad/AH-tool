@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     db_max_overflow: int = 2
     db_pool_timeout_seconds: int = 5
     db_pool_recycle_seconds: int = 1800
+    db_statement_timeout_ms: int = 15000
 
     @field_validator("database_url", mode="before")
     @classmethod

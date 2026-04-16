@@ -85,6 +85,51 @@ class ExecutionRiskPenalty:
     reasons: list[str]
 
 
+@dataclass
+class RegionalValueAnchor:
+    value: float
+    source: str
+    sale_rate: float | None
+    sold_per_day: float | None
+
+
+def _to_positive_float(value: object) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def _regional_value_anchor(item: Item) -> RegionalValueAnchor | None:
+    metadata = item.metadata_json if isinstance(item.metadata_json, dict) else {}
+    stats = metadata.get("tsm_region_stats")
+    if not isinstance(stats, dict):
+        return None
+
+    candidates = [
+        ("db_region_sale_avg", stats.get("db_region_sale_avg")),
+        ("db_region_historical", stats.get("db_region_historical")),
+        ("db_region_market_avg", stats.get("db_region_market_avg")),
+    ]
+    for source, raw_value in candidates:
+        value = _to_positive_float(raw_value)
+        if value is not None:
+            return RegionalValueAnchor(
+                value=value,
+                source=source,
+                sale_rate=_to_positive_float(stats.get("db_region_sale_rate")),
+                sold_per_day=_to_positive_float(stats.get("db_region_sold_per_day")),
+            )
+    return None
+
+
+def _has_regional_sale_evidence(anchor: RegionalValueAnchor | None) -> bool:
+    if anchor is None:
+        return False
+    return anchor.source == "db_region_sale_avg" or bool(anchor.sale_rate) or bool(anchor.sold_per_day)
+
+
 def derive_recommended_sell_price(
     sell_snapshot: ListingSnapshot,
     history: MarketHistoryContext | None = None,
@@ -249,6 +294,19 @@ def score_opportunity(
     buy_price = float(buy_snapshot.lowest_price or 0)
     observed_sell_price = float(sell_snapshot.lowest_price or 0)
     recommended_sell_price, sell_price_reasons = derive_recommended_sell_price(sell_snapshot, history)
+    regional_anchor = _regional_value_anchor(item)
+    regional_target_ratio = (recommended_sell_price / regional_anchor.value) if regional_anchor and regional_anchor.value > 0 else None
+    original_regional_target_ratio = regional_target_ratio
+    regional_cap_applied = False
+    regional_cap_multiplier = None
+    if regional_anchor and regional_target_ratio is not None and regional_target_ratio > 1.75:
+        regional_cap_multiplier = 1.65 if regional_anchor.sold_per_day is not None and regional_anchor.sold_per_day <= 0.03 else 1.45
+        regional_cap = round(regional_anchor.value * regional_cap_multiplier, 2)
+        if recommended_sell_price > regional_cap:
+            recommended_sell_price = regional_cap
+            regional_target_ratio = recommended_sell_price / regional_anchor.value
+            regional_cap_applied = True
+            sell_price_reasons.append("regional historical value cap applied")
     estimated_profit, roi = calculate_profit_and_roi(buy_price, recommended_sell_price, settings)
 
     sell_depth = _market_depth_score(sell_snapshot, tuning, buy_side=False)
@@ -276,6 +334,8 @@ def score_opportunity(
     sell_history_spike = False
     freshness_gap_flag = False
     sell_range_ratio = 1.0
+    sell_history_count = 0
+    buy_history_count = 0
     if spread_ratio > tuning["suspicious_spread"]:
         volatility_score -= min(32, (spread_ratio - tuning["suspicious_spread"]) * 10)
     if spread_ratio > tuning["extreme_spread"] and _is_thin_market(sell_snapshot):
@@ -287,6 +347,8 @@ def score_opportunity(
     if history is not None:
         sell_history = [price for price in history.sell_recent_prices if price > 0]
         buy_history = [price for price in history.buy_recent_prices if price > 0]
+        sell_history_count = len(sell_history)
+        buy_history_count = len(buy_history)
         if len(sell_history) < 2:
             limited_history = True
             volatility_score -= 4
@@ -322,6 +384,30 @@ def score_opportunity(
             freshness_gap_flag = True
             volatility_score -= min(14, ((history.freshness_gap_minutes - 180) / 30) * 3)
 
+    rare_market_detected = bool(
+        regional_anchor
+        and _is_thin_market(sell_snapshot)
+        and sell_history_count < 3
+        and _has_regional_sale_evidence(regional_anchor)
+    )
+    rare_market_supported_by_region = bool(
+        rare_market_detected
+        and regional_target_ratio is not None
+        and regional_target_ratio <= 1.35
+    )
+    rare_market_overpriced_vs_region = bool(
+        regional_anchor
+        and original_regional_target_ratio is not None
+        and original_regional_target_ratio > 1.75
+    )
+    rare_liquidity_relief = 0.0
+    rare_volatility_relief = 0.0
+    if rare_market_supported_by_region:
+        rare_liquidity_relief = 8.0
+        rare_volatility_relief = 4.0
+        liquidity_score += rare_liquidity_relief
+        volatility_score += rare_volatility_relief
+
     volatility_score = round(clamp(volatility_score, 0, 100), 2)
     liquidity_score = round(clamp(liquidity_score, 0, 100), 2)
 
@@ -346,6 +432,12 @@ def score_opportunity(
         bait_risk += 12
     if freshness_gap_flag:
         bait_risk += 8
+    rare_bait_relief = 0.0
+    if rare_market_supported_by_region:
+        rare_bait_relief = 8.0
+        bait_risk -= rare_bait_relief
+    if rare_market_overpriced_vs_region:
+        bait_risk += 10
     has_stale_data = bool(buy_snapshot.is_stale or sell_snapshot.is_stale)
     if has_stale_data:
         bait_risk += tuning["stale_penalty"] * 0.75
@@ -375,7 +467,7 @@ def score_opportunity(
         persistent_margin_bonus = 8.0
         sellability_score += persistent_margin_bonus
     if limited_history:
-        limited_history_penalty = 2.5
+        limited_history_penalty = 1.0 if rare_market_supported_by_region else 2.5
         sellability_score -= limited_history_penalty
     if freshness_gap_flag:
         freshness_gap_penalty = 5.0
@@ -403,7 +495,7 @@ def score_opportunity(
     if inconsistent_sell_history:
         confidence -= 2
     if limited_history:
-        confidence -= 1
+        confidence -= 0.25 if rare_market_supported_by_region else 1
     if freshness_gap_flag:
         confidence -= 2
 
@@ -412,6 +504,8 @@ def score_opportunity(
     history_coverage_ok = False
     if history is not None:
         history_coverage_ok = len([price for price in history.sell_recent_prices if price > 0]) >= 3
+    if rare_market_supported_by_region:
+        history_coverage_ok = True
     # Treat missing history as unknown, not stale — freshness_gap_flag handles the penalty separately.
     recency_ok = history is None or history.freshness_gap_minutes <= 120
     sufficient_evidence = sell_depth_ok and history_coverage_ok and recency_ok
@@ -455,6 +549,8 @@ def score_opportunity(
         final_score += 4
     if persistent_margin:
         final_score += 7
+    if rare_market_overpriced_vs_region:
+        final_score -= 6
     final_score = round(clamp(final_score, 0, 100), 2)
     evidence_cap = _evidence_gate_cap(
         sell_depth_ok=sell_depth_ok,
@@ -489,6 +585,9 @@ def score_opportunity(
             "limited_history_penalty": limited_history_penalty,
             "freshness_gap_penalty": freshness_gap_penalty,
             "sell_history_spike_penalty": sell_history_spike_penalty,
+            "rare_market_liquidity_relief": rare_liquidity_relief,
+            "rare_market_volatility_relief": rare_volatility_relief,
+            "rare_market_bait_relief": rare_bait_relief,
             "execution_risk_penalty": execution_risk.total,
             "execution_risk_reasons": execution_risk.reasons,
         },
@@ -499,6 +598,21 @@ def score_opportunity(
             "gate_applied": evidence_gate_applied,
             "gate_cap": evidence_cap,
             "gate_reasons": gate_reasons,
+        },
+        "regional_anchor": {
+            "value": regional_anchor.value if regional_anchor else None,
+            "source": regional_anchor.source if regional_anchor else None,
+            "sale_rate": regional_anchor.sale_rate if regional_anchor else None,
+            "sold_per_day": regional_anchor.sold_per_day if regional_anchor else None,
+            "target_vs_region": round(regional_target_ratio, 4) if regional_target_ratio is not None else None,
+            "original_target_vs_region": round(original_regional_target_ratio, 4) if original_regional_target_ratio is not None else None,
+            "rare_market_detected": rare_market_detected,
+            "rare_market_supported": rare_market_supported_by_region,
+            "regional_cap_applied": regional_cap_applied,
+            "regional_cap_multiplier": regional_cap_multiplier,
+            "overpriced_vs_region": rare_market_overpriced_vs_region,
+            "sell_history_count": sell_history_count,
+            "buy_history_count": buy_history_count,
         },
     }
 
@@ -519,6 +633,9 @@ def score_opportunity(
         observed_sell_price=observed_sell_price,
         recommended_sell_price=recommended_sell_price,
         sell_price_reasons=sell_price_reasons,
+        rare_market_supported_by_region=rare_market_supported_by_region,
+        regional_cap_applied=regional_cap_applied,
+        rare_market_overpriced_vs_region=rare_market_overpriced_vs_region,
     )
 
     return ScoreBreakdown(
@@ -556,6 +673,9 @@ def build_explanation(
     observed_sell_price: float | None = None,
     recommended_sell_price: float | None = None,
     sell_price_reasons: list[str] | None = None,
+    rare_market_supported_by_region: bool = False,
+    regional_cap_applied: bool = False,
+    rare_market_overpriced_vs_region: bool = False,
 ) -> str:
     sell_target_note = ""
     if observed_sell_price and recommended_sell_price and recommended_sell_price < observed_sell_price:
@@ -563,6 +683,12 @@ def build_explanation(
     if sell_price_reasons:
         sell_target_note = f"{sell_target_note} " + "; ".join(sell_price_reasons).capitalize() + "."
         sell_target_note = sell_target_note.strip()
+    if regional_cap_applied:
+        sell_target_note = f"{sell_target_note} Regional value anchor capped the sell target.".strip()
+    elif rare_market_supported_by_region:
+        sell_target_note = f"{sell_target_note} Rare-item safeguard softened thin-market penalties because regional sale history supports the target.".strip()
+    elif rare_market_overpriced_vs_region:
+        sell_target_note = f"{sell_target_note} Regional history suggests the target price is high for this item.".strip()
     if has_stale_data:
         return f"High margin detected, but confidence reduced due to stale target data on {sell_realm}.{sell_target_note}".strip()
     if sell_history_spike:
