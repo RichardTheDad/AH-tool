@@ -5,7 +5,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, TimeoutError as SQLAlchemyTimeoutError
 
 from app.core.config import get_settings
 from app.db.models import Item
@@ -53,6 +53,18 @@ def _run_with_operational_retry(operation_name: str, func):  # noqa: ANN001, ANN
         attempt += 1
         try:
             return func()
+        except SQLAlchemyTimeoutError as exc:
+            if attempt >= DB_RETRY_ATTEMPTS:
+                raise
+            delay = DB_RETRY_DELAY_SECONDS * attempt
+            logger.warning(
+                "%s hit a database pool timeout; retrying in %.1fs (attempt %s/%s).",
+                operation_name,
+                delay,
+                attempt,
+                DB_RETRY_ATTEMPTS,
+            )
+            time.sleep(delay)
         except OperationalError as exc:
             if attempt >= DB_RETRY_ATTEMPTS or not _is_retryable_operational_error(exc):
                 raise

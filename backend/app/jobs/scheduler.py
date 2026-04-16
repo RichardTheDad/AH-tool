@@ -4,12 +4,17 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from apscheduler.schedulers.background import BackgroundScheduler
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.db.session import get_session_factory
 from app.jobs.refresh_jobs import run_refresh_cycle
 
 
 logger = logging.getLogger(__name__)
+
+
+REFRESH_CYCLE_ADVISORY_LOCK_KEY = 927531004
 
 
 def _last_scan_session_at() -> datetime | None:
@@ -64,32 +69,70 @@ class SchedulerManager:
         interval = get_settings().scheduler_refresh_interval_minutes
         now = datetime.now(timezone.utc)
 
+        lock_session = None
+        lock_acquired = False
+        is_postgres = not get_settings().database_url.startswith("sqlite")
+
+        if is_postgres:
+            lock_session = get_session_factory()()
+            try:
+                lock_acquired = bool(
+                    lock_session.execute(
+                        text("SELECT pg_try_advisory_lock(:key)"),
+                        {"key": REFRESH_CYCLE_ADVISORY_LOCK_KEY},
+                    ).scalar()
+                )
+            except Exception:
+                logger.exception("Scheduler lock acquisition failed; skipping this eligibility check.")
+                lock_session.close()
+                self._schedule_next_check(now + timedelta(minutes=1))
+                return
+
+            if not lock_acquired:
+                logger.info("Skipping scheduler refresh check: another machine holds the refresh-cycle lock.")
+                lock_session.close()
+                self._schedule_next_check(now + timedelta(minutes=1))
+                return
+
         try:
-            last_before = _last_scan_session_at()
-        except Exception:
-            last_before = None
+            try:
+                last_before = _last_scan_session_at()
+            except Exception:
+                last_before = None
 
-        should_run = last_before is None or (now - last_before) >= timedelta(minutes=interval)
-        if should_run:
-            logger.info("Scheduler eligibility check passed; starting refresh cycle.")
-            run_refresh_cycle()
-        else:
-            logger.info("Scheduler eligibility check skipped; next run opens at %s.", (last_before + timedelta(minutes=interval)).isoformat())
+            should_run = last_before is None or (now - last_before) >= timedelta(minutes=interval)
+            if should_run:
+                logger.info("Scheduler eligibility check passed; starting refresh cycle.")
+                run_refresh_cycle()
+            else:
+                logger.info("Scheduler eligibility check skipped; next run opens at %s.", (last_before + timedelta(minutes=interval)).isoformat())
 
-        try:
-            last_after = _last_scan_session_at()
-        except Exception:
-            last_after = None
+            try:
+                last_after = _last_scan_session_at()
+            except Exception:
+                last_after = None
 
-        if last_after is None:
-            # If we still have no completed scan timestamp, retry eligibility in 1 minute.
-            next_run_time = now + timedelta(minutes=1)
-        else:
-            eligible_at = last_after + timedelta(minutes=interval)
-            # Never schedule in the past to avoid immediate tight loops.
-            next_run_time = eligible_at if eligible_at > now else now + timedelta(minutes=1)
+            if last_after is None:
+                # If we still have no completed scan timestamp, retry eligibility in 1 minute.
+                next_run_time = now + timedelta(minutes=1)
+            else:
+                eligible_at = last_after + timedelta(minutes=interval)
+                # Never schedule in the past to avoid immediate tight loops.
+                next_run_time = eligible_at if eligible_at > now else now + timedelta(minutes=1)
 
-        self._schedule_next_check(next_run_time)
+            self._schedule_next_check(next_run_time)
+        finally:
+            if lock_session is not None:
+                try:
+                    if lock_acquired:
+                        lock_session.execute(
+                            text("SELECT pg_advisory_unlock(:key)"),
+                            {"key": REFRESH_CYCLE_ADVISORY_LOCK_KEY},
+                        )
+                except Exception:
+                    logger.exception("Failed to release scheduler advisory lock.")
+                finally:
+                    lock_session.close()
 
     def status(self) -> dict[str, object]:
         refresh_job = self.scheduler.get_job("refresh-cycle")
