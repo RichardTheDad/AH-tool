@@ -225,120 +225,141 @@ def select_best_sell_snapshot(
 
 
 def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None = None) -> ScanReadinessRead:
-    if realms is None:
-        realms = get_enabled_realm_names(session, user_id)
-    app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
-    enforce_fixed_ah_cut(app_settings)
-    latest_snapshots = get_latest_snapshots_for_realms(session, realms)
-    metadata_provider = get_provider_registry().metadata_provider
-    metadata_configured, _metadata_message = metadata_provider.is_available()
-    items_by_id = _load_items_by_id(session, {snapshot.item_id for snapshot in latest_snapshots})
+    """Get scan readiness with timeout/error protection."""
+    try:
+        if realms is None:
+            realms = get_enabled_realm_names(session, user_id)
+        app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
+        enforce_fixed_ah_cut(app_settings)
+        latest_snapshots = get_latest_snapshots_for_realms(session, realms)
+        metadata_provider = get_provider_registry().metadata_provider
+        metadata_configured, _metadata_message = metadata_provider.is_available()
+        items_by_id = _load_items_by_id(session, {snapshot.item_id for snapshot in latest_snapshots})
 
-    per_realm: dict[str, dict[str, object]] = {
-        realm: {
-            "fresh_item_count": 0,
-            "stale_item_count": 0,
-            "latest_item_count": 0,
-            "freshest_captured_at": None,
-            "latest_source_name": None,
-        }
-        for realm in realms
-    }
-    unique_item_ids: set[int] = set()
-    missing_metadata_item_ids: set[int] = set()
-    oldest_snapshot_at = None
-    latest_snapshot_at = None
-
-    for snapshot in latest_snapshots:
-        unique_item_ids.add(snapshot.item_id)
-        item = items_by_id.get(snapshot.item_id)
-        if item is not None and item_has_missing_metadata(item):
-            missing_metadata_item_ids.add(snapshot.item_id)
-
-        stats = per_realm.setdefault(
-            snapshot.realm,
-            {
+        per_realm: dict[str, dict[str, object]] = {
+            realm: {
                 "fresh_item_count": 0,
                 "stale_item_count": 0,
                 "latest_item_count": 0,
                 "freshest_captured_at": None,
                 "latest_source_name": None,
-            },
-        )
-        stats["latest_item_count"] = int(stats["latest_item_count"]) + 1
-        is_stale = snapshot_is_stale(snapshot, app_settings)
-        if is_stale:
-            stats["stale_item_count"] = int(stats["stale_item_count"]) + 1
+            }
+            for realm in realms
+        }
+        unique_item_ids: set[int] = set()
+        missing_metadata_item_ids: set[int] = set()
+        oldest_snapshot_at = None
+        latest_snapshot_at = None
+
+        for snapshot in latest_snapshots:
+            unique_item_ids.add(snapshot.item_id)
+            item = items_by_id.get(snapshot.item_id)
+            if item is not None and item_has_missing_metadata(item):
+                missing_metadata_item_ids.add(snapshot.item_id)
+
+            stats = per_realm.setdefault(
+                snapshot.realm,
+                {
+                    "fresh_item_count": 0,
+                    "stale_item_count": 0,
+                    "latest_item_count": 0,
+                    "freshest_captured_at": None,
+                    "latest_source_name": None,
+                },
+            )
+            stats["latest_item_count"] = int(stats["latest_item_count"]) + 1
+            is_stale = snapshot_is_stale(snapshot, app_settings)
+            if is_stale:
+                stats["stale_item_count"] = int(stats["stale_item_count"]) + 1
+            else:
+                stats["fresh_item_count"] = int(stats["fresh_item_count"]) + 1
+
+            captured_at = snapshot.captured_at.astimezone(timezone.utc)
+            freshest = stats["freshest_captured_at"]
+            if freshest is None or captured_at > freshest:
+                stats["freshest_captured_at"] = captured_at
+                stats["latest_source_name"] = snapshot.source_name
+
+            if oldest_snapshot_at is None or captured_at < oldest_snapshot_at:
+                oldest_snapshot_at = captured_at
+            if latest_snapshot_at is None or captured_at > latest_snapshot_at:
+                latest_snapshot_at = captured_at
+
+        realm_rows = [
+            RealmScanReadiness(
+                realm=realm,
+                has_data=bool(stats["latest_item_count"]),
+                fresh_item_count=int(stats["fresh_item_count"]),
+                stale_item_count=int(stats["stale_item_count"]),
+                latest_item_count=int(stats["latest_item_count"]),
+                freshest_captured_at=stats["freshest_captured_at"],
+                latest_source_name=stats["latest_source_name"],
+            )
+            for realm, stats in per_realm.items()
+        ]
+
+        realms_with_data = sum(1 for row in realm_rows if row.has_data)
+        realms_with_fresh_data = sum(1 for row in realm_rows if row.fresh_item_count > 0)
+        missing_realms = [row.realm for row in realm_rows if not row.has_data]
+        stale_realms = [row.realm for row in realm_rows if row.has_data and row.fresh_item_count == 0]
+
+        if not realms:
+            status = "blocked"
+            message = "Add at least one enabled realm before scanning."
+        elif realms_with_data < 2:
+            status = "blocked"
+            message = "At least two enabled realms need listing data before the scanner can compare flip opportunities."
+        elif realms_with_fresh_data < 2:
+            status = "caution"
+            message = "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results."
+        elif missing_metadata_item_ids:
+            status = "caution"
+            if metadata_configured:
+                message = "Some items still have incomplete item details, so unverified imports will be excluded from non-commodity scans until item details are refreshed."
+            else:
+                message = "Live item-detail lookups are not configured, so some items still lack full details even though local listing coverage is present."
+        elif missing_realms:
+            status = "caution"
+            message = "Some enabled realms still have no listing data. Results only reflect the realms currently covered by your local cache."
         else:
-            stats["fresh_item_count"] = int(stats["fresh_item_count"]) + 1
+            status = "ready"
+            message = "Enabled realms have enough local listing coverage for a trustworthy scan."
 
-        captured_at = snapshot.captured_at.astimezone(timezone.utc)
-        freshest = stats["freshest_captured_at"]
-        if freshest is None or captured_at > freshest:
-            stats["freshest_captured_at"] = captured_at
-            stats["latest_source_name"] = snapshot.source_name
-
-        if oldest_snapshot_at is None or captured_at < oldest_snapshot_at:
-            oldest_snapshot_at = captured_at
-        if latest_snapshot_at is None or captured_at > latest_snapshot_at:
-            latest_snapshot_at = captured_at
-
-    realm_rows = [
-        RealmScanReadiness(
-            realm=realm,
-            has_data=bool(stats["latest_item_count"]),
-            fresh_item_count=int(stats["fresh_item_count"]),
-            stale_item_count=int(stats["stale_item_count"]),
-            latest_item_count=int(stats["latest_item_count"]),
-            freshest_captured_at=stats["freshest_captured_at"],
-            latest_source_name=stats["latest_source_name"],
+        return ScanReadinessRead(
+            status=status,
+            ready_for_scan=realms_with_data >= 2,
+            message=message,
+            enabled_realm_count=len(realms),
+            realms_with_data=realms_with_data,
+            realms_with_fresh_data=realms_with_fresh_data,
+            unique_item_count=len(unique_item_ids),
+            items_missing_metadata=len(missing_metadata_item_ids),
+            stale_realm_count=len(stale_realms),
+            missing_realms=missing_realms,
+            stale_realms=stale_realms,
+            oldest_snapshot_at=oldest_snapshot_at,
+            latest_snapshot_at=latest_snapshot_at,
+            realms=sorted(realm_rows, key=lambda row: row.realm.lower()),
         )
-        for realm, stats in per_realm.items()
-    ]
-
-    realms_with_data = sum(1 for row in realm_rows if row.has_data)
-    realms_with_fresh_data = sum(1 for row in realm_rows if row.fresh_item_count > 0)
-    missing_realms = [row.realm for row in realm_rows if not row.has_data]
-    stale_realms = [row.realm for row in realm_rows if row.has_data and row.fresh_item_count == 0]
-
-    if not realms:
-        status = "blocked"
-        message = "Add at least one enabled realm before scanning."
-    elif realms_with_data < 2:
-        status = "blocked"
-        message = "At least two enabled realms need listing data before the scanner can compare flip opportunities."
-    elif realms_with_fresh_data < 2:
-        status = "caution"
-        message = "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results."
-    elif missing_metadata_item_ids:
-        status = "caution"
-        if metadata_configured:
-            message = "Some items still have incomplete item details, so unverified imports will be excluded from non-commodity scans until item details are refreshed."
-        else:
-            message = "Live item-detail lookups are not configured, so some items still lack full details even though local listing coverage is present."
-    elif missing_realms:
-        status = "caution"
-        message = "Some enabled realms still have no listing data. Results only reflect the realms currently covered by your local cache."
-    else:
-        status = "ready"
-        message = "Enabled realms have enough local listing coverage for a trustworthy scan."
-
-    return ScanReadinessRead(
-        status=status,
-        ready_for_scan=realms_with_data >= 2,
-        message=message,
-        enabled_realm_count=len(realms),
-        realms_with_data=realms_with_data,
-        realms_with_fresh_data=realms_with_fresh_data,
-        unique_item_count=len(unique_item_ids),
-        items_missing_metadata=len(missing_metadata_item_ids),
-        stale_realm_count=len(stale_realms),
-        missing_realms=missing_realms,
-        stale_realms=stale_realms,
-        oldest_snapshot_at=oldest_snapshot_at,
-        latest_snapshot_at=latest_snapshot_at,
-        realms=sorted(realm_rows, key=lambda row: row.realm.lower()),
-    )
+    except Exception as exc:
+        logger.error("Scan readiness query failed (may indicate connection pool exhaustion): %s", exc)
+        # Return degraded but safe readiness state
+        return ScanReadinessRead(
+            status="blocked",
+            ready_for_scan=False,
+            message="Unable to assess scan readiness. Please try again in a moment.",
+            enabled_realm_count=0,
+            realms_with_data=0,
+            realms_with_fresh_data=0,
+            unique_item_count=0,
+            items_missing_metadata=0,
+            stale_realm_count=0,
+            missing_realms=[],
+            stale_realms=[],
+            oldest_snapshot_at=None,
+            latest_snapshot_at=None,
+            realms=[],
+        )
 
 
 def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realms: list[str] | None = None) -> ScanSessionRead:
@@ -684,33 +705,49 @@ def get_scan_session(session: Session, scan_id: int, user_id: str, *, limit: int
 
 
 def get_latest_scan(session: Session, user_id: str, *, limit: int | None = None) -> ScanSessionRead | None:
-    latest = session.query(ScanSession).filter(ScanSession.user_id == user_id).order_by(ScanSession.generated_at.desc()).first()
-    if latest is None:
+    """Retrieve latest scan with timeout protection."""
+    try:
+        latest = session.query(ScanSession).filter(ScanSession.user_id == user_id).order_by(ScanSession.generated_at.desc()).first()
+        if latest is None:
+            return None
+        return get_scan_session(session, latest.id, user_id, limit=limit)
+    except Exception as exc:
+        logger.error("Latest scan query failed (may indicate connection pool exhaustion): %s", exc)
         return None
-    return get_scan_session(session, latest.id, user_id, limit=limit)
 
 
 def get_scan_history(session: Session, user_id: str, *, limit: int = 8) -> list[ScanSessionSummary]:
-    rows = (
-        session.query(
-            ScanSession.id,
-            ScanSession.generated_at,
-            ScanSession.provider_name,
-            func.count(ScanResult.id).label("result_count"),
+    """Retrieve recent scan summaries with timeout protection."""
+    try:
+        query = (
+            session.query(
+                ScanSession.id,
+                ScanSession.generated_at,
+                ScanSession.provider_name,
+                func.count(ScanResult.id).label("result_count"),
+            )
+            .filter(ScanSession.user_id == user_id)
+            .outerjoin(ScanResult, ScanResult.scan_session_id == ScanSession.id)
+            .group_by(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
+            .order_by(ScanSession.generated_at.desc())
+            .limit(limit)
         )
-        .filter(ScanSession.user_id == user_id)
-        .outerjoin(ScanResult, ScanResult.scan_session_id == ScanSession.id)
-        .group_by(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
-        .order_by(ScanSession.generated_at.desc())
-        .limit(limit)
-        .all()
-    )
-    return [
-        ScanSessionSummary(
-            id=row.id,
-            generated_at=row.generated_at,
-            provider_name=row.provider_name,
-            result_count=int(row.result_count or 0),
-        )
-        for row in rows
-    ]
+        # Add statement timeout to prevent query hangs
+        from sqlalchemy import text
+        if not session.connection().connection.info.get('_sa_dialect_name', '').startswith('sqlite'):
+            query = query.execution_options(timeout=10)
+        
+        rows = query.all()
+        return [
+            ScanSessionSummary(
+                id=row.id,
+                generated_at=row.generated_at,
+                provider_name=row.provider_name,
+                result_count=int(row.result_count or 0),
+            )
+            for row in rows
+        ]
+    except Exception as exc:
+        logger.error("Scan history query failed (may indicate connection pool exhaustion): %s", exc)
+        # Return empty list rather than crashing to allow app to stay healthy
+        return []
