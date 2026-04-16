@@ -48,9 +48,9 @@ class Settings(BaseSettings):
     restrict_health_diagnostics: bool = False
     health_diagnostics_api_key: str = ""
     scheduler_refresh_interval_minutes: int = 65
-    db_pool_size: int = 8
-    db_max_overflow: int = 8
-    db_pool_timeout_seconds: int = 30
+    db_pool_size: int = 6
+    db_max_overflow: int = 2
+    db_pool_timeout_seconds: int = 5
     db_pool_recycle_seconds: int = 1800
 
     @field_validator("database_url", mode="before")

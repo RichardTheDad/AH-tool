@@ -20,6 +20,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
 
+@router.get("/health/live")
+def liveness_check() -> dict[str, str]:
+    """Fast liveness probe for Fly health checks (no DB dependency)."""
+    return {"status": "ok"}
+
+
 def require_health_diagnostics_access(
     x_health_key: str | None = Header(default=None, alias="X-Health-Key"),
     authorization: str | None = Header(default=None, alias="Authorization"),
@@ -56,16 +62,12 @@ def health_check(
 
     db_status = "ok"
     try:
-        # Execute health check with explicit timeout to prevent pool exhaustion hangs
+        # Bound DB readiness checks so this endpoint fails fast under pool pressure.
         db.execute(text("SELECT 1"))
-        db.commit()
-    except Exception as exc:
+    except Exception:
         logger.exception("Health check database query failed")
         db_status = "unavailable"
-    finally:
-        # Ensure connection is released immediately
-        db.close()
-    
+
     return {
         "status": "ok",
         "database": db_status,
