@@ -23,9 +23,9 @@ const ROUTE_METADATA: Record<string, DocumentMetadata> = {
     description: "Find profitable market opportunities in World of Warcraft. Monitor realm markets, track price trends, and optimize your gold strategies with real-time auction house data.",
     noindex: false,
   },
-  "/public/docs": {
-    title: "Documentation - Azeroth Flip",
-    description: "Public documentation for Azeroth Flip. Learn about features, data freshness, API capabilities, and trust boundaries.",
+  "/HowItWorks": {
+    title: "How It Works - Azeroth Flip",
+    description: "Learn how Azeroth Flip helps compare realms, rank opportunities, and make more informed World of Warcraft auction house decisions.",
     noindex: false,
   },
   "/privacy": {

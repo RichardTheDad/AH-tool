@@ -1,7 +1,7 @@
 /**
  * Prerender Configuration for Azeroth Flip
  * 
- * This config prerenters public pages (/home, /public/docs) to static HTML
+ * This config prerenters public pages (/home, /HowItWorks) to static HTML
  * for better SEO indexing, while keeping protected routes as SPA.
  * 
  * Usage: npm run prerender
@@ -12,7 +12,7 @@ export default {
   staticRoutes: [
     '/',
     '/home',
-    '/public/docs'
+    '/HowItWorks'
   ],
   
   // Build output directory

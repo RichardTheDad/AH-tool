@@ -3,6 +3,7 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { Badge } from "../components/common/Badge";
 import { ScoreDial } from "../components/common/ScoreDial";
 import { GoldAmount } from "../components/common/GoldAmount";
+import { Link } from "react-router-dom";
 
 type PreviewRow = {
   item: string;
@@ -40,25 +41,6 @@ export function Homepage() {
       title: "See stronger sell-side markets",
       description: "Use ranked scanner output and realm context to route flips toward better destinations.",
       cue: "Route",
-    },
-  ];
-
-  const steps = [
-    {
-      title: "Add realms",
-      description: "Select your buy and sell realms.",
-    },
-    {
-      title: "Set filters",
-      description: "Tune ROI, profit, and risk thresholds.",
-    },
-    {
-      title: "Scan opportunities",
-      description: "Rank higher-confidence flips.",
-    },
-    {
-      title: "Execute flips",
-      description: "Use item context and post efficiently.",
     },
   ];
 
@@ -112,7 +94,7 @@ export function Homepage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_16%_32%,rgba(249,115,22,0.22),transparent_45%),radial-gradient(circle_at_88%_85%,rgba(37,99,235,0.2),transparent_48%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-35 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:38px_38px]" />
 
-      <PublicHeader subtitle="Cross-realm scanner" secondaryCtaLabel="How it works" secondaryCtaTo="/public/docs" />
+      <PublicHeader subtitle="Cross-realm scanner" secondaryCtaLabel="How it works" secondaryCtaTo="/HowItWorks" />
 
       <main className="relative mx-auto w-full max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:p-5">
@@ -215,31 +197,12 @@ export function Homepage() {
           ))}
         </section>
 
-        <section className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3.5">
-          <header className="mb-3">
-            <h2 className="font-display text-xl font-semibold text-zinc-100">How it works</h2>
-            <p className="text-sm text-zinc-400">Run this loop each scan cycle to find cleaner cross-realm opportunities.</p>
-          </header>
-
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-            {steps.map((step, index) => (
-              <div key={step.title} className="relative rounded-lg border border-white/10 bg-zinc-900/30 px-3 py-2.5">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-orange-400/35 bg-orange-500/10 text-[11px] font-semibold text-orange-300">
-                    {index + 1}
-                  </div>
-                  <h3 className="font-display text-sm font-semibold text-zinc-100">{step.title}</h3>
-                </div>
-                <p className="text-xs text-zinc-400">{step.description}</p>
-                {index < steps.length - 1 ? (
-                  <span className="pointer-events-none absolute -right-[10px] top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-
-        </section>
+        <footer className="flex flex-col gap-2 border-t border-white/10 py-4 text-sm text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>Guest settings stay in your browser. Signed-in presets and realms sync to your account.</p>
+          <Link to="/privacy" className="font-semibold text-orange-300 transition hover:text-orange-200">
+            Privacy Policy
+          </Link>
+        </footer>
       </main>
     </div>
   );

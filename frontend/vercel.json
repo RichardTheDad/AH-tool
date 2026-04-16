@@ -59,7 +59,7 @@
       ]
     },
     {
-      "source": "/public/docs(.*)",
+      "source": "/HowItWorks(.*)",
       "headers": [
         {
           "key": "Cache-Control",

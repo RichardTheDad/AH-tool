@@ -62,7 +62,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/home" element={<Homepage />} />
-      <Route path="/public/docs" element={<PublicDocs />} />
+      <Route path="/HowItWorks" element={<PublicDocs />} />
+      <Route path="/public/docs" element={<Navigate to="/HowItWorks" replace />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />

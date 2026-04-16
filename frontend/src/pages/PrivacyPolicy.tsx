@@ -11,7 +11,7 @@ export function PrivacyPolicy() {
       <PublicHeader
         subtitle="What Azeroth Flip stores, what stays in your browser, and how accounts work."
         secondaryCtaLabel="How it works"
-        secondaryCtaTo="/public/docs"
+        secondaryCtaTo="/HowItWorks"
       />
 
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
