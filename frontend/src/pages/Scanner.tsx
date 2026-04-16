@@ -928,21 +928,6 @@ export function Scanner() {
           </div>
         ) : null}
 
-        {recentScans.length ? (
-          <div className="rounded-3xl border border-white/15 bg-zinc-900/55 p-4 shadow-card backdrop-blur-xl">
-            <h3 className="font-display text-lg font-semibold text-zinc-100">Recent scans</h3>
-            <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-              {recentScans.map((scan) => (
-                <div key={scan.id} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-zinc-300">
-                  <div className="font-semibold text-zinc-100">{scan.provider_name}</div>
-                  <div className="mt-1">{formatDateTime(scan.generated_at)}</div>
-                  <div className="mt-1 text-zinc-500">{scan.result_count} ranked results</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
         {selectedProvenanceResult ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/75 p-4">
             <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/15 bg-zinc-900/95 p-5 shadow-card backdrop-blur-xl">

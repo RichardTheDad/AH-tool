@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     restrict_health_diagnostics: bool = False
     health_diagnostics_api_key: str = ""
     scheduler_refresh_interval_minutes: int = 65
+    scan_data_retention_days: int = 365
+    db_min_free_mb: int = 1024
+    db_target_free_mb: int = 1536
     db_pool_size: int = 6
     db_max_overflow: int = 2
     db_pool_timeout_seconds: int = 5

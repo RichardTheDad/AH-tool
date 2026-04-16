@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import shutil
 
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
@@ -23,7 +25,11 @@ from app.core.config import SYSTEM_USER_ID, get_settings
 
 
 NON_PRODUCTION_SOURCES = {"seed", "mock"}
-APP_DATA_RETENTION_DAYS = 30
+APP_DATA_RETENTION_DAYS = 365
+SQLITE_SCAN_TRIM_SNAPSHOT_BATCH = 25000
+SQLITE_SCAN_TRIM_SESSION_BATCH = 50
+SQLITE_SCAN_TRIM_CALIBRATION_BATCH = 5000
+SQLITE_SCAN_TRIM_MAX_PASSES = 24
 
 
 def _pg_columns(connection, table_name: str) -> set[str]:
@@ -383,15 +389,127 @@ def purge_app_runtime_data(session: Session) -> None:
         raise
 
 
-def purge_expired_app_data(session: Session, *, retention_days: int = APP_DATA_RETENTION_DAYS) -> None:
-    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+def _sqlite_db_path(database_url: str) -> Path | None:
+    if not database_url.startswith("sqlite:///") or database_url == "sqlite:///:memory:":
+        return None
+    path_part = database_url.removeprefix("sqlite:///")
+    if not path_part or path_part == ":memory:":
+        return None
+    return Path(path_part)
+
+
+def _sqlite_used_bytes(session: Session) -> int:
+    page_size = int(session.execute(text("PRAGMA page_size")).scalar() or 0)
+    page_count = int(session.execute(text("PRAGMA page_count")).scalar() or 0)
+    freelist_count = int(session.execute(text("PRAGMA freelist_count")).scalar() or 0)
+    used_pages = max(0, page_count - freelist_count)
+    return used_pages * max(0, page_size)
+
+
+def _disk_free_bytes(db_path: Path) -> int:
+    try:
+        return int(shutil.disk_usage(db_path.parent).free)
+    except Exception:
+        return 0
+
+
+def _delete_orphan_items(session: Session) -> None:
+    session.execute(
+        text(
+            """
+            DELETE FROM items
+            WHERE item_id NOT IN (
+                SELECT DISTINCT item_id FROM listing_snapshots
+            )
+            """
+        )
+    )
+
+
+def _trim_oldest_scan_data_batch(session: Session) -> int:
+    deleted_snapshots = int(
+        session.execute(
+            text(
+                """
+                DELETE FROM listing_snapshots
+                WHERE id IN (
+                    SELECT id
+                    FROM listing_snapshots
+                    ORDER BY captured_at ASC, id ASC
+                    LIMIT :batch_size
+                )
+                """
+            ),
+            {"batch_size": SQLITE_SCAN_TRIM_SNAPSHOT_BATCH},
+        ).rowcount
+        or 0
+    )
+    deleted_sessions = int(
+        session.execute(
+            text(
+                """
+                DELETE FROM scan_sessions
+                WHERE id IN (
+                    SELECT id
+                    FROM scan_sessions
+                    ORDER BY generated_at ASC, id ASC
+                    LIMIT :batch_size
+                )
+                """
+            ),
+            {"batch_size": SQLITE_SCAN_TRIM_SESSION_BATCH},
+        ).rowcount
+        or 0
+    )
+    deleted_calibration = int(
+        session.execute(
+            text(
+                """
+                DELETE FROM score_calibration_events
+                WHERE id IN (
+                    SELECT id
+                    FROM score_calibration_events
+                    ORDER BY generated_at ASC, id ASC
+                    LIMIT :batch_size
+                )
+                """
+            ),
+            {"batch_size": SQLITE_SCAN_TRIM_CALIBRATION_BATCH},
+        ).rowcount
+        or 0
+    )
+    deleted_total = deleted_snapshots + deleted_sessions + deleted_calibration
+    if deleted_total > 0:
+        _delete_orphan_items(session)
+    return deleted_total
+
+
+def _purge_scan_data_under_disk_pressure(session: Session) -> None:
+    settings = get_settings()
+    db_path = _sqlite_db_path(settings.database_url)
+    if db_path is None or not db_path.exists():
+        return
+
+    min_free_bytes = max(128, int(settings.db_min_free_mb)) * 1024 * 1024
+    target_free_bytes = max(min_free_bytes, int(settings.db_target_free_mb) * 1024 * 1024)
+    free_bytes = _disk_free_bytes(db_path)
+    if free_bytes >= min_free_bytes:
+        return
+
+    for _ in range(SQLITE_SCAN_TRIM_MAX_PASSES):
+        deleted = _trim_oldest_scan_data_batch(session)
+        session.commit()
+        free_bytes = _disk_free_bytes(db_path)
+        if free_bytes >= target_free_bytes or deleted == 0:
+            break
+
+
+def purge_expired_app_data(session: Session, *, retention_days: int | None = None) -> None:
+    configured_days = int(retention_days if retention_days is not None else get_settings().scan_data_retention_days)
+    retention_window_days = max(1, configured_days or APP_DATA_RETENTION_DAYS)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=retention_window_days)
 
     try:
-        expired_realm_suggestion_runs = session.query(RealmSuggestionRun).filter(RealmSuggestionRun.generated_at < cutoff).all()
-        for suggestion_run in expired_realm_suggestion_runs:
-            session.delete(suggestion_run)
-        session.flush()
-
         expired_sessions = session.query(ScanSession).filter(ScanSession.generated_at < cutoff).all()
         for scan_session in expired_sessions:
             session.delete(scan_session)
@@ -403,20 +521,13 @@ def purge_expired_app_data(session: Session, *, retention_days: int = APP_DATA_R
         session.query(ScoreCalibrationEvent).filter(ScoreCalibrationEvent.generated_at < cutoff).delete(synchronize_session=False)
         session.flush()
 
-        session.query(TuningActionAudit).filter(TuningActionAudit.applied_at < cutoff).delete(synchronize_session=False)
-        session.flush()
-
-        session.execute(
-            text(
-                """
-                DELETE FROM items
-                WHERE item_id NOT IN (
-                    SELECT DISTINCT item_id FROM listing_snapshots
-                )
-                """
-            )
-        )
+        _delete_orphan_items(session)
         session.commit()
+
+        # If SQLite disk space is low, progressively trim oldest scan data
+        # regardless of age so the app can keep operating.
+        if get_settings().database_url.startswith("sqlite"):
+            _purge_scan_data_under_disk_pressure(session)
     except Exception:
         session.rollback()
         raise

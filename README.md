@@ -54,7 +54,7 @@ Supported workflows:
 - cached API snapshots after restart
 - scanner readiness checks based on enabled-realm coverage and listing freshness
 - history-aware ranking that penalizes thin, stale, inconsistent, or spiky sell markets
-- automatic app-data retention that prunes listing and scan history older than 30 days
+- automatic app-data retention that prunes scan snapshots older than 1 year (or sooner under disk pressure)
 - suggested source-realm discovery across rotating Blizzard US batches
 
 ## Blizzard Integration
