@@ -933,7 +933,7 @@ export function Scanner() {
             <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/15 bg-zinc-900/95 p-5 shadow-card backdrop-blur-xl">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-display text-xl font-semibold text-zinc-100">Why this item ranks here</h3>
+                  <h3 className="font-display text-xl font-semibold text-zinc-100">Explination</h3>
                   <p className="mt-1 text-sm text-zinc-300">{selectedProvenanceResult.item_name} • {selectedProvenanceResult.cheapest_buy_realm} → {selectedProvenanceResult.best_sell_realm}</p>
                 </div>
                 <button
@@ -988,6 +988,11 @@ export function Scanner() {
 
                 return (
                   <div className="mt-4 space-y-4">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
+                      <p className="text-xs uppercase tracking-label text-zinc-500">Explanation</p>
+                      <p className="mt-2">{selectedProvenanceResult.explanation}</p>
+                    </div>
+
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
                       <p className="text-xs uppercase tracking-label text-zinc-500">Summary</p>
                       <p className="mt-2">

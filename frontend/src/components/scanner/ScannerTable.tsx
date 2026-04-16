@@ -218,7 +218,6 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                           </a>
                         ) : null}
                       </div>
-                      <p className="line-clamp-2 text-[11px] leading-[1.3] text-zinc-400">{result.explanation}</p>
                       {(() => {
                         const provenance = summarizeProvenance(result);
                         return provenance ? (
@@ -232,7 +231,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                                 onClick={() => onOpenProvenance(result)}
                                 className="ml-2 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
                               >
-                                Why ranked
+                                Explination
                               </button>
                             ) : null}
                           </p>

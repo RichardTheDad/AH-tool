@@ -152,7 +152,6 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
                   </a>
                 ) : null}
               </div>
-              <p className="mt-1 line-clamp-1 text-[12px] leading-[1.3] text-zinc-300">{result.explanation}</p>
               {provenance ? (
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
                   <span className="min-w-0 truncate">
@@ -166,7 +165,7 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
                       onClick={() => onOpenProvenance(result)}
                       className="shrink-0 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
                     >
-                      Why ranked
+                      Explination
                     </button>
                   ) : null}
                 </div>
