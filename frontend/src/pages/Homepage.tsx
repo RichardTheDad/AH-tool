@@ -178,7 +178,7 @@ export function Homepage() {
                         <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
                       </span>
                       <div className="flex items-start justify-center"><ScoreDial score={row.confidence} /></div>
-                      <div className="flex flex-col items-center gap-1"><ScoreDial score={row.sellability} /><span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span></div>
+                      <div className="flex flex-col items-center gap-1 mt-1"><ScoreDial score={row.sellability} /><span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span></div>
                     </div>
                     <p className="mt-1 text-[11px] text-zinc-400">Why it ranks: {row.why}</p>
                   </div>
@@ -225,7 +225,7 @@ export function Homepage() {
                 </div>
                 <p className="text-xs text-zinc-400">{step.description}</p>
                 {index < steps.length - 1 ? (
-                  <span className="pointer-events-none absolute -right-1.5 top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
+                  <span className="pointer-events-none absolute -right-0.5 top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
                 ) : null}
               </div>
             ))}
