@@ -22,7 +22,7 @@ export function AppShell({ children }: PropsWithChildren) {
           <div className="flex items-center gap-8">
             <div>
               <p className="font-display text-xs uppercase tracking-wider text-ember font-semibold">Azeroth Flip</p>
-              <h1 className="font-display text-lg font-bold text-zinc-100 mt-0.5">WoW Flipping</h1>
+              <h1 className="font-display text-lg font-bold text-zinc-100 mt-0.5">Cross-realm scanner</h1>
             </div>
             <nav className="hidden lg:flex lg:gap-1">
               {navItems.map((item) => (
