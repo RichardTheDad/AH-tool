@@ -5,6 +5,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -285,6 +286,11 @@ class BlizzardAuctionListingProvider(ListingProvider):
         absolute: bool = False,
     ) -> tuple[Any, httpx.Headers]:
         token = self._get_access_token(client)
+        if absolute:
+            parsed = urlparse(path_or_url)
+            expected_host = f"{self.settings.blizzard_api_region.lower()}.api.blizzard.com"
+            if parsed.scheme != "https" or parsed.hostname is None or parsed.hostname.lower() != expected_host:
+                raise ValueError(f"Refusing untrusted Blizzard href host: {parsed.hostname or 'unknown'}")
         url = path_or_url if absolute else f"{self._api_base_url()}{path_or_url}"
         response = client.get(url, params=params, headers={"Authorization": f"Bearer {token}"})
         if response.status_code == 401:

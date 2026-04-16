@@ -8,6 +8,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { formatDateTime, formatGold, formatPercent } from "../utils/format";
+import { getSafeUndermineUrl } from "../utils/safeUrl";
 
 export function SuggestedRealms() {
   const queryClient = useQueryClient();
@@ -225,9 +226,9 @@ export function SuggestedRealms() {
                             <Link to={`/app/items/${item.item_id}`} className="font-semibold text-zinc-100 hover:underline">
                               {item.item_name}
                             </Link>
-                            {item.undermine_url ? (
+                            {getSafeUndermineUrl(item.undermine_url) ? (
                               <a
-                                href={item.undermine_url}
+                                href={getSafeUndermineUrl(item.undermine_url)!}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="text-xs font-semibold uppercase tracking-link text-zinc-500 underline-offset-4 hover:text-zinc-200 hover:underline"

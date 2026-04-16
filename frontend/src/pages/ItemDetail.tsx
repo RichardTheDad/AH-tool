@@ -8,6 +8,7 @@ import { LoadingState } from "../components/common/LoadingState";
 import { AuctionHistoryChart } from "../components/items/AuctionHistoryChart";
 import { ItemListingsTable } from "../components/items/ItemListingsTable";
 import { formatDateTime, formatMarketPerDay, formatMarketPercent, formatPercent, formatScore } from "../utils/format";
+import { getSafeUndermineUrl } from "../utils/safeUrl";
 
 export function ItemDetail() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export function ItemDetail() {
   }
 
   const item = itemQuery.data;
+  const safeUndermineUrl = getSafeUndermineUrl(item.undermine_url);
   const scannerContext = (location.state as {
     from?: string;
     scannerSearch?: string;
@@ -70,9 +72,9 @@ export function ItemDetail() {
         subtitle={`${item.class_name ?? "Unknown class"}${item.subclass_name ? ` | ${item.subclass_name}` : ""}`}
       >
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          {item.undermine_url ? (
+          {safeUndermineUrl ? (
             <a
-              href={item.undermine_url}
+              href={safeUndermineUrl}
               target="_blank"
               rel="noreferrer"
               className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-300 transition hover:border-orange-400/45 hover:text-zinc-100"

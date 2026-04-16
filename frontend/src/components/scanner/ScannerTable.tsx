@@ -5,6 +5,7 @@ import { GoldAmount } from "../common/GoldAmount";
 import { ScoreDial } from "../common/ScoreDial";
 import type { ScanResult, ScannerFilters } from "../../types/models";
 import { formatGold, formatPercent, formatScore } from "../../utils/format";
+import { getSafeItemIconUrl, getSafeUndermineUrl } from "../../utils/safeUrl";
 
 function summarizeBaitRisk(score: number) {
   if (score >= 70) return "high bait risk";
@@ -65,10 +66,11 @@ interface ScannerTableProps {
 }
 
 function ItemIcon({ result }: { result: ScanResult }) {
-  if (result.item_icon_url) {
+  const iconUrl = getSafeItemIconUrl(result.item_icon_url);
+  if (iconUrl) {
     return (
       <img
-        src={result.item_icon_url}
+        src={iconUrl}
         alt=""
         loading="lazy"
         className="h-11 w-11 shrink-0 rounded-lg border border-white/15 bg-zinc-900/65 object-cover"
@@ -209,9 +211,9 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                         >
                           {result.item_name}
                         </Link>
-                        {result.undermine_url ? (
+                        {getSafeUndermineUrl(result.undermine_url) ? (
                           <a
-                            href={result.undermine_url}
+                            href={getSafeUndermineUrl(result.undermine_url)!}
                             target="_blank"
                             rel="noreferrer"
                             className="text-[11px] font-semibold uppercase tracking-link text-zinc-500 underline-offset-4 hover:text-zinc-200 hover:underline"
