@@ -30,28 +30,69 @@ LOCK_RETRY_DELAY_SECONDS = 1.5
 AUTO_REQUEUE_ATTEMPTS = 5
 AUTO_TOP_OFF_LIMIT = 250
 AUTO_REQUEUE_BACKOFF_MINUTES = 45
+DB_RETRY_ATTEMPTS = 4
+DB_RETRY_DELAY_SECONDS = 1.5
+
+
+def _is_retryable_operational_error(exc: OperationalError) -> bool:
+    message = str(exc).lower()
+    retryable_markers = (
+        "database is locked",
+        "server closed the connection unexpectedly",
+        "connection reset by peer",
+        "could not connect to server",
+        "connection refused",
+        "connection timed out",
+    )
+    return any(marker in message for marker in retryable_markers)
+
+
+def _run_with_operational_retry(operation_name: str, func):  # noqa: ANN001, ANN202
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            return func()
+        except OperationalError as exc:
+            if attempt >= DB_RETRY_ATTEMPTS or not _is_retryable_operational_error(exc):
+                raise
+            delay = DB_RETRY_DELAY_SECONDS * attempt
+            logger.warning(
+                "%s hit a transient database error; retrying in %.1fs (attempt %s/%s).",
+                operation_name,
+                delay,
+                attempt,
+                DB_RETRY_ATTEMPTS,
+            )
+            time.sleep(delay)
 
 
 def _get_still_missing_item_ids(item_ids: list[int]) -> list[int]:
-    session = get_session_factory()()
-    try:
-        items = session.query(Item).filter(Item.item_id.in_(item_ids)).all()
-        items_by_id = {item.item_id: item for item in items}
-        return [
-            item_id
-            for item_id in item_ids
-            if item_id in items_by_id and item_has_missing_metadata(items_by_id[item_id])
-        ]
-    finally:
-        session.close()
+    def _load() -> list[int]:
+        session = get_session_factory()()
+        try:
+            items = session.query(Item).filter(Item.item_id.in_(item_ids)).all()
+            items_by_id = {item.item_id: item for item in items}
+            return [
+                item_id
+                for item_id in item_ids
+                if item_id in items_by_id and item_has_missing_metadata(items_by_id[item_id])
+            ]
+        finally:
+            session.close()
+
+    return _run_with_operational_retry("Metadata missing-check", _load)
 
 
 def _load_more_missing_item_ids(*, limit: int = AUTO_TOP_OFF_LIMIT) -> list[int]:
-    session = get_session_factory()()
-    try:
-        return get_missing_metadata_item_ids(session, limit=limit)
-    finally:
-        session.close()
+    def _load() -> list[int]:
+        session = get_session_factory()()
+        try:
+            return get_missing_metadata_item_ids(session, limit=limit)
+        finally:
+            session.close()
+
+    return _run_with_operational_retry("Metadata top-off query", _load)
 
 
 def _queue_candidates(candidate_item_ids: list[int], *, reset_attempts: bool) -> list[int]:
@@ -95,11 +136,14 @@ def get_metadata_backfill_status() -> dict[str, object]:
 
 
 def _missing_metadata_count(*, limit: int = 1) -> int:
-    session = get_session_factory()()
-    try:
-        return len(get_missing_metadata_item_ids(session, limit=limit))
-    finally:
-        session.close()
+    def _load() -> int:
+        session = get_session_factory()()
+        try:
+            return len(get_missing_metadata_item_ids(session, limit=limit))
+        finally:
+            session.close()
+
+    return _run_with_operational_retry("Metadata completion check", _load)
 
 
 def _run_follow_up_scan() -> None:
@@ -176,11 +220,10 @@ def _refresh_batch_with_retry(item_ids: list[int]) -> dict[str, object]:
             return refresh_missing_metadata(session, item_ids)
         except OperationalError as exc:
             session.rollback()
-            message = str(exc).lower()
-            if "database is locked" in message and attempt < LOCK_RETRY_ATTEMPTS:
+            if _is_retryable_operational_error(exc) and attempt < LOCK_RETRY_ATTEMPTS:
                 delay = LOCK_RETRY_DELAY_SECONDS * attempt
                 logger.info(
-                    "Metadata batch hit a database lock for %s items; retrying in %.1fs (attempt %s/%s).",
+                    "Metadata batch hit a transient database error for %s items; retrying in %.1fs (attempt %s/%s).",
                     len(item_ids),
                     delay,
                     attempt,
