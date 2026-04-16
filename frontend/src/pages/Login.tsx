@@ -79,6 +79,11 @@ export function Login() {
           <p className="font-display text-xs uppercase tracking-display text-ember">AzerothFlip</p>
           <h1 className="font-display text-2xl font-semibold text-zinc-100">{title}</h1>
           <p className="text-sm text-zinc-400">Accounts sync realms and presets across devices. You can still use the scanner as a guest.</p>
+          <div className="pt-1">
+            <Link to="/home" className="text-sm font-medium text-ember hover:underline">
+              Back to Home
+            </Link>
+          </div>
         </div>
 
         <form onSubmit={handleEmailSubmit} className="space-y-4">

@@ -1,6 +1,7 @@
 import { Card } from "../components/common/Card";
 import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { Link } from "react-router-dom";
 
 export function PrivacyPolicy() {
   useDocumentTitle("/privacy");
@@ -19,6 +20,14 @@ export function PrivacyPolicy() {
             <p>Azeroth Flip is built to work with minimal personal data. We do not run analytics trackers, ad networks, or third-party marketing pixels, and we do not sell your data.</p>
             <p>You can use the scanner without creating an account. In guest mode, your saved realms, presets, and filter state are stored only in your browser. If you clear site data or switch devices, that guest data is lost.</p>
             <p>If you create an account, we store the minimum needed to provide synced features like saved realms and presets across devices.</p>
+            <div>
+              <Link
+                to="/home"
+                className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-zinc-100 transition hover:bg-white/10"
+              >
+                Back to Home
+              </Link>
+            </div>
           </div>
         </Card>
 
@@ -34,7 +43,8 @@ export function PrivacyPolicy() {
           <Card title="Passwords and authentication">
             <div className="space-y-3 text-sm leading-6 text-zinc-300">
               <p>Passwords are handled by Supabase Authentication, not by our backend application.</p>
-              <p>Your password is never stored in plain text by Azeroth Flip and never passes through our application database as a reusable value.</p>
+              <p>Supabase stores passwords as one-way salted password hashes, not as decryptable plain text. This means the original password cannot be read back from storage.</p>
+              <p>Password submissions are sent over HTTPS/TLS in transit, and our application database does not store reusable password values.</p>
               <p>Discord sign-in is handled through Supabase OAuth and Discord's authorization flow.</p>
             </div>
           </Card>
