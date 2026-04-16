@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -11,6 +13,7 @@ from app.services import realm_service
 
 
 router = APIRouter(tags=["realms"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/realms", response_model=list[TrackedRealmRead])
@@ -24,7 +27,8 @@ def create_realm(payload: TrackedRealmCreate, db: Session = Depends(get_db), cur
     try:
         realm = realm_service.create_realm(db, current_user, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.warning("Realm create rejected for user %s: %s", current_user, exc)
+        raise HTTPException(status_code=400, detail="Realm data is invalid.") from exc
     return TrackedRealmRead.model_validate(realm)
 
 
@@ -34,9 +38,11 @@ def update_realm(realm_id: int, payload: TrackedRealmUpdate, db: Session = Depen
     try:
         realm = realm_service.update_realm(db, current_user, realm_id, payload)
     except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        logger.warning("Realm update target missing for user %s: realm_id=%s", current_user, realm_id)
+        raise HTTPException(status_code=404, detail="Realm not found.") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.warning("Realm update rejected for user %s (realm_id=%s): %s", current_user, realm_id, exc)
+        raise HTTPException(status_code=400, detail="Realm update is invalid.") from exc
     return TrackedRealmRead.model_validate(realm)
 
 
@@ -46,4 +52,5 @@ def delete_realm(realm_id: int, db: Session = Depends(get_db), current_user: str
     try:
         realm_service.delete_realm(db, current_user, realm_id)
     except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        logger.warning("Realm delete target missing for user %s: realm_id=%s", current_user, realm_id)
+        raise HTTPException(status_code=404, detail="Realm not found.") from exc

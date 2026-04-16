@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -11,6 +13,7 @@ from app.services import preset_service
 
 
 router = APIRouter(tags=["presets"])
+logger = logging.getLogger(__name__)
 
 
 @router.get("/presets", response_model=list[ScanPresetRead])
@@ -32,7 +35,8 @@ def create_preset(payload: ScanPresetCreate, db: Session = Depends(get_db), curr
     try:
         preset = preset_service.create_preset(db, current_user, payload)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.warning("Preset create rejected for user %s: %s", current_user, exc)
+        raise HTTPException(status_code=400, detail="Preset data is invalid.") from exc
     return ScanPresetRead.model_validate(preset)
 
 
@@ -42,9 +46,11 @@ def update_preset(preset_id: int, payload: ScanPresetUpdate, db: Session = Depen
     try:
         preset = preset_service.update_preset(db, current_user, preset_id, payload)
     except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        logger.warning("Preset update target missing for user %s: preset_id=%s", current_user, preset_id)
+        raise HTTPException(status_code=404, detail="Preset not found.") from exc
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        logger.warning("Preset update rejected for user %s (preset_id=%s): %s", current_user, preset_id, exc)
+        raise HTTPException(status_code=400, detail="Preset update is invalid.") from exc
     return ScanPresetRead.model_validate(preset)
 
 
@@ -54,7 +60,8 @@ def delete_preset(preset_id: int, db: Session = Depends(get_db), current_user: s
     try:
         preset_service.delete_preset(db, current_user, preset_id)
     except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        logger.warning("Preset delete target missing for user %s: preset_id=%s", current_user, preset_id)
+        raise HTTPException(status_code=404, detail="Preset not found.") from exc
 
 
 @router.post("/presets/{preset_id}/set-default", response_model=ScanPresetRead)
@@ -63,7 +70,8 @@ def set_default_preset(preset_id: int, db: Session = Depends(get_db), current_us
     try:
         preset = preset_service.set_default_preset(db, current_user, preset_id)
     except LookupError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        logger.warning("Preset set-default target missing for user %s: preset_id=%s", current_user, preset_id)
+        raise HTTPException(status_code=404, detail="Preset not found.") from exc
     return ScanPresetRead.model_validate(preset)
 
 
