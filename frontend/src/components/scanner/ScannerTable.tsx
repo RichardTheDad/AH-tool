@@ -63,6 +63,7 @@ interface ScannerTableProps {
   onSortChange: (next: { sortBy: ScannerFilters["sortBy"]; sortDirection: ScannerFilters["sortDirection"] }) => void;
   focusedModeActive?: boolean;
   onOpenProvenance?: (result: ScanResult) => void;
+  allowItemNavigation?: boolean;
 }
 
 function ItemIcon({ result }: { result: ScanResult }) {
@@ -125,7 +126,7 @@ function SortableHeader({
   );
 }
 
-export function ScannerTable({ results, sortBy, sortDirection, onSortChange, focusedModeActive = false, onOpenProvenance }: ScannerTableProps) {
+export function ScannerTable({ results, sortBy, sortDirection, onSortChange, focusedModeActive = false, onOpenProvenance, allowItemNavigation = true }: ScannerTableProps) {
   const location = useLocation();
 
   if (!results.length) {
@@ -195,18 +196,22 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     <ItemIcon result={result} />
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <Link
-                          to={`/app/items/${result.item_id}`}
-                          state={{
-                            from: "scanner",
-                            scannerSearch: location.search,
-                            restoreItemId: result.item_id,
-                            restoreIndex: index,
-                          }}
-                          className="text-[14px] font-semibold leading-[1.25] text-zinc-100 underline-offset-4 hover:underline [overflow-wrap:anywhere]"
-                        >
-                          {result.item_name}
-                        </Link>
+                        {allowItemNavigation ? (
+                          <Link
+                            to={`/app/items/${result.item_id}`}
+                            state={{
+                              from: "scanner",
+                              scannerSearch: location.search,
+                              restoreItemId: result.item_id,
+                              restoreIndex: index,
+                            }}
+                            className="text-[14px] font-semibold leading-[1.25] text-zinc-100 underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+                          >
+                            {result.item_name}
+                          </Link>
+                        ) : (
+                          <span className="text-[14px] font-semibold leading-[1.25] text-zinc-100 [overflow-wrap:anywhere]">{result.item_name}</span>
+                        )}
                         {getSafeUndermineUrl(result.undermine_url) ? (
                           <a
                             href={getSafeUndermineUrl(result.undermine_url)!}

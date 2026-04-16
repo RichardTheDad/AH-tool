@@ -13,6 +13,9 @@ import { Checkbox } from "../components/common/Checkbox";
 import { Link } from "../components/common/Link";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
+import { useAuth } from "../contexts/AuthContext";
+import { useGuestPresets } from "../hooks/useGuestPresets";
+import { useGuestRealms } from "../hooks/useGuestRealms";
 import type { ScanPreset } from "../types/models";
 
 const baseForm = {
@@ -45,15 +48,21 @@ const PRESET_CATEGORY_OPTIONS = ["", ...DEFAULT_CATEGORY_OPTIONS];
 
 export function Presets() {
   const location = useLocation();
+  const { user } = useAuth();
+  const isGuest = !user;
   const queryClient = useQueryClient();
-  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets });
-  const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset });
-  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000 });
+  const guestPresets = useGuestPresets();
+  const guestRealms = useGuestRealms();
+  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, enabled: !isGuest });
+  const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset, enabled: !isGuest });
+  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, enabled: !isGuest });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(baseForm);
   const [message, setMessage] = useState<string | null>(null);
   const [quickSaveName, setQuickSaveName] = useState("My scanner view");
-  const presets = presetsQuery.data ?? [];
+  const presets = isGuest ? guestPresets.presets : presetsQuery.data ?? [];
+  const defaultPreset = isGuest ? guestPresets.defaultPreset : defaultPresetQuery.data;
+  const enabledRealms = (isGuest ? guestRealms.realms : realmsQuery.data ?? []).filter((realm) => realm.enabled);
 
   const scannerStatePayload = (() => {
     const params = new URLSearchParams(location.search);
@@ -86,10 +95,12 @@ export function Presets() {
   })();
 
   const createMutation = useMutation({
-    mutationFn: createPreset,
+    mutationFn: (payload: Omit<ScanPreset, "id" | "is_default"> & { is_default?: boolean }) => (isGuest ? guestPresets.createPreset(payload) : createPreset(payload)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["presets"] });
-      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["presets"] });
+        queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      }
       setForm(baseForm);
       setMessage(null);
     },
@@ -97,10 +108,12 @@ export function Presets() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Partial<ScanPreset> }) => updatePreset(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: Partial<ScanPreset> }) => (isGuest ? guestPresets.updatePreset(id, payload) : updatePreset(id, payload)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["presets"] });
-      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["presets"] });
+        queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      }
       setEditingId(null);
       setForm(baseForm);
       setMessage(null);
@@ -109,46 +122,57 @@ export function Presets() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deletePreset,
+    mutationFn: (id: number) => (isGuest ? guestPresets.deletePreset(id) : deletePreset(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["presets"] });
-      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["presets"] });
+        queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      }
       setMessage(null);
     },
     onError: (error: Error) => setMessage(error.message),
   });
 
   const setDefaultMutation = useMutation({
-    mutationFn: setDefaultPreset,
+    mutationFn: (id: number) => (isGuest ? guestPresets.setDefaultPreset(id) : setDefaultPreset(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["presets"] });
-      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["presets"] });
+        queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      }
       setMessage(null);
     },
     onError: (error: Error) => setMessage(error.message),
   });
 
   const clearDefaultMutation = useMutation({
-    mutationFn: clearDefaultPreset,
+    mutationFn: () => (isGuest ? guestPresets.clearDefaultPreset() : clearDefaultPreset()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["presets"] });
-      queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["presets"] });
+        queryClient.invalidateQueries({ queryKey: ["presets", "default"] });
+      }
       setMessage(null);
     },
     onError: (error: Error) => setMessage(error.message),
   });
 
-  if (presetsQuery.isLoading) {
+  if (!isGuest && presetsQuery.isLoading) {
     return <LoadingState label="Loading scan presets..." />;
   }
 
-  if (presetsQuery.error) {
+  if (!isGuest && presetsQuery.error) {
     return <ErrorState message="Scan presets could not be loaded." />;
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <Card title={editingId ? "Edit preset" : "Create preset"} subtitle="Build filter bundles for quick scanner views.">
+        {isGuest ? (
+          <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+            Browsing as a guest. Presets are stored in this browser only until you clear site data.
+          </div>
+        ) : null}
         <form
           className="space-y-3"
           onSubmit={(event) => {
@@ -280,7 +304,7 @@ export function Presets() {
         <div className="mb-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-zinc-300">
           <p className="font-medium text-zinc-100">Default preset</p>
           <p className="mt-1 text-xs text-zinc-400">
-            {defaultPresetQuery.data ? `Current default: ${defaultPresetQuery.data.name}` : "No default selected."}
+            {defaultPreset ? `Current default: ${defaultPreset.name}` : "No default selected."}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             <Input

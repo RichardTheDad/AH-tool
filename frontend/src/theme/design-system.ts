@@ -1,15 +1,3 @@
-/**
- * AzerothFlip Design System
- * Premium market scanner UI with subtle Azeroth flavor
- * 
- * Design principles:
- * - Clean, sharp, and practical
- * - Dense enough for efficient scanning
- * - Professional, readable, and modern
- * - Subtle Azeroth warmth, not cosplay fantasy
- * - Strong visual hierarchy
- */
-
 // ============================================================================
 // COLOR TOKENS
 // ============================================================================

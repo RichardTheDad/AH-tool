@@ -19,6 +19,7 @@ interface VirtualizedScannerListProps {
   restoreItemId?: number | null;
   restoreIndex?: number | null;
   onRestoreComplete?: () => void;
+  allowItemNavigation?: boolean;
 }
 
 type ListRefApi = {
@@ -116,7 +117,7 @@ function ItemIcon({ result }: { result: ScanResult }) {
   );
 }
 
-function Row({ index, style, results, onOpenProvenance, search, focusedModeActive }: RowComponentProps<{ results: ScanResult[]; onOpenProvenance?: (result: ScanResult) => void; search: string; focusedModeActive?: boolean }>) {
+function Row({ index, style, results, onOpenProvenance, search, focusedModeActive, allowItemNavigation }: RowComponentProps<{ results: ScanResult[]; onOpenProvenance?: (result: ScanResult) => void; search: string; focusedModeActive?: boolean; allowItemNavigation?: boolean }>) {
   const result = results[index];
   const provenance = summarizeProvenance(result);
   const gated = isEvidenceGated(result);
@@ -129,18 +130,22 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
             <ItemIcon result={result} />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <Link
-                  to={`/app/items/${result.item_id}`}
-                  state={{
-                    from: "scanner",
-                    scannerSearch: search,
-                    restoreItemId: result.item_id,
-                    restoreIndex: index,
-                  }}
-                  className="text-[14px] font-semibold leading-[1.25] text-zinc-100 underline-offset-4 hover:underline [overflow-wrap:anywhere]"
-                >
-                  {result.item_name}
-                </Link>
+                {allowItemNavigation ? (
+                  <Link
+                    to={`/app/items/${result.item_id}`}
+                    state={{
+                      from: "scanner",
+                      scannerSearch: search,
+                      restoreItemId: result.item_id,
+                      restoreIndex: index,
+                    }}
+                    className="text-[14px] font-semibold leading-[1.25] text-zinc-100 underline-offset-4 hover:underline [overflow-wrap:anywhere]"
+                  >
+                    {result.item_name}
+                  </Link>
+                ) : (
+                  <span className="text-[14px] font-semibold leading-[1.25] text-zinc-100 [overflow-wrap:anywhere]">{result.item_name}</span>
+                )}
                 {getSafeUndermineUrl(result.undermine_url) ? (
                   <a
                     href={getSafeUndermineUrl(result.undermine_url)!}
@@ -237,6 +242,7 @@ export function VirtualizedScannerList({
   restoreItemId = null,
   restoreIndex = null,
   onRestoreComplete,
+  allowItemNavigation = true,
 }: VirtualizedScannerListProps) {
   const location = useLocation();
   const [height, setHeight] = useState(560);
@@ -315,7 +321,7 @@ export function VirtualizedScannerList({
         rowCount={results.length}
         rowHeight={172}
         rowComponent={Row}
-        rowProps={{ results, onOpenProvenance, search, focusedModeActive }}
+        rowProps={{ results, onOpenProvenance, search, focusedModeActive, allowItemNavigation }}
         listRef={listRef}
         overscanCount={6}
       />

@@ -19,10 +19,6 @@ function Coin({ type }: { type: "gold" | "silver" | "copper" }) {
   );
 }
 
-/**
- * Displays a WoW copper value as gold/silver/copper with colored coin indicators.
- * Hides copper unless it's the only denomination. Hides silver if zero and gold is present.
- */
 export function GoldAmount({ value, className }: GoldAmountProps) {
   const parts = formatGoldParts(value);
   if (!parts) return <span className={className ?? ""}>--</span>;
