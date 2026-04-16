@@ -25,11 +25,11 @@ body {
   min-height: 100vh;
 }
 
-/* Keep native dropdown menu items readable on light OS menus. */
+/* Theme dropdown menu items to match dark theme. */
 select option,
 select optgroup {
-  color: #111827;
-  background-color: #ffffff;
+  color: #f4f4f5;
+  background-color: #1f2937;
 }
 
 .panel-glow {
