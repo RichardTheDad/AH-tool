@@ -60,10 +60,13 @@ def _fetch_jwks(jwks_url: str) -> dict:
         parsed = urlparse(jwks_url)
         if parsed.scheme.lower() != "https" or not parsed.netloc:
             raise JWTError("JWKS URL is not trusted.")
-        with httpx.Client(timeout=5.0) as client:
-            response = client.get(jwks_url)
-            response.raise_for_status()
-            data = json.loads(response.text)
+        try:
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(jwks_url)
+                response.raise_for_status()
+                data = json.loads(response.text)
+        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+            raise JWTError("Unable to fetch Supabase JWKS.") from exc
         if len(_jwks_cache) >= _JWKS_CACHE_MAX_ENTRIES:
             _jwks_cache.pop(next(iter(_jwks_cache)))
         _jwks_cache[jwks_url] = data
