@@ -136,7 +136,7 @@ export function Homepage() {
 
             </div>
 
-            <section className="rounded-2xl border border-orange-400/20 bg-zinc-950/75 p-3 shadow-[0_0_36px_rgba(249,115,22,0.12)] backdrop-blur-xl">
+            <section className="rounded-2xl border border-orange-400/20 bg-zinc-950/75 p-3 shadow-[0_0_28px_rgba(249,115,22,0.05)] backdrop-blur-xl">
               <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-zinc-500" />
@@ -155,7 +155,7 @@ export function Homepage() {
                   <span>Buy</span>
                   <span>Sell</span>
                   <span>Target</span>
-                  <span>Profit / ROI</span>
+                  <span className="text-center">Profit / ROI</span>
                   <span className="text-center">Confidence</span>
                   <span className="text-center">Sellability</span>
                 </div>
@@ -224,7 +224,7 @@ export function Homepage() {
                 </div>
                 <p className="text-xs text-zinc-400">{step.description}</p>
                 {index < steps.length - 1 ? (
-                  <span className="pointer-events-none absolute -right-2 top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
+                  <span className="pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
                 ) : null}
               </div>
             ))}
