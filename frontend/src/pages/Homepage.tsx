@@ -233,7 +233,7 @@ export function Homepage() {
                 </div>
                 <p className="text-xs text-zinc-400">{step.description}</p>
                 {index < steps.length - 1 ? (
-                  <span className="pointer-events-none absolute -right-[6px] top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
+                  <span className="pointer-events-none absolute -right-[10px] top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
                 ) : null}
               </div>
             ))}
