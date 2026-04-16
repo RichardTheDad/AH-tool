@@ -2,6 +2,7 @@ import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { Badge } from "../components/common/Badge";
 import { ScoreDial } from "../components/common/ScoreDial";
+import { GoldAmount } from "../components/common/GoldAmount";
 
 type PreviewRow = {
   item: string;
@@ -10,7 +11,7 @@ type PreviewRow = {
   buyPrice: string;
   sellRealm: string;
   targetSell: string;
-  profit: string;
+  profit: number;
   roi: string;
   confidence: number;
   sellability: number;
@@ -70,7 +71,7 @@ export function Homepage() {
       buyPrice: "26,000g",
       sellRealm: "Area 52",
       targetSell: "38,400g",
-      profit: "12,400g",
+      profit: 12400,
       roi: "31%",
       confidence: 84,
       sellability: 82,
@@ -84,7 +85,7 @@ export function Homepage() {
       buyPrice: "31,000g",
       sellRealm: "Illidan",
       targetSell: "40,850g",
-      profit: "9,850g",
+      profit: 9850,
       roi: "24%",
       confidence: 78,
       sellability: 74,
@@ -98,7 +99,7 @@ export function Homepage() {
       buyPrice: "32,400g",
       sellRealm: "Sargeras",
       targetSell: "40,000g",
-      profit: "7,600g",
+      profit: 7600,
       roi: "19%",
       confidence: 72,
       sellability: 69,
@@ -173,7 +174,7 @@ export function Homepage() {
                       <span className="font-medium text-orange-300">{row.sellRealm}</span>
                       <span className="text-zinc-300">{row.targetSell}</span>
                       <span>
-                        <span className="text-[25px] font-bold leading-none text-emerald-400">{row.profit}</span>
+                        <span className="flex items-center gap-1"><GoldAmount value={row.profit} /></span>
                         <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
                       </span>
                       <div className="flex items-start justify-center"><ScoreDial score={row.confidence} /></div>
