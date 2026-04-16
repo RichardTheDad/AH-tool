@@ -13,12 +13,12 @@ export function useGuestRealms() {
 
   return useMemo(() => ({
     realms,
-    createRealm(payload: Omit<TrackedRealm, "id">) {
+    async createRealm(payload: Omit<TrackedRealm, "id">) {
       const created = { ...payload, id: nextRealmId(realms) };
       setRealms((current) => [...current, created]);
       return created;
     },
-    updateRealm(id: number, payload: Partial<Omit<TrackedRealm, "id">>) {
+    async updateRealm(id: number, payload: Partial<Omit<TrackedRealm, "id">>) {
       let updatedRealm: TrackedRealm | null = null;
       setRealms((current) => current.map((realm) => {
         if (realm.id !== id) {
@@ -32,7 +32,7 @@ export function useGuestRealms() {
       }
       return updatedRealm;
     },
-    deleteRealm(id: number) {
+    async deleteRealm(id: number) {
       setRealms((current) => current.filter((realm) => realm.id !== id));
     },
   }), [realms, setRealms]);

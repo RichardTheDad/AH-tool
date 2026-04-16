@@ -95,7 +95,7 @@ export function Presets() {
   })();
 
   const createMutation = useMutation({
-    mutationFn: (payload: Omit<ScanPreset, "id" | "is_default"> & { is_default?: boolean }) => (isGuest ? guestPresets.createPreset(payload) : createPreset(payload)),
+    mutationFn: async (payload: Omit<ScanPreset, "id" | "is_default"> & { is_default?: boolean }) => isGuest ? await guestPresets.createPreset(payload) : await createPreset(payload),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["presets"] });
@@ -108,7 +108,7 @@ export function Presets() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Partial<ScanPreset> }) => (isGuest ? guestPresets.updatePreset(id, payload) : updatePreset(id, payload)),
+    mutationFn: async ({ id, payload }: { id: number; payload: Partial<ScanPreset> }) => isGuest ? await guestPresets.updatePreset(id, payload) : await updatePreset(id, payload),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["presets"] });
@@ -122,7 +122,7 @@ export function Presets() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => (isGuest ? guestPresets.deletePreset(id) : deletePreset(id)),
+    mutationFn: async (id: number) => isGuest ? await guestPresets.deletePreset(id) : await deletePreset(id),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["presets"] });
@@ -134,7 +134,7 @@ export function Presets() {
   });
 
   const setDefaultMutation = useMutation({
-    mutationFn: (id: number) => (isGuest ? guestPresets.setDefaultPreset(id) : setDefaultPreset(id)),
+    mutationFn: async (id: number) => isGuest ? await guestPresets.setDefaultPreset(id) : await setDefaultPreset(id),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["presets"] });
@@ -146,7 +146,7 @@ export function Presets() {
   });
 
   const clearDefaultMutation = useMutation({
-    mutationFn: () => (isGuest ? guestPresets.clearDefaultPreset() : clearDefaultPreset()),
+    mutationFn: async () => isGuest ? await guestPresets.clearDefaultPreset() : await clearDefaultPreset(),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["presets"] });

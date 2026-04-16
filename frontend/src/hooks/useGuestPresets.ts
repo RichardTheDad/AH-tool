@@ -15,7 +15,7 @@ export function useGuestPresets() {
   return useMemo(() => ({
     presets,
     defaultPreset: presets.find((preset) => preset.is_default) ?? null,
-    createPreset(payload: GuestPresetPayload) {
+    async createPreset(payload: GuestPresetPayload) {
       const created: ScanPreset = {
         ...payload,
         id: nextPresetId(presets),
@@ -27,7 +27,7 @@ export function useGuestPresets() {
       });
       return created;
     },
-    updatePreset(id: number, payload: Partial<GuestPresetPayload>) {
+    async updatePreset(id: number, payload: Partial<GuestPresetPayload>) {
       let updatedPreset: ScanPreset | null = null;
       setPresets((current) => current.map((preset) => {
         if (preset.id !== id) {
@@ -41,10 +41,10 @@ export function useGuestPresets() {
       }
       return updatedPreset;
     },
-    deletePreset(id: number) {
+    async deletePreset(id: number) {
       setPresets((current) => current.filter((preset) => preset.id !== id));
     },
-    setDefaultPreset(id: number) {
+    async setDefaultPreset(id: number) {
       let defaultPreset: ScanPreset | null = null;
       setPresets((current) => current.map((preset) => {
         const next = { ...preset, is_default: preset.id === id };
@@ -58,7 +58,7 @@ export function useGuestPresets() {
       }
       return defaultPreset;
     },
-    clearDefaultPreset() {
+    async clearDefaultPreset() {
       setPresets((current) => current.map((preset) => ({ ...preset, is_default: false })));
     },
   }), [presets, setPresets]);
