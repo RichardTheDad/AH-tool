@@ -205,11 +205,12 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
         </div>
 
         <div className="min-w-0">
-          <div className="flex justify-center">
-          <ScoreDial
-            score={result.confidence_score}
-            title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)}`}
-          />
+          <div className="flex flex-col items-center gap-1">
+            <ScoreDial
+              score={result.confidence_score}
+              title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)}`}
+            />
+            <span className="text-[10px] uppercase tracking-label text-transparent select-none" aria-hidden="true">--</span>
           </div>
         </div>
 

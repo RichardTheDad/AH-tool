@@ -282,11 +282,12 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                   ) : null}
                 </td>
                 <td className="px-3 py-3 align-middle whitespace-nowrap">
-                  <div className="flex justify-center">
+                  <div className="flex flex-col items-center gap-1">
                     <ScoreDial
                       score={result.confidence_score}
                       title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
                     />
+                    <span className="text-[10px] uppercase tracking-link text-transparent select-none" aria-hidden="true">--</span>
                   </div>
                 </td>
                 <td className="px-3 py-3 align-middle whitespace-nowrap">
