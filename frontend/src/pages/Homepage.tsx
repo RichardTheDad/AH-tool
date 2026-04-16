@@ -136,7 +136,7 @@ export function Homepage() {
 
             </div>
 
-            <section className="rounded-2xl border border-orange-400/20 bg-zinc-950/75 p-3 shadow-[0_0_28px_rgba(249,115,22,0.05)] backdrop-blur-xl">
+            <section className="rounded-2xl border border-orange-400/20 bg-zinc-950/75 p-3 shadow-[0_0_20px_rgba(249,115,22,0.03)] backdrop-blur-xl">
               <div className="mb-2 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="h-2.5 w-2.5 rounded-full bg-zinc-500" />
@@ -176,7 +176,7 @@ export function Homepage() {
                         <span className="text-[25px] font-bold leading-none text-emerald-400">{row.profit}</span>
                         <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
                       </span>
-                      <div className="flex justify-center"><ScoreDial score={row.confidence} /></div>
+                      <div className="flex items-start justify-center"><ScoreDial score={row.confidence} /></div>
                       <div className="flex flex-col items-center gap-1"><ScoreDial score={row.sellability} /><span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span></div>
                     </div>
                     <p className="mt-1 text-[11px] text-zinc-400">Why it ranks: {row.why}</p>
@@ -224,7 +224,7 @@ export function Homepage() {
                 </div>
                 <p className="text-xs text-zinc-400">{step.description}</p>
                 {index < steps.length - 1 ? (
-                  <span className="pointer-events-none absolute -right-4 top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
+                  <span className="pointer-events-none absolute -right-1.5 top-1/2 hidden -translate-y-1/2 text-zinc-500 xl:inline">&gt;</span>
                 ) : null}
               </div>
             ))}
