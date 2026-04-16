@@ -185,7 +185,7 @@ export function Homepage() {
 
         <section className="grid gap-2 md:grid-cols-3">
           {featureCards.map((card) => (
-            <article key={card.title} className="rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3.5 transition hover:border-orange-400/45">
+            <article key={card.title} className="rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3.5">
               <div className="mb-1.5 flex items-center gap-2">
                 <span className="inline-flex rounded-md border border-orange-400/35 bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-orange-300">
                   {card.cue}

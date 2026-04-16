@@ -17,7 +17,7 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
     <nav className="sticky top-0 z-20 border-b border-white/10 bg-zinc-950/90 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <div>
-          <p className="font-display text-xs font-semibold uppercase tracking-display text-ember">Azeroth Flip</p>
+          <p className="font-display text-xs uppercase tracking-wider text-ember font-semibold">Azeroth Flip</p>
           <p className="text-sm leading-tight text-zinc-400 mt-0.5">{subtitle}</p>
         </div>
         <div className="flex items-center gap-3">

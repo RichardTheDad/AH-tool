@@ -63,6 +63,75 @@ export function PublicDocs() {
     },
   ];
 
+  const baseCalculation = [
+    {
+      title: "1. Start with the buy price",
+      description: "The scanner looks at the cheapest usable source price for the item on the buy realm. This is the gold you would need to commit before the flip can happen.",
+    },
+    {
+      title: "2. Choose a realistic sell target",
+      description: "The sell target is based on the destination market, but it is kept grounded by current listings and supporting market context. The goal is to avoid treating one strange listing as a dependable sale price.",
+    },
+    {
+      title: "3. Subtract sale costs and buffer",
+      description: "Estimated profit is based on the sell target after auction-house cut, minus the buy price, minus a small practical buffer. In plain terms: expected take-home gold minus what you spent.",
+    },
+    {
+      title: "4. Convert profit into ROI",
+      description: "ROI compares the estimated profit with the buy price. A 10,000g profit can be excellent on a 20,000g item and weak on a 500,000g item, so ROI helps show capital efficiency.",
+    },
+    {
+      title: "5. Rank beyond raw profit",
+      description: "The final rank blends profit, ROI, confidence, sellability, and capital efficiency. A massive spread can still rank lower if the market looks thin, stale, or hard to exit.",
+    },
+  ];
+
+  const tuningDetails = [
+    {
+      title: "Confidence tuning",
+      description: "Confidence rewards cleaner evidence: enough listings to compare, recent data, steadier price behavior, and fewer signs that the target price is a one-off spike.",
+    },
+    {
+      title: "Sellability tuning",
+      description: "Sellability looks at whether the destination market appears healthy enough to move the item. It weighs depth, stability, and anti-bait signals so slow or fragile markets do not look stronger than they are.",
+    },
+    {
+      title: "Risk tuning",
+      description: "Risk tuning lowers the rank when the scanner sees patterns that often make flips harder to execute, such as very thin sell-side inventory, stale market snapshots, inconsistent history, or unusually wide spreads.",
+    },
+    {
+      title: "Capital tuning",
+      description: "Capital tuning helps avoid over-favoring expensive items with modest returns. The scanner can prefer a cleaner, more efficient flip over a larger-looking flip that locks up too much gold for the expected return.",
+    },
+  ];
+
+  const safeguards = [
+    {
+      title: "Evidence caps",
+      description: "If an opportunity does not have enough sell-side depth, history, or recent data, its score is capped. This keeps weak-evidence flips from appearing as top-tier just because the visible spread is large.",
+    },
+    {
+      title: "Stale data penalties",
+      description: "When market context is older or has freshness gaps, confidence is reduced. Auction-house prices can move quickly, so older evidence should not carry the same trust as recent evidence.",
+    },
+    {
+      title: "Spike and bait protection",
+      description: "The scanner watches for sell prices that sit far above recent behavior or look unusually stretched compared with the rest of the market. These can be profitable, but they can also be bait listings or short-lived spikes.",
+    },
+    {
+      title: "Thin-market protection",
+      description: "Items with very few listings or sellers can be difficult to buy or resell at the expected price. Thin markets get reduced confidence so they are treated as speculative instead of automatic wins.",
+    },
+    {
+      title: "Regional value anchoring",
+      description: "For rare or unusual items, the scanner uses broader market context to keep sell targets from drifting too far above what the item has historically supported.",
+    },
+    {
+      title: "Risk labels and filters",
+      description: "Risky opportunities are flagged so you can hide them or review them more carefully. The safeguard is there to slow down decisions when the numbers look tempting but the market evidence is weaker.",
+    },
+  ];
+
   const tools = [
     {
       title: "Realm lists",
@@ -138,6 +207,45 @@ export function PublicDocs() {
               <div key={item.field} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
                 <p className="font-medium text-zinc-100">{item.field}</p>
                 <p className="mt-1 text-sm leading-6 text-zinc-400">{item.meaning}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="How the calculation works" subtitle="The base math behind a ranked opportunity.">
+          <div className="space-y-3">
+            {baseCalculation.map((item) => (
+              <div key={item.title} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                <p className="font-medium text-zinc-100">{item.title}</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">{item.description}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 rounded-xl border border-orange-400/25 bg-orange-500/10 px-3 py-3 text-sm leading-6 text-orange-100">
+            <p className="font-medium text-orange-200">Simple version</p>
+            <p className="mt-1">
+              Estimated profit is the likely sell value after normal auction costs, minus the buy cost and a safety buffer. ROI is that estimated profit compared with the buy cost. The final rank then adjusts that raw opportunity by how trustworthy and sellable the market looks.
+            </p>
+          </div>
+        </Card>
+
+        <Card title="How tuning changes the score" subtitle="Tuning does not replace the base math; it changes how much trust the scanner gives the opportunity.">
+          <div className="grid gap-3 md:grid-cols-2">
+            {tuningDetails.map((item) => (
+              <div key={item.title} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                <p className="font-medium text-zinc-100">{item.title}</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">{item.description}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Safeguards and why they exist" subtitle="The scanner is intentionally cautious when a flip looks good for the wrong reason.">
+          <div className="grid gap-3 md:grid-cols-2">
+            {safeguards.map((item) => (
+              <div key={item.title} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                <p className="font-medium text-zinc-100">{item.title}</p>
+                <p className="mt-1 text-sm leading-6 text-zinc-400">{item.description}</p>
               </div>
             ))}
           </div>

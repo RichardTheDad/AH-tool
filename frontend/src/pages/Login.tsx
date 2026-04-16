@@ -76,7 +76,7 @@ export function Login() {
     <div className="flex min-h-screen items-center justify-center">
       <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/15 bg-zinc-900/60 p-8 shadow-lg backdrop-blur-xl">
         <div className="space-y-1">
-          <p className="font-display text-xs uppercase tracking-display text-ember">AzerothFlip</p>
+          <p className="font-display text-xs uppercase tracking-wider text-ember font-semibold">Azeroth Flip</p>
           <h1 className="font-display text-2xl font-semibold text-zinc-100">{title}</h1>
           <p className="text-sm text-zinc-400">Accounts sync realms and presets across devices. You can still use the scanner as a guest.</p>
           <div className="pt-1">
