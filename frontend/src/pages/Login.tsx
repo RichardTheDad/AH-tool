@@ -165,6 +165,13 @@ export function Login() {
 
         {mode !== "forgot" && (
           <>
+            <Link
+              to="/app"
+              className="block w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-center text-sm font-semibold text-zinc-200 transition hover:bg-white/10"
+            >
+              Continue as Guest
+            </Link>
+
             <div className="relative flex items-center gap-3">
               <div className="h-px flex-1 bg-white/15" />
               <span className="text-xs text-zinc-500">or</span>

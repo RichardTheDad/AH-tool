@@ -15,7 +15,7 @@ import { PublicDocs } from "./pages/PublicDocs";
 import { useDocumentTitle } from "./hooks/useDocumentTitle";
 
 function RootRedirect() {
-  return <Navigate to="/app" replace />;
+  return <Navigate to="/home" replace />;
 }
 
 function AppRoutes() {
