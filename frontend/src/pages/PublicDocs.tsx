@@ -3,28 +3,19 @@ import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function PublicDocs() {
-  // This is a public docs page, not noindex
+  // This is a public overview page, not noindex
   useDocumentTitle("/public/docs", {
-    title: "Documentation - Azeroth Flip",
-    description: "Public documentation for Azeroth Flip. Learn about features, data freshness, API capabilities, and trust boundaries.",
+    title: "How It Works - Azeroth Flip",
+    description: "High-level overview of how Azeroth Flip helps users evaluate cross-realm opportunities while protecting private operational detail.",
   });
 
   const coreFeatures = [
-    "Real-Time Scanner: Live auction house analysis with profit opportunity detection",
-    "Smart Filtering: Customizable profit targets, price thresholds, and item preferences",
-    "Realm Management: Multi-realm support with independent configuration per realm",
-    "Preset System: Save and manage scanner configurations for quick switching",
-    "Market Insights: Suggested realms based on market volatility and opportunity density",
-    "Item Details: Rich item metadata including historical pricing and trend analysis",
+    "Opportunity ranking across your enabled realms",
+    "Filter controls for profit, ROI, confidence, and risk preferences",
+    "Realm management for tracking where you source and where you sell",
+    "Preset workflows for quickly switching between scanner views",
+    "Item-level context to support better buy and sell decisions",
   ];
-
-  const freshnessRows = [
-    ["Auction House Data", "Updated hourly per realm (Blizzard API source)"],
-    ["Price History", "Maintained with timestamps for trend analysis"],
-    ["Item Metadata", "Refreshed weekly from Blizzard metadata endpoints"],
-    ["Realm Status", "Checked on-demand and cached for 24 hours"],
-    ["Market Suggestions", "Regenerated weekly after main scan cycles"],
-  ] as const;
 
   const privateDataItems = [
     "Tracked realms and user preferences",
@@ -33,48 +24,37 @@ export function PublicDocs() {
     "Account settings and authentication tokens",
   ];
 
-  const dataSources = [
-    ["Blizzard Auction House API", "Real-time auction listings and price data for all realms"],
-    ["Blizzard Item Metadata", "Item names, icons, categories, and quality tiers"],
-    ["Blizzard Realm Status", "Realm population, timezone, and language metadata"],
-    ["Internal Database", "Scan history, user configurations, and cached market snapshots"],
+  const trustBoundaries = [
+    ["Public", "Product overview and general capability information."],
+    ["Authenticated", "Scanner operations, account configuration, and personal data views."],
+    ["Protected", "Operational internals, private scoring inputs, and account-linked activity."],
   ] as const;
 
-  const limitations = [
-    ["Blizzard API Availability", "If Blizzard's API is down or rate-limited, scan updates may be delayed or fail gracefully."],
-    ["Data Latency", "Auction house data reflects the last successful scan, not live wall-clock time."],
-    ["Item Coverage", "Very new items may not appear in Blizzard metadata for 24-48 hours after release."],
-    ["Cross-Realm Data", "Connected realms are treated as separate entries; pricing is not auto-consolidated."],
-    ["Historical Depth", "Pricing history is retained for 90 days; older scans are archived or removed."],
-  ] as const;
-
-  const apiCapabilities = [
-    ["Health Check", "Public endpoint for monitoring service availability (no auth required)"],
-    ["Scan Management", "Retrieve scan results, run on-demand scans, and manage scan history (authenticated)"],
-    ["Realm Management", "List, add, and manage tracked realms and realm configurations (authenticated)"],
-    ["Item & Market Data", "Query item details, pricing history, and trend analysis (authenticated)"],
-    ["Presets & Settings", "Create, update, and manage filter presets and account settings (authenticated)"],
-  ] as const;
+  const highLevelLimits = [
+    "Market outcomes can change quickly and are never guaranteed.",
+    "Data availability may vary based on upstream provider reliability.",
+    "Very recent content may take time to appear consistently in market views.",
+  ];
 
   return (
     <div className="min-h-screen">
-      <PublicHeader subtitle="Public documentation" secondaryCtaLabel="Home" secondaryCtaTo="/home" />
+      <PublicHeader subtitle="How it works" secondaryCtaLabel="Home" secondaryCtaTo="/home" />
 
       <main className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <Card
           variant="elevated"
-          title="Azeroth Flip Documentation"
-          subtitle="Public documentation for product capabilities, freshness, trust boundaries, and API surface."
+          title="How Azeroth Flip works"
+          subtitle="A high-level overview of capabilities and trust boundaries."
         >
           <p className="text-sm text-zinc-300 mb-3">
-            Azeroth Flip is a real-time World of Warcraft auction house monitoring and analysis platform. It helps gold traders identify profitable flipping opportunities by analyzing market trends, price patterns, and profit margins across WoW realms.
+            Azeroth Flip helps users evaluate cross-realm market opportunities by combining pricing context, configurable filters, and ranked scanner output.
           </p>
           <p className="text-sm text-zinc-300">
-            The platform continuously scans auction house data and surfaces opportunities matching user-defined profit criteria, enabling traders to execute profitable transactions efficiently.
+            The public page intentionally stays high-level. Detailed implementation flow and operational internals are not published here.
           </p>
         </Card>
 
-        <Card title="Core features">
+        <Card title="What users can do">
           <ul className="space-y-2 text-sm text-zinc-300">
             {coreFeatures.map((feature) => (
               <li key={feature} className="flex gap-2">
@@ -86,14 +66,14 @@ export function PublicDocs() {
         </Card>
 
         <Card
-          title="Data, freshness, and privacy"
-          subtitle="How data enters the system, how fresh it is, and what remains private."
+          title="Trust and privacy boundaries"
+          subtitle="What is public versus what is private inside the product."
         >
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-2">
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-100">Freshness schedule</h3>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-100">Access levels</h3>
               <div className="space-y-2">
-                {freshnessRows.map(([label, value]) => (
+                {trustBoundaries.map(([label, value]) => (
                   <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
                     <p className="font-medium text-zinc-100">{label}</p>
                     <p className="text-zinc-400">{value}</p>
@@ -103,21 +83,9 @@ export function PublicDocs() {
             </div>
 
             <div>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-100">Data sources</h3>
-              <div className="space-y-2">
-                {dataSources.map(([label, value]) => (
-                  <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-                    <p className="font-medium text-zinc-100">{label}</p>
-                    <p className="text-zinc-400">{value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <h3 className="mb-2 text-sm font-semibold text-zinc-100">Privacy boundaries</h3>
+              <h3 className="mb-2 text-sm font-semibold text-zinc-100">Private account data</h3>
               <div className="rounded-xl border border-sky-400/35 bg-sky-500/15 px-3 py-2 text-sm text-sky-200 mb-2">
-                Public data: documentation and product overview only.
+                Public content is limited to product overview and trust guidance.
               </div>
               <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                 <p className="text-xs uppercase tracking-label text-zinc-500">Private data</p>
@@ -134,32 +102,14 @@ export function PublicDocs() {
           </div>
         </Card>
 
-        <Card title="Known limitations" variant="flat">
-          <div className="space-y-2">
-            {limitations.map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-                <p className="font-medium text-zinc-100">{label}</p>
-                <p className="text-zinc-400">{value}</p>
-              </div>
+        <Card title="Important notes" variant="flat">
+          <ul className="space-y-2 text-sm text-zinc-300">
+            {highLevelLimits.map((entry) => (
+              <li key={entry} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                {entry}
+              </li>
             ))}
-          </div>
-        </Card>
-
-        <Card title="API capabilities">
-          <p className="mb-3 text-sm text-zinc-300">
-            Azeroth Flip provides a comprehensive REST API for authenticated users to programmatically access their account and market data.
-          </p>
-          <div className="grid gap-2 md:grid-cols-2">
-            {apiCapabilities.map(([label, value]) => (
-              <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-                <p className="font-medium text-zinc-100">{label}</p>
-                <p className="text-zinc-400">{value}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-zinc-300 mt-3">
-            All API endpoints are rate-limited and require authentication via Supabase JWT tokens. Documentation available upon account creation.
-          </p>
+          </ul>
         </Card>
       </main>
     </div>
