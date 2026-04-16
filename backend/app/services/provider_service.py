@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from sqlalchemy import func, or_
+
 from app.core.config import clear_settings_cache, get_settings
 from app.db.models import Item, ListingSnapshot
 from app.providers.blizzard_auctions import BlizzardAuctionListingProvider
@@ -65,8 +67,18 @@ class ProviderRegistry:
         return self.listing_providers[target]
 
     def get_provider_statuses(self, session) -> list[ProviderStatus]:
-        cached_item_count = sum(1 for item in session.query(Item).all() if _has_cached_metadata(item))
-        blizzard_listing_count = session.query(ListingSnapshot).filter(ListingSnapshot.source_name == "blizzard_auctions").count()
+        cached_item_count = (
+            session.query(func.count(Item.item_id))
+            .filter(
+                Item.metadata_json.isnot(None),
+                or_(
+                    Item.metadata_json["metadata_status"].as_string().is_(None),
+                    Item.metadata_json["metadata_status"].as_string() != "missing",
+                ),
+            )
+            .scalar() or 0
+        )
+        blizzard_listing_count = session.query(func.count(ListingSnapshot.id)).filter(ListingSnapshot.source_name == "blizzard_auctions").scalar() or 0
 
         metadata_available, metadata_message = self.metadata_provider.is_available()
         if metadata_available and self.metadata_provider.last_error:

@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     scan_data_retention_days: int = 365
     db_min_free_mb: int = 1024
     db_target_free_mb: int = 1536
-    db_pool_size: int = 6
+    db_pool_size: int = 3
     db_max_overflow: int = 2
     db_pool_timeout_seconds: int = 5
     db_pool_recycle_seconds: int = 1800
