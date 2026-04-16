@@ -290,11 +290,11 @@ export const variants = {
   // Button variants
   button: {
     primary: {
-      bg: "bg-orange-500",
+      bg: "bg-orange-600",
       text: "text-white",
-      border: "border border-orange-500",
-      hover: "hover:bg-orange-400",
-      active: "active:bg-orange-600",
+      border: "border border-orange-600",
+      hover: "hover:bg-orange-500",
+      active: "active:bg-orange-700",
       disabled: "disabled:opacity-50 disabled:cursor-not-allowed",
     },
     secondary: {
