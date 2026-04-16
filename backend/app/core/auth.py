@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import threading
-import urllib.request
 from urllib.parse import urlparse
 
+import httpx
 from fastapi import Header, HTTPException, status
 from jose import JWTError, jwt
 
@@ -57,8 +57,13 @@ def _fetch_jwks(jwks_url: str) -> dict:
         if jwks_url in _jwks_cache:
             return _jwks_cache[jwks_url]
         logger.info("Fetching JWKS from %s", jwks_url)
-        with urllib.request.urlopen(jwks_url, timeout=5) as resp:  # noqa: S310
-            data = json.loads(resp.read())
+        parsed = urlparse(jwks_url)
+        if parsed.scheme.lower() != "https" or not parsed.netloc:
+            raise JWTError("JWKS URL is not trusted.")
+        with httpx.Client(timeout=5.0) as client:
+            response = client.get(jwks_url)
+            response.raise_for_status()
+            data = json.loads(response.text)
         if len(_jwks_cache) >= _JWKS_CACHE_MAX_ENTRIES:
             _jwks_cache.pop(next(iter(_jwks_cache)))
         _jwks_cache[jwks_url] = data

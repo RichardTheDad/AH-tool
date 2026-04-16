@@ -41,7 +41,8 @@ class TsmMarketService:
             return None, api_message
 
         region_id = self._resolve_region_id()
-        assert region_id is not None
+        if region_id is None:
+            return None, "TSM region ID is unavailable."
 
         try:
             if client is not None:

@@ -63,7 +63,8 @@ def get_cached_tsm_region_stats(item: Item) -> dict[str, float | None] | None:
 def upsert_item(session: Session, payload: ItemRead) -> Item:
     upsert_items(session, [payload])
     item = session.get(Item, payload.item_id)
-    assert item is not None
+    if item is None:
+        raise RuntimeError(f"Item upsert did not persist item_id={payload.item_id}.")
     return item
 
 
