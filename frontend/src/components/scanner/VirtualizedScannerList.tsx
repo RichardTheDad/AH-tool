@@ -310,6 +310,7 @@ export function VirtualizedScannerList({
       </div>
 
       <List
+        key={`${results.length}-${results[0]?.item_id ?? ""}-${results[results.length - 1]?.item_id ?? ""}`}
         style={{ height }}
         rowCount={results.length}
         rowHeight={172}
