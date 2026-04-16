@@ -54,11 +54,13 @@ def health_check(
             f"Crawler health check: {request.headers.get('user-agent')} from {request.client.host if request.client else 'unknown'}"
         )
 
+    db_status = "ok"
     try:
         db.execute(text("SELECT 1"))
-        db_status = "ok"
-    except Exception:
+    except Exception as exc:
+        logger.exception("Health check database query failed")
         db_status = "unavailable"
+    
     return {
         "status": "ok",
         "database": db_status,
@@ -104,5 +106,35 @@ def scheduler_health(
 def metadata_health(_auth: None = Depends(require_health_diagnostics_access)) -> dict[str, object]:
     return {
         "metadata_backfill": get_metadata_backfill_status(),
+    }
+
+
+@router.get("/health/database-pool")
+def database_pool_health(_auth: None = Depends(require_health_diagnostics_access)) -> dict[str, object]:
+    """Diagnostics endpoint for database connection pool status."""
+    from app.db.session import get_engine
+    
+    engine = get_engine()
+    pool = engine.pool
+    
+    # Get pool stats if available
+    pool_status = {
+        "pool_type": pool.__class__.__name__,
+        "size": None,
+        "overflow": None,
+        "checked_out": None,
+        "checked_in": None,
+    }
+    
+    # SQLAlchemy connection pool stats (available on most pool types)
+    if hasattr(pool, "size"):
+        pool_status["size"] = pool.size()
+    if hasattr(pool, "overflow"):
+        pool_status["overflow"] = pool.overflow()
+    if hasattr(pool, "checkedout"):
+        pool_status["checked_out"] = pool.checkedout()
+    
+    return {
+        "database_pool": pool_status,
     }
 
