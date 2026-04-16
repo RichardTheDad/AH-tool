@@ -19,6 +19,7 @@ import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus, ScanSess
 import { filterScanResults } from "../utils/filters";
 import { formatDateTime } from "../utils/format";
 import { formatScore } from "../utils/format";
+import { InfoTooltip } from "../components/common/InfoTooltip";
 import { readinessTextColor } from "../utils/statusStyles";
 
 const CALIBRATION_CHART_WIDTH = 640;
@@ -112,6 +113,12 @@ export function Scanner() {
   const [restoreTarget, setRestoreTarget] = useState<{ itemId: number | null; index: number | null } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const { filters, updateFilters, restoreFiltersFromStorage } = useScannerFilters();
+  const [showFilters, setShowFilters] = useState(false);
+  const hasActiveFilters = Boolean(
+    filters.minProfit || filters.minRoi || filters.minSpread || filters.maxSpread ||
+    filters.maxBuyPrice || filters.minConfidence || filters.category ||
+    filters.buyRealm || filters.sellRealm || filters.hideRisky
+  );
 
   const scanQuery = useQuery({
     queryKey: ["scans", "latest"],
@@ -473,14 +480,36 @@ export function Scanner() {
   }, [restoreTarget, useVirtualizedResults]);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
-      <FilterSidebar 
-        filters={filters} 
-        onChange={handleFilterChange} 
-        categoryOptions={categoryOptions}
-        realmOptions={realmOptions}
-        onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
-      />
+    <div className="space-y-4">
+      {/* Mobile filter toggle — hidden on xl+ where sidebar is always visible */}
+      <div className="xl:hidden">
+        <button
+          type="button"
+          onClick={() => setShowFilters((prev) => !prev)}
+          className="flex items-center gap-2 rounded-xl border border-white/15 bg-zinc-900/60 px-4 py-2.5 text-sm font-semibold text-zinc-200 shadow-sm backdrop-blur-xl transition hover:border-white/25 hover:text-zinc-100 active:scale-[0.98]"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-zinc-400">
+            <path fillRule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 0 1 .628.74v2.288a2.25 2.25 0 0 1-.659 1.59l-4.682 4.683a2.25 2.25 0 0 0-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 0 1 8 18.25v-5.757a2.25 2.25 0 0 0-.659-1.591L2.659 6.22A2.25 2.25 0 0 1 2 4.629V2.34a.75.75 0 0 1 .628-.74Z" clipRule="evenodd" />
+          </svg>
+          {showFilters ? "Hide filters" : "Filters"}
+          {hasActiveFilters && (
+            <span className="ml-auto flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white">
+              !
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div className={showFilters ? "block xl:block" : "hidden xl:block"}>
+          <FilterSidebar
+            filters={filters}
+            onChange={handleFilterChange}
+            categoryOptions={categoryOptions}
+            realmOptions={realmOptions}
+            onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
+          />
+        </div>
 
       <div className="space-y-4">
         <ScannerStatusBar 
@@ -736,7 +765,7 @@ export function Scanner() {
               </div>
 
               <div className="rounded-2xl border border-amber-400/35 bg-amber-500/15 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-amber-300">Rank movers</p>
+                <p className="text-xs uppercase tracking-label text-amber-300 flex items-center gap-0.5">Rank movers<InfoTooltip text="Items that moved up or down in the ranked list since the last scan" /></p>
                 <p className="mt-1 text-2xl font-semibold text-amber-200">{diffSummary.movers.length}</p>
                 <p className="text-xs text-amber-300">
                   {diffSummary.moverShareOfShared.toFixed(1)}% of shared • avg shift {diffSummary.averageMoverShift.toFixed(1)}
@@ -744,7 +773,7 @@ export function Scanner() {
               </div>
 
               <div className="rounded-2xl border border-sky-400/35 bg-sky-500/15 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-sky-300">Materially changed</p>
+                <p className="text-xs uppercase tracking-label text-sky-300 flex items-center gap-0.5">Materially changed<InfoTooltip text="Items where profit, ROI, or confidence score changed significantly between scans" /></p>
                 <p className="mt-1 text-2xl font-semibold text-sky-200">{diffSummary.materiallyChangedCount}</p>
                 <p className="text-xs text-sky-300">{diffSummary.changedShare.toFixed(1)}% of compared universe</p>
               </div>
@@ -752,7 +781,7 @@ export function Scanner() {
 
             <div className="mt-4 grid gap-3 xl:grid-cols-[1.2fr_1fr]">
               <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-                <p className="text-xs uppercase tracking-label text-zinc-500">Change composition</p>
+                <p className="text-xs uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Change composition<InfoTooltip text="Breakdown of how the result set changed since the last scan: newly ranked, dropped off, moved in rank, or stable" /></p>
                 {diffSummary.totalComparedUniverse > 0 ? (
                   <>
                     <div className="mt-2 flex h-3 w-full overflow-hidden rounded-full bg-zinc-800">
@@ -790,13 +819,13 @@ export function Scanner() {
 
                 <div className="mt-3 grid gap-2 text-xs text-zinc-300 sm:grid-cols-2">
                   <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
-                    <p className="uppercase tracking-label text-zinc-500">Net opportunity delta</p>
+                    <p className="uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Net opportunity delta<InfoTooltip text="New opportunities minus dropped ones — positive means the market is growing, negative means it shrank" /></p>
                     <p className={diffSummary.netOpportunityDelta >= 0 ? "mt-1 font-semibold text-emerald-700" : "mt-1 font-semibold text-rose-700"}>
                       {diffSummary.netOpportunityDelta >= 0 ? `+${diffSummary.netOpportunityDelta}` : diffSummary.netOpportunityDelta}
                     </p>
                   </div>
                   <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
-                    <p className="uppercase tracking-label text-zinc-500">Mover direction split</p>
+                    <p className="uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Mover direction split<InfoTooltip text="Of the items that changed rank, how many improved (↑) vs. declined (↓)" /></p>
                     <p className="mt-1 font-semibold text-zinc-200">
                       <span className="text-emerald-700">↑ {diffSummary.improvedRank.length}</span>
                       <span className="mx-2 text-zinc-500">/</span>
@@ -804,11 +833,11 @@ export function Scanner() {
                     </p>
                   </div>
                   <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
-                    <p className="uppercase tracking-label text-zinc-500">Profit deltas</p>
+                    <p className="uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Profit deltas<InfoTooltip text="Items whose estimated profit changed between scans" /></p>
                     <p className="mt-1 font-semibold text-zinc-200">{diffSummary.profitChanged.length} changed</p>
                   </div>
                   <div className="rounded-xl border border-white/15 bg-zinc-900/65 px-2 py-2">
-                    <p className="uppercase tracking-label text-zinc-500">Score / ROI deltas</p>
+                    <p className="uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Score / ROI deltas<InfoTooltip text="Items whose confidence score or return-on-investment percentage changed between scans" /></p>
                     <p className="mt-1 font-semibold text-zinc-200">{diffSummary.scoreChanged.length} / {diffSummary.roiChanged.length}</p>
                   </div>
                 </div>
@@ -816,7 +845,7 @@ export function Scanner() {
 
               <div className="space-y-3">
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-                  <p className="text-xs uppercase tracking-label text-zinc-500">Top movers</p>
+                  <p className="text-xs uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Top movers<InfoTooltip text="Items with the biggest rank position change since the last scan" /></p>
                   <div className="mt-2 space-y-2 text-sm">
                     {diffSummary.topMovers.length ? diffSummary.topMovers.map((entry) => {
                       const maxShift = Math.max(1, Math.max(...diffSummary.topMovers.map((row) => Math.abs(row.rankDelta))));
@@ -842,7 +871,7 @@ export function Scanner() {
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3">
-                  <p className="text-xs uppercase tracking-label text-zinc-500">In / out highlights</p>
+                  <p className="text-xs uppercase tracking-label text-zinc-500 flex items-center gap-0.5">In / out highlights<InfoTooltip text="The specific items that newly appeared in or dropped out of the ranked opportunity list" /></p>
                   <div className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
                     <div>
                       <p className="mb-1 text-xs uppercase tracking-label text-emerald-700">New</p>
@@ -864,7 +893,7 @@ export function Scanner() {
             {(diffSummary.classDeltas.length || diffSummary.realmDeltas.length) ? (
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                  <p className="text-xs uppercase tracking-label text-zinc-500">Class mix shift</p>
+                  <p className="text-xs uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Class mix shift<InfoTooltip text="How the item class distribution (Armor, Weapon, Recipe, etc.) shifted between scans" /></p>
                   <div className="mt-1 space-y-1 text-xs text-zinc-300">
                     {diffSummary.classDeltas.length ? diffSummary.classDeltas.map((entry) => (
                       <div key={`class-${entry.name}`} className="flex items-center justify-between gap-2">
@@ -878,7 +907,7 @@ export function Scanner() {
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                  <p className="text-xs uppercase tracking-label text-zinc-500">Cheapest-buy realm shift</p>
+                  <p className="text-xs uppercase tracking-label text-zinc-500 flex items-center gap-0.5">Cheapest-buy realm shift<InfoTooltip text="Which realms are now the preferred cheapest place to buy, and how much that changed" /></p>
                   <div className="mt-1 space-y-1 text-xs text-zinc-300">
                     {diffSummary.realmDeltas.length ? diffSummary.realmDeltas.map((entry) => (
                       <div key={`realm-${entry.realm}`} className="flex items-center justify-between gap-2">
@@ -1060,6 +1089,7 @@ export function Scanner() {
           </div>
         ) : null}
       </div>
+    </div>
     </div>
   );
 }

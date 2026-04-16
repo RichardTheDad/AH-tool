@@ -297,7 +297,8 @@ export function VirtualizedScannerList({
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/70 shadow-md backdrop-blur-xl">
+    <div className="overflow-x-auto md:overflow-visible">
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/70 shadow-md backdrop-blur-xl min-w-[560px] md:min-w-0">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 border-b border-white/15 bg-white/5 px-4 py-3 text-[11px] uppercase tracking-label text-zinc-500">
         <div>Item</div>
         <div className="text-center"><SortButton label="Buy" column="cheapest_buy_price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} /></div>
@@ -318,6 +319,7 @@ export function VirtualizedScannerList({
         listRef={listRef}
         overscanCount={6}
       />
+    </div>
     </div>
   );
 }

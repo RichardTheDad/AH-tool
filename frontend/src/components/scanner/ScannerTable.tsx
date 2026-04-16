@@ -134,7 +134,8 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/70 shadow-md backdrop-blur-xl">
-      <table className="w-full divide-y divide-white/10 text-sm">
+      <div className="overflow-x-auto md:overflow-visible">
+      <table className="w-full min-w-[560px] md:min-w-0 divide-y divide-white/10 text-sm">
           <thead className="bg-white/5 text-left text-xs uppercase tracking-wider font-semibold text-zinc-400 border-b border-white/15">
             <tr>
               <th className="px-4 py-3">Item</th>
@@ -312,6 +313,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
             ))}
           </tbody>
         </table>
+      </div>
     </div>
   );
 }

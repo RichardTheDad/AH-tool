@@ -44,7 +44,7 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <Card title="Today's state" subtitle="Quick read on board readiness.">
           <p className={`text-sm font-semibold ${readinessTextColor(readiness.status)}`}>
             {readiness.message}
