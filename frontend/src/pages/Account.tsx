@@ -65,60 +65,73 @@ export function Account() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="max-w-4xl">
       <Card title="Account" subtitle="Manage your sign-in security and account lifecycle.">
-        <div className="space-y-3 text-sm text-zinc-300">
-          <p>Signed in as {user?.email ?? "unknown user"}</p>
-          <p>Use this page to change your password or permanently delete your account.</p>
-        </div>
-      </Card>
+        <div className="space-y-6">
+          <section className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <h3 className="font-display text-base font-semibold text-zinc-100">Account details</h3>
+            <div className="mt-3 space-y-2 text-sm text-zinc-300">
+              <p>Signed in as {user?.email ?? "unknown user"}</p>
+              <p>Use this page to change your password or permanently delete your account.</p>
+            </div>
+          </section>
 
-      <Card title="Change password" subtitle="Update your Supabase account password.">
-        <form className="space-y-3" onSubmit={handlePasswordSubmit}>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-200" htmlFor="account-new-password">
-              New password
-            </label>
-            <input
-              id="account-new-password"
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              required
-              minLength={8}
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-ember focus:ring-1 focus:ring-ember/30"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-200" htmlFor="account-confirm-password">
-              Confirm new password
-            </label>
-            <input
-              id="account-confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              required
-              minLength={8}
-              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-ember focus:ring-1 focus:ring-ember/30"
-            />
-          </div>
-          {passwordError ? <p className="text-sm text-rose-400">{passwordError}</p> : null}
-          {passwordMessage ? <p className="text-sm text-emerald-400">{passwordMessage}</p> : null}
-          <Button type="submit" variant="secondary" size="sm">Update password</Button>
-        </form>
-      </Card>
+          <section className="border-t border-white/10 pt-5">
+            <div className="mb-3">
+              <h3 className="font-display text-base font-semibold text-zinc-100">Change password</h3>
+              <p className="mt-1 text-sm text-zinc-400">Update your account password.</p>
+            </div>
+            <form className="max-w-xl space-y-3" onSubmit={handlePasswordSubmit}>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-200" htmlFor="account-new-password">
+                  New password
+                </label>
+                <input
+                  id="account-new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(event) => setNewPassword(event.target.value)}
+                  required
+                  minLength={8}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-ember focus:ring-1 focus:ring-ember/30"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-zinc-200" htmlFor="account-confirm-password">
+                  Confirm new password
+                </label>
+                <input
+                  id="account-confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
+                  minLength={8}
+                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-ember focus:ring-1 focus:ring-ember/30"
+                />
+              </div>
+              {passwordError ? <p className="text-sm text-rose-400">{passwordError}</p> : null}
+              {passwordMessage ? <p className="text-sm text-emerald-400">{passwordMessage}</p> : null}
+              <Button type="submit" variant="secondary" size="sm">Update password</Button>
+            </form>
+          </section>
 
-      <Card title="Delete account" subtitle="Permanently remove your account and saved app data.">
-        <div className="space-y-3">
-          <p className="text-sm text-zinc-300">
-            This permanently removes your account from Supabase Authentication and deletes your saved realms, presets, settings,
-            and related account data from this app.
-          </p>
-          {deleteError ? <p className="text-sm text-rose-400">{deleteError}</p> : null}
-          <Button variant="danger" size="sm" onClick={handleDeleteAccount} isLoading={deleteMutation.isPending}>
-            {deleteMutation.isPending ? "Deleting account..." : "Delete account"}
-          </Button>
+          <section className="border-t border-white/10 pt-5">
+            <div className="mb-3">
+              <h3 className="font-display text-base font-semibold text-rose-200">Delete account</h3>
+              <p className="mt-1 text-sm text-zinc-400">Permanently remove your account and saved app data.</p>
+            </div>
+            <div className="max-w-2xl space-y-3">
+              <p className="text-sm text-zinc-300">
+                This permanently removes your account from Supabase Authentication and deletes your saved realms, presets, settings,
+                and related account data from this app.
+              </p>
+              {deleteError ? <p className="text-sm text-rose-400">{deleteError}</p> : null}
+              <Button variant="danger" size="sm" onClick={handleDeleteAccount} isLoading={deleteMutation.isPending}>
+                {deleteMutation.isPending ? "Deleting account..." : "Delete account"}
+              </Button>
+            </div>
+          </section>
         </div>
       </Card>
     </div>

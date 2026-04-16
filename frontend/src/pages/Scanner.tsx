@@ -551,44 +551,56 @@ export function Scanner() {
         )}
 
         {presets.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {defaultPreset ? (
-              <Button
-                variant={activePreset?.id === defaultPreset.id ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => {
-                  setSelectedPresetId(defaultPreset.id);
-                  updateFilters(applyPresetToFilterState(defaultPreset));
-                }}
-              >
-                Apply default
-              </Button>
-            ) : null}
-            {defaultPreset ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSelectedPresetId(defaultPreset.id);
-                  updateFilters(applyPresetToFilterState(defaultPreset));
-                }}
-              >
-                Reset to saved default
-              </Button>
-            ) : null}
-            {presets.map((preset) => (
-              <Button
-                key={preset.id}
-                variant={activePreset?.id === preset.id ? "primary" : "secondary"}
-                size="sm"
-                onClick={() => {
-                  setSelectedPresetId(preset.id);
-                  updateFilters(applyPresetToFilterState(preset));
-                }}
-              >
-                {preset.name}
-              </Button>
-            ))}
+          <div className="rounded-2xl border border-white/10 bg-zinc-900/55 px-3 py-3 shadow-sm backdrop-blur-xl">
+            <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-zinc-100">
+                {activePreset ? `Applied preset: ${activePreset.name}` : "Current view: Custom filters"}
+              </p>
+              {defaultPreset ? (
+                <p className="text-xs text-zinc-400">Saved default: {defaultPreset.name}</p>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {defaultPreset ? (
+                <Button
+                  variant={activePreset?.id === defaultPreset.id ? "primary" : "secondary"}
+                  size="sm"
+                  aria-pressed={activePreset?.id === defaultPreset.id}
+                  onClick={() => {
+                    setSelectedPresetId(defaultPreset.id);
+                    updateFilters(applyPresetToFilterState(defaultPreset));
+                  }}
+                >
+                  Apply default
+                </Button>
+              ) : null}
+              {defaultPreset ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedPresetId(defaultPreset.id);
+                    updateFilters(applyPresetToFilterState(defaultPreset));
+                  }}
+                >
+                  Reset to saved default
+                </Button>
+              ) : null}
+              {presets.map((preset) => (
+                <Button
+                  key={preset.id}
+                  variant={activePreset?.id === preset.id ? "primary" : "secondary"}
+                  size="sm"
+                  aria-pressed={activePreset?.id === preset.id}
+                  onClick={() => {
+                    setSelectedPresetId(preset.id);
+                    updateFilters(applyPresetToFilterState(preset));
+                  }}
+                >
+                  {preset.name}
+                </Button>
+              ))}
+            </div>
           </div>
         )}
 
