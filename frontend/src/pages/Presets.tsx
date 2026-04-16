@@ -260,9 +260,7 @@ export function Presets() {
             label="Buy realms"
             values={form.buy_realms}
             onChange={(nextValues) => setForm((current) => ({ ...current, buy_realms: nextValues }))}
-            options={(realmsQuery.data ?? [])
-              .filter((realm) => realm.enabled)
-              .map((realm) => ({ value: realm.realm_name, label: realm.realm_name }))}
+            options={enabledRealms.map((realm) => ({ value: realm.realm_name, label: realm.realm_name }))}
             placeholder="Select buy realms"
             isCompact
           />
@@ -271,9 +269,7 @@ export function Presets() {
             label="Sell realms"
             values={form.sell_realms}
             onChange={(nextValues) => setForm((current) => ({ ...current, sell_realms: nextValues }))}
-            options={(realmsQuery.data ?? [])
-              .filter((realm) => realm.enabled)
-              .map((realm) => ({ value: realm.realm_name, label: realm.realm_name }))}
+            options={enabledRealms.map((realm) => ({ value: realm.realm_name, label: realm.realm_name }))}
             placeholder="Select sell realms"
             isCompact
           />

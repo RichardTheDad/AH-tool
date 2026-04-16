@@ -14,6 +14,9 @@ import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerStatusBar } from "../components/scanner/ScannerStatusBar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
 import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
+import { useAuth } from "../contexts/AuthContext";
+import { useGuestPresets } from "../hooks/useGuestPresets";
+import { useGuestRealms } from "../hooks/useGuestRealms";
 import { useScannerFilters } from "../hooks/useScannerFilters";
 import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus, ScanSession, ScanSessionSummary } from "../types/models";
 import { filterScanResults } from "../utils/filters";
@@ -107,9 +110,13 @@ function normalizeSession(session: ScanSession | null | undefined): ScanSession 
 }
 
 export function Scanner() {
+  const { user } = useAuth();
+  const isGuest = !user;
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
+  const guestPresets = useGuestPresets();
+  const guestRealms = useGuestRealms();
   const scanRefreshIntervalMs = 60000;
   const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null);
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
@@ -139,13 +146,13 @@ export function Scanner() {
     gcTime: 30 * 60_000,
   });
   const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
-  const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
+  const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000, enabled: !isGuest });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness, refetchInterval: 120000, staleTime: 30_000 });
   const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanRefreshIntervalMs, staleTime: 30_000 });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
-  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000 });
-  const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000 });
-  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000 });
+  const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
+  const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
+  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
   const previousScanId = (scanHistoryQuery.data?.scans ?? [])[1]?.id;
   const previousScanQuery = useQuery({
     queryKey: ["scans", previousScanId, "summary", 200],
@@ -172,6 +179,9 @@ export function Scanner() {
     },
   });
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
+  const presets = isGuest ? guestPresets.presets : presetsQuery.data ?? [];
+  const defaultPreset = isGuest ? guestPresets.defaultPreset : defaultPresetQuery.data;
+  const trackedRealms = isGuest ? guestRealms.realms : realmsQuery.data ?? [];
   const activeProvider = providers.find((p) => p.name === "blizzard_auctions") ?? providers[0] ?? null;
   const readinessLoaded = Boolean(readinessQuery.data);
   const readiness: ScanReadiness =
@@ -253,20 +263,20 @@ export function Scanner() {
   const persistedScan = latest?.result_count ? latest : fallbackScan ?? latest;
   const calibrationUnavailable = Boolean(calibrationQuery.error);
   const previousScanUnavailable = Boolean(previousScanQuery.error);
-  const tuningAudit = asArray(tuningAuditQuery.data?.entries);
+  const tuningAudit = isGuest ? [] : asArray(tuningAuditQuery.data?.entries);
   const results = filterScanResults(asArray(persistedScan?.results), filters);
   const useVirtualizedResults = results.length > 300;
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
   const categoryGroups = buildCategoryGroupsFromResults(asArray(persistedScan?.results));
-  const realmOptions = asArray(realmsQuery.data)
+  const realmOptions = trackedRealms
     .filter((realm) => realm.enabled)
     .map((realm) => realm.realm_name)
     .sort((left, right) => left.localeCompare(right));
-  const inferredPreset = (presetsQuery.data ?? []).find((preset) => matchesPreset(filters, preset)) ?? null;
+  const inferredPreset = presets.find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
-    (presetsQuery.data ?? []).find((preset) => preset.id === selectedPresetId) ??
+    presets.find((preset) => preset.id === selectedPresetId) ??
     (selectedPresetId === null ? inferredPreset : null);
   const latestWarningText = latest?.warning_text?.toLowerCase() ?? "";
   const showingPersistedResults = Boolean(persistedScan && latest && persistedScan.id !== latest.id && persistedScan.result_count > 0);
@@ -489,7 +499,11 @@ export function Scanner() {
 
   return (
     <div className="space-y-4">
-      {/* Mobile filter toggle — hidden on lg+ where sidebar is always visible */}
+      {isGuest ? (
+        <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Guest mode is active. Scanner filters, tracked realms, and presets stay in this browser only. Sign in if you want them synced across devices.
+        </div>
+      ) : null}
       <div className="lg:hidden">
         <button
           type="button"
@@ -535,34 +549,33 @@ export function Scanner() {
           </div>
         )}
 
-        {/* Preset selection buttons */}
-        {(presetsQuery.data ?? []).length > 0 && (
+        {presets.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {defaultPresetQuery.data ? (
+            {defaultPreset ? (
               <Button
-                variant={activePreset?.id === defaultPresetQuery.data.id ? "primary" : "secondary"}
+                variant={activePreset?.id === defaultPreset.id ? "primary" : "secondary"}
                 size="sm"
                 onClick={() => {
-                  setSelectedPresetId(defaultPresetQuery.data!.id);
-                  updateFilters(applyPresetToFilterState(defaultPresetQuery.data!));
+                  setSelectedPresetId(defaultPreset.id);
+                  updateFilters(applyPresetToFilterState(defaultPreset));
                 }}
               >
                 Apply default
               </Button>
             ) : null}
-            {defaultPresetQuery.data ? (
+            {defaultPreset ? (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setSelectedPresetId(defaultPresetQuery.data!.id);
-                  updateFilters(applyPresetToFilterState(defaultPresetQuery.data!));
+                  setSelectedPresetId(defaultPreset.id);
+                  updateFilters(applyPresetToFilterState(defaultPreset));
                 }}
               >
                 Reset to saved default
               </Button>
             ) : null}
-            {(presetsQuery.data ?? []).map((preset) => (
+            {presets.map((preset) => (
               <Button
                 key={preset.id}
                 variant={activePreset?.id === preset.id ? "primary" : "secondary"}
@@ -673,7 +686,7 @@ export function Scanner() {
                   {calibration.suggestions.map((suggestion, index) => (
                     <div key={`suggestion-${index}`} className="rounded-xl border border-white/15 bg-zinc-900/65 px-3 py-2">
                       <p className={suggestion.level === "warning" ? "text-amber-300" : "text-zinc-300"}>{suggestion.message}</p>
-                      {suggestion.action_id && suggestion.action_label ? (
+                      {suggestion.action_id && suggestion.action_label && !isGuest ? (
                         <button
                           type="button"
                           onClick={() => tuningMutation.mutate(suggestion.action_id as "safe_calibration" | "balanced_default")}
@@ -686,6 +699,9 @@ export function Scanner() {
                               ? `Cooldown ${formatCooldown(tuningCooldownRemainingMs)}`
                               : suggestion.action_label}
                         </button>
+                      ) : null}
+                      {suggestion.action_id && suggestion.action_label && isGuest ? (
+                        <p className="mt-2 text-xs text-zinc-500">Sign in to apply tuning suggestions.</p>
                       ) : null}
                     </div>
                   ))}
@@ -727,6 +743,7 @@ export function Scanner() {
               restoreItemId={restoreTarget?.itemId ?? null}
               restoreIndex={restoreTarget?.index ?? null}
               onRestoreComplete={() => setRestoreTarget(null)}
+              allowItemNavigation={!isGuest}
             />
           ) : (
             <ScannerTable
@@ -736,6 +753,7 @@ export function Scanner() {
               onSortChange={handleFilterChange}
               focusedModeActive={focusedModeActive}
               onOpenProvenance={setSelectedProvenanceResult}
+              allowItemNavigation={!isGuest}
             />
           )
         ) : (
