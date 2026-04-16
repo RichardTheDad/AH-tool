@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_database_url(cls, value: object) -> str:
         raw = str(value or "").strip()
+        # SQLAlchemy v2 requires 'postgresql://' not 'postgres://'
+        if raw.startswith("postgres://"):
+            raw = "postgresql://" + raw[len("postgres://"):]
         if not raw.startswith("sqlite:///") or raw == "sqlite:///:memory:":
             return raw
 

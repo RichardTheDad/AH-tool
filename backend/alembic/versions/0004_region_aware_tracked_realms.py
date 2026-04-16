@@ -16,12 +16,27 @@ depends_on = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("tracked_realms") as batch_op:
-        batch_op.drop_constraint("ux_tracked_realms_user_realm", type_="unique")
-        batch_op.create_unique_constraint(
-            "ux_tracked_realms_user_region_realm",
-            ["user_id", "region", "realm_name"],
-        )
+    # Use raw SQL so the migration is idempotent on fresh databases where
+    # migration 0002 already creates the new constraint and never creates the
+    # old one.
+    op.execute(
+        'ALTER TABLE tracked_realms DROP CONSTRAINT IF EXISTS "ux_tracked_realms_user_realm"'
+    )
+    op.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint
+                WHERE conname = 'ux_tracked_realms_user_region_realm'
+            ) THEN
+                ALTER TABLE tracked_realms
+                ADD CONSTRAINT ux_tracked_realms_user_region_realm
+                UNIQUE (user_id, region, realm_name);
+            END IF;
+        END $$;
+        """
+    )
 
 
 def downgrade() -> None:

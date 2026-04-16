@@ -13,6 +13,7 @@ FROM python:3.11-slim
 # Create non-root user
 RUN groupadd --system appgroup && useradd --system --gid appgroup appuser
 
+ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # Copy installed packages from builder

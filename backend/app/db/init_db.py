@@ -120,7 +120,16 @@ def create_db_and_tables() -> None:
     engine = get_engine()
 
     if not database_url.startswith("sqlite"):
-        # PostgreSQL: apply additive column migrations (no create_all — tables exist).
+        from alembic.config import Config as AlembicConfig
+        from alembic import command as alembic_command
+
+        # Always run Alembic upgrade — it is idempotent and handles both fresh
+        # and existing databases correctly.
+        _backend_root = Path(__file__).resolve().parents[2]
+        alembic_cfg = AlembicConfig(str(_backend_root / "alembic.ini"))
+        alembic_cfg.set_main_option("sqlalchemy.url", database_url)
+        alembic_command.upgrade(alembic_cfg, "head")
+        # Apply additive column migrations not yet covered by Alembic revisions.
         _run_postgres_migrations(engine)
         return
 
