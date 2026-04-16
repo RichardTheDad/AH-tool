@@ -121,6 +121,12 @@ class SchedulerManager:
                 next_run_time = eligible_at if eligible_at > now else now + timedelta(minutes=1)
 
             self._schedule_next_check(next_run_time)
+        except Exception:
+            logger.exception("Scheduler eligibility check crashed; scheduling retry in 1 minute.")
+            try:
+                self._schedule_next_check(datetime.now(timezone.utc) + timedelta(minutes=1))
+            except Exception:
+                logger.exception("Failed to schedule scheduler retry after crash.")
         finally:
             if lock_session is not None:
                 try:
@@ -133,6 +139,14 @@ class SchedulerManager:
                     logger.exception("Failed to release scheduler advisory lock.")
                 finally:
                     lock_session.close()
+
+            # Safety net: never leave the scheduler without a pending refresh job.
+            if self.scheduler.get_job("refresh-cycle") is None:
+                try:
+                    self._schedule_next_check(datetime.now(timezone.utc) + timedelta(minutes=1))
+                    logger.warning("Refresh-cycle job was missing; scheduled recovery check in 1 minute.")
+                except Exception:
+                    logger.exception("Failed to recover missing refresh-cycle job.")
 
     def status(self) -> dict[str, object]:
         refresh_job = self.scheduler.get_job("refresh-cycle")
