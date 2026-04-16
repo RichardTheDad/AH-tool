@@ -10,6 +10,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { Button } from "../components/common/Button";
+import { GoldAmount } from "../components/common/GoldAmount";
 import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerStatusBar } from "../components/scanner/ScannerStatusBar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
@@ -1019,7 +1020,7 @@ export function Scanner() {
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
                       <p className="text-xs uppercase tracking-label text-zinc-500">Summary</p>
                       <p className="mt-2">
-                        This rank blends expected profit ({selectedProvenanceResult.estimated_profit.toFixed(0)}g), return ({(selectedProvenanceResult.roi * 100).toFixed(1)}%), sellability ({formatScore(selectedProvenanceResult.sellability_score)}), and confidence ({formatScore(selectedProvenanceResult.confidence_score)}).
+                        This rank blends expected profit (<GoldAmount value={selectedProvenanceResult.estimated_profit} />), return ({(selectedProvenanceResult.roi * 100).toFixed(1)}%), sellability ({formatScore(selectedProvenanceResult.sellability_score)}), and confidence ({formatScore(selectedProvenanceResult.confidence_score)}).
                       </p>
                     </div>
 
