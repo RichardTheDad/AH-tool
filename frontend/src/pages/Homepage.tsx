@@ -177,8 +177,16 @@ export function Homepage() {
                         <span className="flex items-center gap-1"><GoldAmount value={row.profit} /></span>
                         <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
                       </span>
-                      <div className="flex items-start justify-center"><ScoreDial score={row.confidence} /></div>
-                      <div className="flex flex-col items-center gap-1 mt-1"><ScoreDial score={row.sellability} /><span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span></div>
+                      <div className="flex flex-col items-center gap-1">
+                        <ScoreDial score={row.confidence} />
+                        <span className="text-[10px] uppercase tracking-link opacity-0 select-none" aria-hidden="true">
+                          label
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <ScoreDial score={row.sellability} />
+                        <span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span>
+                      </div>
                     </div>
                     <p className="mt-1 text-[11px] text-zinc-400">Why it ranks: {row.why}</p>
                   </div>
