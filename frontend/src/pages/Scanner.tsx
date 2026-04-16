@@ -117,15 +117,15 @@ export function Scanner() {
     queryKey: ["scans", "latest"],
     queryFn: () => getLatestScan(),
     refetchInterval: scanRefreshIntervalMs,
-    staleTime: 45_000,
-    gcTime: 15 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
   });
   const scanHistoryQuery = useQuery({
     queryKey: ["scans", "history"],
     queryFn: getScanHistory,
     refetchInterval: scanRefreshIntervalMs,
-    staleTime: 45_000,
-    gcTime: 15 * 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
   });
   const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
   const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000 });

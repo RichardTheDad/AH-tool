@@ -134,14 +134,12 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/70 shadow-md backdrop-blur-xl">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[1070px] divide-y divide-white/10 text-sm">
+      <table className="w-full divide-y divide-white/10 text-sm">
           <thead className="bg-white/5 text-left text-xs uppercase tracking-wider font-semibold text-zinc-400 border-b border-white/15">
             <tr>
-              <th className="px-4 py-3 min-w-[11rem]">Item</th>
-              <th className="px-3 py-3 whitespace-nowrap text-center">Buy realm</th>
+              <th className="px-4 py-3">Item</th>
               <SortableHeader
-                label="Buy price"
+                label="Buy"
                 column="cheapest_buy_price"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
@@ -149,16 +147,14 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                 className="px-3 py-3 whitespace-nowrap text-center"
                 align="center"
               />
-              <th className="px-3 py-3 whitespace-nowrap text-center">Sell realm</th>
-              <th className="px-3 py-3 whitespace-nowrap text-center">Target sell</th>
-              <th className="px-3 py-3 whitespace-nowrap text-center font-bold text-emerald-300">Profit</th>
+              <th className="px-3 py-3 whitespace-nowrap text-center">Sell</th>
               <SortableHeader
-                label="ROI"
+                label="Profit / ROI"
                 column="roi"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-3 py-3 whitespace-nowrap text-center font-bold"
+                className="px-3 py-3 whitespace-nowrap text-center font-bold text-emerald-300"
                 align="center"
               />
               <SortableHeader
@@ -188,16 +184,15 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                 className="px-3 py-3 whitespace-nowrap text-center"
                 align="center"
               />
-              <th className="px-3 py-3 min-w-[13rem]">Explanation</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/10">
             {results.map((result, index) => (
               <tr key={result.id} id={`scanner-item-${result.item_id}`} className="hover:bg-white/5 transition">
-                <td className="min-w-[10rem] px-3 py-3 align-top">
-                  <div className="flex items-center gap-3">
+                <td className="min-w-[10rem] max-w-[18rem] px-3 py-3 align-top">
+                  <div className="flex items-start gap-3">
                     <ItemIcon result={result} />
-                    <div className="flex min-w-0 flex-col gap-1.5">
+                    <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <Link
                           to={`/app/items/${result.item_id}`}
@@ -222,7 +217,27 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                           </a>
                         ) : null}
                       </div>
-                        <div className="flex flex-wrap gap-1.5">
+                      <p className="line-clamp-2 text-[11px] leading-[1.3] text-zinc-400">{result.explanation}</p>
+                      {(() => {
+                        const provenance = summarizeProvenance(result);
+                        return provenance ? (
+                          <p className="text-[11px] text-zinc-500">
+                            L {provenance.liquidity?.toFixed?.(1) ?? "--"} V {provenance.volatility?.toFixed?.(1) ?? "--"} Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
+                            {provenance.gateApplied ? " | gate" : ""}
+                            {provenance.executionRiskReasons.length ? ` | risk: ${provenance.executionRiskReasons[0]}` : ""}
+                            {onOpenProvenance ? (
+                              <button
+                                type="button"
+                                onClick={() => onOpenProvenance(result)}
+                                className="ml-2 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
+                              >
+                                Why ranked
+                              </button>
+                            ) : null}
+                          </p>
+                        ) : null;
+                      })()}
+                      <div className="mt-0.5 flex flex-wrap gap-1">
                         {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
                         {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}
                         {isEvidenceGated(result) ? <Badge tone="warning">Evidence gate</Badge> : null}
@@ -242,27 +257,21 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">{result.cheapest_buy_realm}</td>
-                <td className="px-3 py-3 align-middle whitespace-nowrap text-center"><GoldAmount value={result.cheapest_buy_price} /></td>
-                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">{result.best_sell_realm}</td>
-                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">
-                  <div className="space-y-1 text-center">
-                    <div
-                      title={
-                        result.observed_sell_price != null && result.observed_sell_price !== result.best_sell_price
-                          ? `Observed lowest ${formatGold(result.observed_sell_price)} | Recommended sell target ${formatGold(result.best_sell_price)}`
-                          : undefined
-                      }
-                    >
-                      {formatGold(result.best_sell_price)}
-                    </div>
-                    {result.observed_sell_price != null ? (
-                      <div className="text-[11px] text-zinc-500">Observed <GoldAmount value={result.observed_sell_price} /></div>
-                    ) : null}
-                  </div>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center text-zinc-300">
+                  <div className="font-medium">{result.cheapest_buy_realm}</div>
+                  <GoldAmount value={result.cheapest_buy_price} />
                 </td>
-                <td className="px-3 py-3 align-middle whitespace-nowrap text-center font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></td>
-                <td className="px-3 py-3 align-middle whitespace-nowrap text-center font-bold text-emerald-300">{formatPercent(result.roi)}</td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center text-zinc-300">
+                  <div className="font-medium">{result.best_sell_realm}</div>
+                  <div>{formatGold(result.best_sell_price)}</div>
+                  {result.observed_sell_price != null ? (
+                    <div className="text-[11px] text-zinc-500">Obs <GoldAmount value={result.observed_sell_price} /></div>
+                  ) : null}
+                </td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">
+                  <div className="font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></div>
+                  <div className="text-sm text-emerald-300">{formatPercent(result.roi)}</div>
+                </td>
                 <td className="px-3 py-3 align-middle whitespace-nowrap text-center text-zinc-200">
                   <span
                     title={
@@ -299,43 +308,10 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     <span className="text-[10px] uppercase tracking-link text-zinc-500">{result.turnover_label}</span>
                   </div>
                 </td>
-                <td
-                  className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-zinc-300 [overflow-wrap:anywhere]"
-                  title={`Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
-                >
-                  {(() => {
-                    const provenance = summarizeProvenance(result);
-                    return provenance ? (
-                      <div className="mb-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-zinc-400">
-                        Signals: L {provenance.liquidity?.toFixed?.(1) ?? "--"}, V {provenance.volatility?.toFixed?.(1) ?? "--"}, Anti-bait {provenance.antiBait?.toFixed?.(1) ?? "--"}
-                        {provenance.gateApplied ? " | evidence gate applied" : ""}
-                        {provenance.executionRiskReasons.length ? ` | execution risk: ${provenance.executionRiskReasons.slice(0, 2).join(", ")}` : ""}
-                        {onOpenProvenance ? (
-                          <button
-                            type="button"
-                            onClick={() => onOpenProvenance(result)}
-                            className="ml-2 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
-                          >
-                            Why ranked
-                          </button>
-                        ) : null}
-                      </div>
-                    ) : null;
-                  })()}
-                  <div className="space-y-1.5">
-                    <p className="line-clamp-3 text-[12px] leading-[1.4]">{result.explanation}</p>
-                    <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-link text-zinc-500">
-                      <span>{result.turnover_label} turnover</span>
-                      <span>{summarizeLiquidity(result.liquidity_score)}</span>
-                      <span>{summarizeBaitRisk(result.bait_risk_score)}</span>
-                    </div>
-                  </div>
-                </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
     </div>
   );
 }
