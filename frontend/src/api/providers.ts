@@ -1,7 +1,7 @@
-import { apiRequest } from "./client";
+import { apiOptionalAuthRequest } from "./client";
 import type { ProviderStatusResponse } from "../types/models";
 
 export function getProviderStatus() {
-  return apiRequest<ProviderStatusResponse>("/providers/status");
+  return apiOptionalAuthRequest<ProviderStatusResponse>("/providers/status");
 }
 

@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiOptionalAuthRequest } from "./client";
 import type { LatestScanResponse, ScanCalibrationSummary, ScanHistoryResponse, ScanReadiness, ScanRuntimeStatus, ScanSession } from "../types/models";
 
 function normalizeScanSession(session: ScanSession | null | undefined): ScanSession | null {
@@ -15,20 +15,20 @@ function normalizeScanSession(session: ScanSession | null | undefined): ScanSess
 
 export function getLatestScan(limit?: number) {
   const query = typeof limit === "number" ? `?limit=${Math.max(1, Math.floor(limit))}` : "";
-  return apiRequest<LatestScanResponse>(`/scans/latest${query}`).then((payload) => ({
+  return apiOptionalAuthRequest<LatestScanResponse>(`/scans/latest${query}`).then((payload) => ({
     ...payload,
     latest: normalizeScanSession(payload?.latest),
   }));
 }
 
 export function getScanHistory() {
-  return apiRequest<ScanHistoryResponse>("/scans/history").then((payload) => ({
+  return apiOptionalAuthRequest<ScanHistoryResponse>("/scans/history").then((payload) => ({
     scans: Array.isArray(payload?.scans) ? payload.scans : [],
   }));
 }
 
 export function getScanReadiness() {
-  return apiRequest<ScanReadiness>("/scans/readiness").then((payload) => ({
+  return apiOptionalAuthRequest<ScanReadiness>("/scans/readiness").then((payload) => ({
     ...payload,
     missing_realms: Array.isArray(payload?.missing_realms) ? payload.missing_realms : [],
     stale_realms: Array.isArray(payload?.stale_realms) ? payload.stale_realms : [],
@@ -37,11 +37,11 @@ export function getScanReadiness() {
 }
 
 export function getScanStatus() {
-  return apiRequest<ScanRuntimeStatus>("/scans/status");
+  return apiOptionalAuthRequest<ScanRuntimeStatus>("/scans/status");
 }
 
 export function getScanCalibration() {
-  return apiRequest<ScanCalibrationSummary>("/scans/calibration").then((payload) => ({
+  return apiOptionalAuthRequest<ScanCalibrationSummary>("/scans/calibration").then((payload) => ({
     ...payload,
     total_evaluated: typeof payload?.total_evaluated === "number" ? payload.total_evaluated : 0,
     confidence_bands: Array.isArray(payload?.confidence_bands) ? payload.confidence_bands : [],
@@ -54,5 +54,5 @@ export function getScanCalibration() {
 
 export function getScan(scanId: number, limit?: number) {
   const query = typeof limit === "number" ? `?limit=${Math.max(1, Math.floor(limit))}` : "";
-  return apiRequest<ScanSession>(`/scans/${scanId}${query}`).then((session) => normalizeScanSession(session) as ScanSession);
+  return apiOptionalAuthRequest<ScanSession>(`/scans/${scanId}${query}`).then((session) => normalizeScanSession(session) as ScanSession);
 }

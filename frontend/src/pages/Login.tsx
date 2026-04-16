@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
@@ -10,7 +10,6 @@ export function Login() {
   const { session } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
 
-  // Ensure this route is marked as noindex
   useDocumentTitle("/login");
 
   useEffect(() => {
@@ -79,6 +78,7 @@ export function Login() {
         <div className="space-y-1">
           <p className="font-display text-xs uppercase tracking-display text-ember">AzerothFlip</p>
           <h1 className="font-display text-2xl font-semibold text-zinc-100">{title}</h1>
+          <p className="text-sm text-zinc-400">Accounts sync realms and presets across devices. You can still use the scanner as a guest.</p>
         </div>
 
         <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -157,6 +157,10 @@ export function Login() {
               Back to sign in
             </button>
           )}
+        </p>
+
+        <p className="text-center text-xs text-zinc-500">
+          Browse without an account in <Link to="/app" className="text-ember hover:underline">guest mode</Link>. Read the <Link to="/privacy" className="text-ember hover:underline">Privacy Policy</Link>.
         </p>
 
         {mode !== "forgot" && (

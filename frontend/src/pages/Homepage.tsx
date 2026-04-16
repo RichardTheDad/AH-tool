@@ -20,7 +20,6 @@ type PreviewRow = {
 };
 
 export function Homepage() {
-  // This is a public page, not noindex
   useDocumentTitle("/", { 
     title: "Azeroth Flip - WoW Market Flipping Tool",
     description: "Find profitable market opportunities in World of Warcraft. Monitor realm markets, track price trends, and optimize your gold strategies with real-time auction house data.",

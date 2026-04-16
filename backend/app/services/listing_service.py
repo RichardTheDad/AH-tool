@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import AppSettings, Item, ListingSnapshot
+from app.db.models import AppSettings, Item, ListingSnapshot, TrackedRealm
 from app.schemas.listing import ListingImportRow
 from app.services.provider_service import get_provider_registry
 
@@ -299,7 +299,13 @@ def get_recent_snapshot_history_for_items(
     return history
 
 
-def refresh_from_provider(session: Session, realms: list[str], provider_name: str | None = None) -> tuple[int, str | None]:
+def refresh_from_provider(
+    session: Session,
+    realms: list[str],
+    provider_name: str | None = None,
+    *,
+    realm_regions: dict[str, str] | None = None,
+) -> tuple[int, str | None]:
     registry = get_provider_registry()
     provider = registry.get_listing_provider(provider_name)
     available, message = provider.is_available()
@@ -307,7 +313,11 @@ def refresh_from_provider(session: Session, realms: list[str], provider_name: st
         logger.info("Listing provider unavailable: %s", message)
         return 0, message
 
-    rows = provider.fetch_listings(realms)
+    tracked_regions = realm_regions or {
+        row.realm_name: row.region
+        for row in session.query(TrackedRealm).filter(TrackedRealm.realm_name.in_(realms)).all()
+    }
+    rows = provider.fetch_listings(realms, realm_regions=tracked_regions)
     if not rows:
         return 0, provider.last_error or "Provider returned no listings."
 

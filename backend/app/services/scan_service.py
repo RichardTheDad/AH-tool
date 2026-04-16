@@ -6,7 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db.models import AppSettings, Item, ScanPreset, ScanResult, ScanSession
+from app.db.models import AppSettings, Item, ScanPreset, ScanResult, ScanSession, TrackedRealm
 from app.db.init_db import provision_new_user
 from app.schemas.scan import RealmScanReadiness, ScanReadinessRead, ScanRunRequest, ScanSessionRead, ScanSessionSummary
 from app.services.metadata_backfill_service import queue_missing_metadata_refresh, queue_missing_metadata_sweep
@@ -70,6 +70,18 @@ def _normalize_requested_realms(requested: list[str] | None, enabled_realms: lis
         selected.append(matched)
 
     return (set(selected) if selected else None), unknown
+
+
+def _realm_regions_for_user(session: Session, user_id: str, realms: list[str]) -> dict[str, str]:
+    return {
+        row.realm_name: row.region
+        for row in session.query(TrackedRealm)
+        .filter(
+            TrackedRealm.user_id == user_id,
+            TrackedRealm.realm_name.in_(realms),
+        )
+        .all()
+    }
 
 
 def select_cheapest_buy_snapshot(snapshots, buy_realms: set[str] | None = None):
@@ -431,7 +443,11 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
             if not available:
                 warning_parts.append(provider_message)
             else:
-                _inserted, fetch_error = refresh_from_provider(session, scan_realms)
+                _inserted, fetch_error = refresh_from_provider(
+                    session,
+                    scan_realms,
+                    realm_regions=_realm_regions_for_user(session, user_id, scan_realms),
+                )
                 if fetch_error:
                     warning_parts.append(f"Live refresh failed: {fetch_error}")
         mark_stale_snapshots(session)

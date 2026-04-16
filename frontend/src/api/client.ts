@@ -2,15 +2,16 @@ import { supabase } from "../lib/supabase";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 let redirectingToLogin = false;
+type AuthMode = "required" | "optional";
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
-  const { data } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  return token ? { Authorization: `Bearer ${token}` } : {};
+class MissingAuthTokenError extends Error {
+  constructor() {
+    super("Your session has expired. Please sign in again.");
+  }
 }
 
-async function handleUnauthorized(response: Response): Promise<void> {
-  if (response.status !== 401 || redirectingToLogin) {
+async function redirectToLogin(reason: string): Promise<void> {
+  if (redirectingToLogin) {
     return;
   }
 
@@ -22,12 +23,34 @@ async function handleUnauthorized(response: Response): Promise<void> {
   }
 
   if (window.location.pathname !== "/login") {
-    window.location.assign("/login?reason=unauthorized");
+    window.location.assign(`/login?reason=${encodeURIComponent(reason)}`);
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const authHeaders = await getAuthHeaders();
+async function getAuthHeaders(authMode: AuthMode): Promise<{ headers: Record<string, string>; hasSession: boolean }> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) {
+    if (authMode === "required") {
+      await redirectToLogin("missing-session");
+      throw new MissingAuthTokenError();
+    }
+    return { headers: {}, hasSession: false };
+  }
+
+  return { headers: { Authorization: `Bearer ${token}` }, hasSession: true };
+}
+
+async function handleUnauthorized(response: Response, hasSession: boolean): Promise<void> {
+  if (response.status !== 401 || !hasSession) {
+    return;
+  }
+
+  await redirectToLogin("unauthorized");
+}
+
+async function requestJson<T>(path: string, init: RequestInit | undefined, authMode: AuthMode): Promise<T> {
+  const { headers: authHeaders, hasSession } = await getAuthHeaders(authMode);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
@@ -38,7 +61,7 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   });
 
   if (!response.ok) {
-    await handleUnauthorized(response);
+    await handleUnauthorized(response, hasSession);
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.detail ?? `Request failed for ${path}`);
   }
@@ -50,8 +73,16 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   return response.json() as Promise<T>;
 }
 
+export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return requestJson<T>(path, init, "required");
+}
+
+export async function apiOptionalAuthRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return requestJson<T>(path, init, "optional");
+}
+
 export async function apiFormRequest<T>(path: string, body: FormData): Promise<T> {
-  const authHeaders = await getAuthHeaders();
+  const { headers: authHeaders, hasSession } = await getAuthHeaders("required");
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: authHeaders,
@@ -59,11 +90,10 @@ export async function apiFormRequest<T>(path: string, body: FormData): Promise<T
   });
 
   if (!response.ok) {
-    await handleUnauthorized(response);
+    await handleUnauthorized(response, hasSession);
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.detail ?? `Request failed for ${path}`);
   }
 
   return response.json() as Promise<T>;
 }
-

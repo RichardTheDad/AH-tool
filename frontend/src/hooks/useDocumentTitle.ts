@@ -28,6 +28,11 @@ const ROUTE_METADATA: Record<string, DocumentMetadata> = {
     description: "Public documentation for Azeroth Flip. Learn about features, data freshness, API capabilities, and trust boundaries.",
     noindex: false,
   },
+  "/privacy": {
+    title: "Privacy - Azeroth Flip",
+    description: "Read how Azeroth Flip handles accounts, browser storage, and public World of Warcraft market data.",
+    noindex: false,
+  },
   "/app": {
     title: "Scanner - Azeroth Flip",
     description: "Real-time WoW auction house scanner and market analysis.",
@@ -65,55 +70,39 @@ const ROUTE_METADATA: Record<string, DocumentMetadata> = {
   },
 };
 
-/**
- * Hook to manage document title and metadata based on current route.
- * Updates meta tags for robots, description, og:title, og:description, twitter tags.
- * Public routes (home, docs) are indexable; authenticated routes are marked noindex.
- */
 export function useDocumentTitle(pathname: string, options?: { title?: string; description?: string }) {
   useEffect(() => {
-    // Get metadata for this route or use defaults
     let routeMetadata = ROUTE_METADATA[pathname];
-    
-    // If exact route not found, try pattern matching for nested app routes
+
     if (!routeMetadata) {
       if (pathname.startsWith("/app")) {
         routeMetadata = ROUTE_METADATA["/app"];
       }
     }
-    
+
     routeMetadata = routeMetadata || DEFAULT_METADATA;
-    
+
     const metadata: DocumentMetadata = {
       ...routeMetadata,
       ...(options || {}),
     };
 
-    // Update title
     document.title = metadata.title;
-
-    // Update or create meta tags
     updateMetaTag("name", "description", metadata.description);
-    
+
     if (metadata.noindex) {
       updateMetaTag("name", "robots", "noindex, nofollow");
     } else {
       updateMetaTag("name", "robots", "index, follow");
     }
 
-    // Update Open Graph tags
     updateMetaTag("property", "og:title", metadata.title);
     updateMetaTag("property", "og:description", metadata.description);
-
-    // Update Twitter Card tags
     updateMetaTag("name", "twitter:title", metadata.title);
     updateMetaTag("name", "twitter:description", metadata.description);
   }, [pathname, options]);
 }
 
-/**
- * Helper function to update or create meta tags.
- */
 function updateMetaTag(
   attributeName: "name" | "property",
   attributeValue: string,

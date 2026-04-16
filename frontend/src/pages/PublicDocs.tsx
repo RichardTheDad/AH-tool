@@ -3,7 +3,6 @@ import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function PublicDocs() {
-  // This is a public overview page, not noindex
   useDocumentTitle("/public/docs", {
     title: "How It Works - Azeroth Flip",
     description: "High-level overview of how Azeroth Flip helps users evaluate cross-realm opportunities while protecting private operational detail.",

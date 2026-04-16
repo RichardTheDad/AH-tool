@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_optional_user
 from app.core.config import SYSTEM_USER_ID
 from app.core.limiter import limiter
 from app.db.session import get_db
@@ -41,33 +41,33 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
 def latest_scan(
     limit: int | None = Query(default=None, ge=1, le=2000),
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user),
+    current_user: str | None = Depends(get_optional_user),
 ) -> ScanLatestResponse:
     del current_user
     return ScanLatestResponse(latest=get_latest_scan(db, SYSTEM_USER_ID, limit=limit))
 
 
 @router.get("/scans/history", response_model=ScanHistoryResponse)
-def scan_history(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ScanHistoryResponse:
+def scan_history(db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanHistoryResponse:
     del current_user
     return ScanHistoryResponse(scans=get_scan_history(db, SYSTEM_USER_ID))
 
 
 @router.get("/scans/calibration", response_model=ScanCalibrationSummaryRead)
-def scan_calibration(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ScanCalibrationSummaryRead:
+def scan_calibration(db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanCalibrationSummaryRead:
     del current_user
     return get_calibration_summary(db, SYSTEM_USER_ID, days=30)
 
 
 @router.get("/scans/readiness", response_model=ScanReadinessRead)
-def scan_readiness(db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ScanReadinessRead:
+def scan_readiness(db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanReadinessRead:
     del current_user
     realms = get_all_enabled_realm_names(db)
     return get_scan_readiness(db, SYSTEM_USER_ID, realms=realms)
 
 
 @router.get("/scans/status", response_model=ScanRuntimeStatusRead)
-def scan_status(current_user: str = Depends(get_current_user)) -> ScanRuntimeStatusRead:
+def scan_status(current_user: str | None = Depends(get_optional_user)) -> ScanRuntimeStatusRead:
     del current_user
     runtime_state = get_scan_runtime_state().__dict__
     scheduler_status = scheduler_manager.status()
@@ -85,7 +85,7 @@ def get_scan(
     scan_id: int,
     limit: int | None = Query(default=None, ge=1, le=2000),
     db: Session = Depends(get_db),
-    current_user: str = Depends(get_current_user),
+    current_user: str | None = Depends(get_optional_user),
 ) -> ScanSessionRead:
     del current_user
     scan = get_scan_session(db, scan_id, SYSTEM_USER_ID, limit=limit)

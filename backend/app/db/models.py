@@ -15,7 +15,7 @@ def utcnow() -> datetime:
 class TrackedRealm(Base):
     __tablename__ = "tracked_realms"
     __table_args__ = (
-        UniqueConstraint("user_id", "realm_name", name="ux_tracked_realms_user_realm"),
+        UniqueConstraint("user_id", "region", "realm_name", name="ux_tracked_realms_user_region_realm"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

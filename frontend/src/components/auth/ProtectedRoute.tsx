@@ -2,7 +2,12 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import type { PropsWithChildren } from "react";
 
-export function ProtectedRoute({ children }: PropsWithChildren) {
+interface ProtectedRouteProps extends PropsWithChildren {
+  guestAllowed?: boolean;
+  redirectTo?: string;
+}
+
+export function ProtectedRoute({ children, guestAllowed = false, redirectTo = "/home" }: ProtectedRouteProps) {
   const { session, loading } = useAuth();
 
   if (loading) {
@@ -13,8 +18,8 @@ export function ProtectedRoute({ children }: PropsWithChildren) {
     );
   }
 
-  if (!session) {
-    return <Navigate to="/home" replace />;
+  if (!session && !guestAllowed) {
+    return <Navigate to={redirectTo} replace />;
   }
 
   return <>{children}</>;

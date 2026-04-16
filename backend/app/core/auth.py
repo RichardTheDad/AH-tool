@@ -73,15 +73,25 @@ def _fetch_jwks(jwks_url: str) -> dict:
         return data
 
 
-def get_current_user(authorization: str | None = Header(None, alias="Authorization")) -> str:
-    """Verify a Supabase-issued JWT (HS256 or ES256) and return the caller's user UUID."""
-    if not authorization or not authorization.startswith("Bearer "):
-        logger.warning("Auth rejected: missing or malformed Authorization header")
+def _resolve_user_from_authorization(authorization: str | None, *, allow_missing: bool) -> str | None:
+    if not authorization:
+        if allow_missing:
+            return None
+        logger.warning("Auth rejected: missing Authorization header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authentication token.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if not authorization.startswith("Bearer "):
+        logger.warning("Auth rejected: malformed Authorization header")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authentication token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     token = authorization.removeprefix("Bearer ")
     try:
         header = jwt.get_unverified_header(token)
@@ -131,3 +141,20 @@ def get_current_user(authorization: str | None = Header(None, alias="Authorizati
             detail="Token is missing user identity (sub claim).",
         )
     return user_id
+
+
+def get_current_user(authorization: str | None = Header(None, alias="Authorization")) -> str:
+    """Verify a Supabase-issued JWT (HS256 or ES256) and return the caller's user UUID."""
+    user_id = _resolve_user_from_authorization(authorization, allow_missing=False)
+    if user_id is None:  # pragma: no cover - guarded above
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid authentication token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user_id
+
+
+def get_optional_user(authorization: str | None = Header(None, alias="Authorization")) -> str | None:
+    """Return the caller's user UUID when a valid bearer token is provided, otherwise allow guest access."""
+    return _resolve_user_from_authorization(authorization, allow_missing=True)

@@ -9,23 +9,30 @@ import { Checkbox } from "../components/common/Checkbox";
 import { StatusIndicator } from "../components/common/StatusIndicator";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
+import { useAuth } from "../contexts/AuthContext";
+import { useGuestRealms } from "../hooks/useGuestRealms";
 import type { TrackedRealm } from "../types/models";
-import { getRealmCatalogEntry, REALM_CATALOG, type RealmCatalogEntry } from "../utils/realmCatalog";
+import { getRealmCatalogEntry, makeRealmCatalogKey, REALM_CATALOG, type RealmCatalogEntry } from "../utils/realmCatalog";
 
-const emptyForm = { realm_name: "", enabled: true };
+const emptyForm = { realm_key: "", enabled: true };
 
 export function Realms() {
+  const { user } = useAuth();
+  const isGuest = !user;
   const queryClient = useQueryClient();
-  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms });
+  const guestRealms = useGuestRealms();
+  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, enabled: !isGuest });
   const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 2000 });
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: createRealm,
+    mutationFn: (payload: Omit<TrackedRealm, "id">) => (isGuest ? guestRealms.createRealm(payload) : createRealm(payload)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["realms"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["realms"] });
+      }
       setForm(emptyForm);
       setMessage(null);
     },
@@ -33,9 +40,11 @@ export function Realms() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Partial<Omit<TrackedRealm, "id">> }) => updateRealm(id, payload),
+    mutationFn: ({ id, payload }: { id: number; payload: Partial<Omit<TrackedRealm, "id">> }) => (isGuest ? guestRealms.updateRealm(id, payload) : updateRealm(id, payload)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["realms"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["realms"] });
+      }
       setEditingId(null);
       setForm(emptyForm);
       setMessage(null);
@@ -44,38 +53,46 @@ export function Realms() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: deleteRealm,
+    mutationFn: (id: number) => (isGuest ? guestRealms.deleteRealm(id) : deleteRealm(id)),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["realms"] });
+      if (!isGuest) {
+        queryClient.invalidateQueries({ queryKey: ["realms"] });
+      }
       setMessage(null);
     },
     onError: (error: Error) => setMessage(error.message),
   });
 
-  if (realmsQuery.isLoading || scanStatusQuery.isLoading) {
+  if ((!isGuest && realmsQuery.isLoading) || scanStatusQuery.isLoading) {
     return <LoadingState label="Loading tracked realms..." />;
   }
 
-  if (realmsQuery.error || scanStatusQuery.error || !scanStatusQuery.data) {
+  if ((!isGuest && realmsQuery.error) || scanStatusQuery.error || !scanStatusQuery.data) {
     return <ErrorState message="Tracked realms could not be loaded." />;
   }
 
-  const realms = realmsQuery.data ?? [];
+  const realms = isGuest ? guestRealms.realms : realmsQuery.data ?? [];
   const scanRunning = scanStatusQuery.data.status === "running";
   const realmOptions: RealmCatalogEntry[] = [...REALM_CATALOG];
 
   for (const realm of realms) {
-    if (!realmOptions.some((option) => option.realm_name === realm.realm_name)) {
-      realmOptions.push({ realm_name: realm.realm_name, region: realm.region });
+    if (!realmOptions.some((option) => option.realm_name === realm.realm_name && option.region === realm.region)) {
+      const region = realm.region.toLowerCase() === "eu" ? "eu" : "us";
+      realmOptions.push({
+        key: makeRealmCatalogKey(realm.realm_name, region),
+        realm_name: realm.realm_name,
+        region,
+        region_label: region === "eu" ? "EU" : "NA",
+      });
     }
   }
 
-  realmOptions.sort((left, right) => left.realm_name.localeCompare(right.realm_name));
+  realmOptions.sort((left, right) => left.region_label.localeCompare(right.region_label) || left.realm_name.localeCompare(right.realm_name));
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const selectedRealm = getRealmCatalogEntry(form.realm_name) ?? realmOptions.find((realm) => realm.realm_name === form.realm_name) ?? null;
+    const selectedRealm = getRealmCatalogEntry(form.realm_key) ?? realmOptions.find((realm) => realm.key === form.realm_key) ?? null;
     if (!selectedRealm) {
       setMessage("Select a realm from the list.");
       return;
@@ -84,7 +101,8 @@ export function Realms() {
     if (
       realms.some(
         (realm) =>
-          realm.realm_name.toLowerCase() === form.realm_name.toLowerCase() &&
+          realm.realm_name.toLowerCase() === selectedRealm.realm_name.toLowerCase() &&
+          realm.region.toLowerCase() === selectedRealm.region &&
           realm.id !== editingId,
       )
     ) {
@@ -93,27 +111,32 @@ export function Realms() {
     }
 
     if (editingId) {
-      updateMutation.mutate({ id: editingId, payload: { ...form, region: selectedRealm.region } });
+      updateMutation.mutate({ id: editingId, payload: { realm_name: selectedRealm.realm_name, region: selectedRealm.region, enabled: form.enabled } });
       return;
     }
 
-    createMutation.mutate({ ...form, region: selectedRealm.region });
+    createMutation.mutate({ realm_name: selectedRealm.realm_name, region: selectedRealm.region, enabled: form.enabled });
   }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <Card title={editingId ? "Edit realm" : "Add realm"} subtitle="Select from the built-in list.">
+        {isGuest ? (
+          <div className="mb-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-3 text-sm text-amber-100">
+            Browsing as a guest. Realm selections are stored in this browser only until you clear site data.
+          </div>
+        ) : null}
         <form className="space-y-3" onSubmit={handleSubmit}>
           <Select
             id="realm-select"
             label="Realm"
-            value={form.realm_name}
-            onChange={(event) => setForm((current) => ({ ...current, realm_name: event.target.value }))}
+            value={form.realm_key}
+            onChange={(event) => setForm((current) => ({ ...current, realm_key: event.target.value }))}
           >
             <option value="">Select a realm</option>
             {realmOptions.map((realm) => (
-              <option key={realm.realm_name} value={realm.realm_name}>
-                {realm.realm_name}
+              <option key={realm.key} value={realm.key}>
+                {realm.realm_name} [{realm.region_label}]
               </option>
             ))}
           </Select>
@@ -123,18 +146,10 @@ export function Realms() {
             checked={form.enabled}
             onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
           />
-          {message ? (
-            <StatusIndicator status="danger" size="sm" variant="inline" label={message} />
-          ) : null}
-          {scanRunning ? (
-            <StatusIndicator status="info" size="sm" variant="inline" label={scanStatusQuery.data?.message || "Scanning..."} />
-          ) : null}
+          {message ? <StatusIndicator status="danger" size="sm" variant="inline" label={message} /> : null}
+          {scanRunning ? <StatusIndicator status="info" size="sm" variant="inline" label={scanStatusQuery.data?.message || "Scanning..."} /> : null}
           <div className="flex gap-2 pt-2">
-            <Button 
-              type="submit" 
-              disabled={scanRunning} 
-              size="md"
-            >
+            <Button type="submit" disabled={scanRunning} size="md">
               {editingId ? "Save realm" : "Add realm"}
             </Button>
             {editingId ? (
@@ -160,10 +175,13 @@ export function Realms() {
           {realms.map((realm) => (
             <div key={realm.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-3">
               <div>
-                <p className="font-medium text-sm text-zinc-100">{realm.realm_name}</p>
-                {!realm.enabled && (
-                  <p className="text-xs text-zinc-400 mt-0.5">Disabled</p>
-                )}
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-sm text-zinc-100">{realm.realm_name}</p>
+                  <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-200">
+                    {realm.region.toLowerCase() === "eu" ? "EU" : "NA"}
+                  </span>
+                </div>
+                {!realm.enabled && <p className="text-xs text-zinc-400 mt-0.5">Disabled</p>}
               </div>
               <div className="flex flex-wrap gap-1.5 justify-end">
                 <Button
@@ -180,7 +198,7 @@ export function Realms() {
                   disabled={scanRunning}
                   onClick={() => {
                     setEditingId(realm.id);
-                    setForm({ realm_name: realm.realm_name, enabled: realm.enabled });
+                    setForm({ realm_key: makeRealmCatalogKey(realm.realm_name, realm.region), enabled: realm.enabled });
                   }}
                 >
                   Edit
@@ -196,9 +214,7 @@ export function Realms() {
               </div>
             </div>
           ))}
-          {!realms.length && (
-            <p className="text-sm text-zinc-400 text-center py-6">No realms tracked yet. Add one to get started.</p>
-          )}
+          {!realms.length && <p className="text-sm text-zinc-400 text-center py-6">No realms tracked yet. Add one to get started.</p>}
         </div>
       </Card>
     </div>

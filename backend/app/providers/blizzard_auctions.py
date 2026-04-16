@@ -29,9 +29,9 @@ class BlizzardAuctionListingProvider(ListingProvider):
         self.settings = settings
         self._access_token: str | None = None
         self._access_token_expires_at: datetime | None = None
-        self._realm_cache: dict[str, int] = {}
-        self._realm_name_cache: list[str] = []
-        self._realm_cache_checked_at: datetime | None = None
+        self._realm_cache: dict[str, dict[str, int]] = {}
+        self._realm_name_cache: dict[str, list[str]] = {}
+        self._realm_cache_checked_at: dict[str, datetime] = {}
 
     def is_available(self) -> tuple[bool, str]:
         if not self.settings.blizzard_client_id or not self.settings.blizzard_client_secret:
@@ -60,7 +60,7 @@ class BlizzardAuctionListingProvider(ListingProvider):
             self.mark_failure(f"Blizzard provider status recheck failed: {exc}")
             return False, self.last_error or message
 
-    def fetch_listings(self, realms: list[str]) -> list[ListingImportRow]:
+    def fetch_listings(self, realms: list[str], *, realm_regions: dict[str, str] | None = None) -> list[ListingImportRow]:
         available, message = self.is_available()
         if not available:
             self.mark_failure(message)
@@ -68,20 +68,23 @@ class BlizzardAuctionListingProvider(ListingProvider):
 
         try:
             with httpx.Client(timeout=self.settings.request_timeout_seconds) as client:
-                resolved, unresolved = self._resolve_realms(client, realms)
-                if not resolved:
+                rows: list[ListingImportRow] = []
+                unresolved: list[str] = []
+                for region, region_realms in self._group_realms_by_region(realms, realm_regions).items():
+                    resolved, region_unresolved = self._resolve_realms(client, region_realms, region=region)
+                    unresolved.extend(region_unresolved)
+                    grouped_realms: dict[int, list[str]] = {}
+                    for realm_name, connected_realm_id in resolved.items():
+                        grouped_realms.setdefault(connected_realm_id, []).append(realm_name)
+
+                    for connected_realm_id, realm_names in grouped_realms.items():
+                        market_rows = self._fetch_connected_realm_market(client, connected_realm_id, region=region)
+                        for realm_name in realm_names:
+                            rows.extend(row.model_copy(update={"realm": realm_name}) for row in market_rows)
+
+                if not rows and unresolved:
                     self.mark_failure("No tracked realms could be resolved through Blizzard connected realm data.")
                     return []
-
-                grouped_realms: dict[int, list[str]] = {}
-                for realm_name, connected_realm_id in resolved.items():
-                    grouped_realms.setdefault(connected_realm_id, []).append(realm_name)
-
-                rows: list[ListingImportRow] = []
-                for connected_realm_id, realm_names in grouped_realms.items():
-                    market_rows = self._fetch_connected_realm_market(client, connected_realm_id)
-                    for realm_name in realm_names:
-                        rows.extend(row.model_copy(update={"realm": realm_name}) for row in market_rows)
 
                 if unresolved:
                     logger.warning("%s could not resolve tracked realms via Blizzard: %s", self.name, ", ".join(unresolved))
@@ -96,8 +99,14 @@ class BlizzardAuctionListingProvider(ListingProvider):
             self.mark_failure(f"Blizzard auction refresh failed: {exc}")
             return []
 
-    def fetch_item_market(self, *, item_id: int, region: str, tracked_realms: list[str]) -> tuple[list[ListingImportRow], str]:
-        del region  # Blizzard region comes from configured API region.
+    def fetch_item_market(
+        self,
+        *,
+        item_id: int,
+        region: str,
+        tracked_realms: list[str],
+        realm_regions: dict[str, str] | None = None,
+    ) -> tuple[list[ListingImportRow], str]:
         available, message = self.is_available()
         if not available:
             self.mark_failure(message)
@@ -108,21 +117,33 @@ class BlizzardAuctionListingProvider(ListingProvider):
 
         try:
             with httpx.Client(timeout=self.settings.request_timeout_seconds) as client:
-                resolved, unresolved = self._resolve_realms(client, tracked_realms)
-                if not resolved:
+                rows: list[ListingImportRow] = []
+                unresolved: list[str] = []
+                grouped_by_region = self._group_realms_by_region(tracked_realms, realm_regions)
+                if not grouped_by_region:
+                    grouped_by_region = {self._normalize_region(region): tracked_realms}
+
+                for resolved_region, region_realms in grouped_by_region.items():
+                    resolved, region_unresolved = self._resolve_realms(client, region_realms, region=resolved_region)
+                    unresolved.extend(region_unresolved)
+                    grouped_realms: dict[int, list[str]] = {}
+                    for realm_name, connected_realm_id in resolved.items():
+                        grouped_realms.setdefault(connected_realm_id, []).append(realm_name)
+
+                    for connected_realm_id, realm_names in grouped_realms.items():
+                        market_rows = self._fetch_connected_realm_market(
+                            client,
+                            connected_realm_id,
+                            region=resolved_region,
+                            target_item_id=item_id,
+                        )
+                        for realm_name in realm_names:
+                            rows.extend(row.model_copy(update={"realm": realm_name}) for row in market_rows)
+
+                if not rows and unresolved:
                     failure = "No tracked realms could be resolved through Blizzard connected realm data."
                     self.mark_failure(failure)
                     return [], failure
-
-                grouped_realms: dict[int, list[str]] = {}
-                for realm_name, connected_realm_id in resolved.items():
-                    grouped_realms.setdefault(connected_realm_id, []).append(realm_name)
-
-                rows: list[ListingImportRow] = []
-                for connected_realm_id, realm_names in grouped_realms.items():
-                    market_rows = self._fetch_connected_realm_market(client, connected_realm_id, target_item_id=item_id)
-                    for realm_name in realm_names:
-                        rows.extend(row.model_copy(update={"realm": realm_name}) for row in market_rows)
 
                 if unresolved:
                     logger.warning("%s could not resolve tracked realms via Blizzard: %s", self.name, ", ".join(unresolved))
@@ -147,15 +168,26 @@ class BlizzardAuctionListingProvider(ListingProvider):
 
         try:
             with httpx.Client(timeout=self.settings.request_timeout_seconds) as client:
-                self._load_realm_cache(client)
+                self._load_realm_cache(client, region=self.settings.blizzard_api_region)
             self.mark_success()
-            return list(self._realm_name_cache)
+            return list(self._realm_name_cache.get(self._normalize_region(self.settings.blizzard_api_region), []))
         except Exception as exc:  # pragma: no cover - network failure path
             self.mark_failure(f"Blizzard realm discovery failed: {exc}")
             return []
 
-    def _resolve_realms(self, client: httpx.Client, realms: list[str]) -> tuple[dict[str, int], list[str]]:
-        cache = self._load_realm_cache(client, target_realms={realm.casefold() for realm in realms})
+    def _group_realms_by_region(self, realms: list[str], realm_regions: dict[str, str] | None) -> dict[str, list[str]]:
+        grouped: dict[str, list[str]] = {}
+        for realm_name in realms:
+            region = self._normalize_region((realm_regions or {}).get(realm_name, self.settings.blizzard_api_region))
+            grouped.setdefault(region, []).append(realm_name)
+        return grouped
+
+    def _normalize_region(self, region: str | None) -> str:
+        normalized = (region or self.settings.blizzard_api_region or "us").strip().lower()
+        return "us" if normalized in {"na", "americas", "america"} else normalized
+
+    def _resolve_realms(self, client: httpx.Client, realms: list[str], *, region: str) -> tuple[dict[str, int], list[str]]:
+        cache = self._load_realm_cache(client, region=region, target_realms={realm.casefold() for realm in realms})
         resolved: dict[str, int] = {}
         unresolved: list[str] = []
 
@@ -168,35 +200,40 @@ class BlizzardAuctionListingProvider(ListingProvider):
 
         return resolved, unresolved
 
-    def _load_realm_cache(self, client: httpx.Client, *, target_realms: set[str] | None = None) -> dict[str, int]:
+    def _load_realm_cache(self, client: httpx.Client, *, region: str, target_realms: set[str] | None = None) -> dict[str, int]:
+        region = self._normalize_region(region)
         now = datetime.now(timezone.utc)
+        region_cache = self._realm_cache.get(region, {})
+        region_names = self._realm_name_cache.get(region, [])
+        checked_at = self._realm_cache_checked_at.get(region)
         cache_is_fresh = bool(
-            self._realm_cache and self._realm_cache_checked_at and (now - self._realm_cache_checked_at) < timedelta(hours=24)
+            region_cache and checked_at and (now - checked_at) < timedelta(hours=24)
         )
         if cache_is_fresh:
-            if (not target_realms and self._realm_name_cache) or (
-                target_realms and all(realm_name in self._realm_cache for realm_name in target_realms)
+            if (not target_realms and region_names) or (
+                target_realms and all(realm_name in region_cache for realm_name in target_realms)
             ):
-                return self._realm_cache
+                return region_cache
 
         payload, _headers = self._api_get(
             client,
             "/data/wow/connected-realm/index",
             params={
-                "namespace": self._dynamic_namespace(),
+                "namespace": self._dynamic_namespace(region),
                 "locale": self.settings.blizzard_locale,
             },
+            region=region,
         )
 
         connected_realm_refs = payload.get("connected_realms", []) if isinstance(payload, dict) else []
-        cache: dict[str, int] = dict(self._realm_cache)
-        realm_names: set[str] = set(self._realm_name_cache)
+        cache: dict[str, int] = dict(region_cache)
+        realm_names: set[str] = set(region_names)
         pending_targets = {realm_name for realm_name in (target_realms or set()) if realm_name not in cache}
         for entry in connected_realm_refs:
             href = entry.get("href") if isinstance(entry, dict) else None
             if not href:
                 continue
-            detail_payload, _detail_headers = self._api_get(client, href, absolute=True)
+            detail_payload, _detail_headers = self._api_get(client, href, absolute=True, region=region)
             connected_realm_id = self._extract_connected_realm_id(detail_payload, href)
             if connected_realm_id is None:
                 continue
@@ -208,9 +245,9 @@ class BlizzardAuctionListingProvider(ListingProvider):
             if target_realms and not pending_targets:
                 break
 
-        self._realm_cache = cache
-        self._realm_name_cache = sorted(realm_names)
-        self._realm_cache_checked_at = now
+        self._realm_cache[region] = cache
+        self._realm_name_cache[region] = sorted(realm_names)
+        self._realm_cache_checked_at[region] = now
         return cache
 
     def _fetch_connected_realm_market(
@@ -218,15 +255,17 @@ class BlizzardAuctionListingProvider(ListingProvider):
         client: httpx.Client,
         connected_realm_id: int,
         *,
+        region: str,
         target_item_id: int | None = None,
     ) -> list[ListingImportRow]:
         payload, headers = self._api_get(
             client,
             f"/data/wow/connected-realm/{connected_realm_id}/auctions",
             params={
-                "namespace": self._dynamic_namespace(),
+                "namespace": self._dynamic_namespace(region),
                 "locale": self.settings.blizzard_locale,
             },
+            region=region,
         )
         captured_at = self._extract_captured_at(headers)
         # Extract and detach the auctions list from the response payload, then free
@@ -284,14 +323,16 @@ class BlizzardAuctionListingProvider(ListingProvider):
         *,
         params: dict[str, Any] | None = None,
         absolute: bool = False,
+        region: str | None = None,
     ) -> tuple[Any, httpx.Headers]:
         token = self._get_access_token(client)
+        region = self._normalize_region(region)
         if absolute:
             parsed = urlparse(path_or_url)
-            expected_host = f"{self.settings.blizzard_api_region.lower()}.api.blizzard.com"
+            expected_host = f"{region}.api.blizzard.com"
             if parsed.scheme != "https" or parsed.hostname is None or parsed.hostname.lower() != expected_host:
                 raise ValueError(f"Refusing untrusted Blizzard href host: {parsed.hostname or 'unknown'}")
-        url = path_or_url if absolute else f"{self._api_base_url()}{path_or_url}"
+        url = path_or_url if absolute else f"{self._api_base_url(region)}{path_or_url}"
         response = client.get(url, params=params, headers={"Authorization": f"Bearer {token}"})
         if response.status_code == 401:
             token = self._get_access_token(client, force_refresh=True)
@@ -325,11 +366,11 @@ class BlizzardAuctionListingProvider(ListingProvider):
         self._access_token_expires_at = now + timedelta(seconds=expires_in)
         return self._access_token
 
-    def _api_base_url(self) -> str:
-        return f"https://{self.settings.blizzard_api_region.lower()}.api.blizzard.com"
+    def _api_base_url(self, region: str | None = None) -> str:
+        return f"https://{self._normalize_region(region)}.api.blizzard.com"
 
-    def _dynamic_namespace(self) -> str:
-        return f"dynamic-{self.settings.blizzard_api_region.lower()}"
+    def _dynamic_namespace(self, region: str | None = None) -> str:
+        return f"dynamic-{self._normalize_region(region)}"
 
     def _extract_connected_realm_id(self, payload: Any, href: str) -> int | None:
         if isinstance(payload, dict):

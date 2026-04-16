@@ -51,14 +51,24 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
               </Button>
             </>
           ) : (
-            <Button
-              variant="primary"
-              size="sm"
-              className="border-white/15 bg-white/5 text-zinc-100 hover:bg-white/10 hover:text-white"
-              onClick={() => navigate("/login")}
-            >
-              Sign in
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="border-white/15 bg-white/5 text-zinc-100 hover:bg-white/10 hover:text-white"
+                onClick={() => navigate("/login")}
+              >
+                Sign in
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="border-orange-500 bg-orange-500 text-white shadow-[0_0_28px_rgba(249,115,22,0.2)] hover:bg-orange-400"
+                onClick={() => navigate("/app")}
+              >
+                Try scanner
+              </Button>
+            </div>
           )}
         </div>
       </div>

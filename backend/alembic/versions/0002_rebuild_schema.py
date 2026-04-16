@@ -55,7 +55,7 @@ def upgrade() -> None:
         sa.Column("realm_name", sa.String(length=120), nullable=False),
         sa.Column("region", sa.String(length=16), nullable=False, server_default="us"),
         sa.Column("enabled", sa.Boolean(), nullable=False, server_default="true"),
-        sa.UniqueConstraint("user_id", "realm_name", name="ux_tracked_realms_user_realm"),
+        sa.UniqueConstraint("user_id", "region", "realm_name", name="ux_tracked_realms_user_region_realm"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_tracked_realms_user_id", "tracked_realms", ["user_id"])

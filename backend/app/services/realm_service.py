@@ -8,7 +8,12 @@ from app.schemas.tracked_realm import TrackedRealmCreate, TrackedRealmUpdate
 
 
 def list_realms(session: Session, user_id: str) -> list[TrackedRealm]:
-    return session.query(TrackedRealm).filter(TrackedRealm.user_id == user_id).order_by(TrackedRealm.enabled.desc(), TrackedRealm.realm_name.asc()).all()
+    return (
+        session.query(TrackedRealm)
+        .filter(TrackedRealm.user_id == user_id)
+        .order_by(TrackedRealm.enabled.desc(), TrackedRealm.region.asc(), TrackedRealm.realm_name.asc())
+        .all()
+    )
 
 
 def get_enabled_realm_names(session: Session, user_id: str) -> list[str]:
@@ -24,12 +29,15 @@ def get_all_enabled_realm_names(session: Session) -> list[str]:
 
 
 def create_realm(session: Session, user_id: str, payload: TrackedRealmCreate) -> TrackedRealm:
+    region = payload.region.strip().lower()
     existing = session.query(TrackedRealm).filter(
-        TrackedRealm.user_id == user_id, TrackedRealm.realm_name.ilike(payload.realm_name)
+        TrackedRealm.user_id == user_id,
+        TrackedRealm.region == region,
+        TrackedRealm.realm_name.ilike(payload.realm_name),
     ).first()
     if existing:
         raise ValueError("Realm already tracked.")
-    realm = TrackedRealm(user_id=user_id, **payload.model_dump())
+    realm = TrackedRealm(user_id=user_id, **payload.model_dump(exclude={"region"}), region=region)
     session.add(realm)
     session.commit()
     session.refresh(realm)
@@ -42,10 +50,19 @@ def update_realm(session: Session, user_id: str, realm_id: int, payload: Tracked
         raise LookupError("Realm not found.")
 
     data = payload.model_dump(exclude_unset=True)
-    if "realm_name" in data:
+    if "region" in data and data["region"] is not None:
+        data["region"] = data["region"].strip().lower()
+    if "realm_name" in data or "region" in data:
+        next_realm_name = data.get("realm_name", realm.realm_name)
+        next_region = data.get("region", realm.region)
         duplicate = (
             session.query(TrackedRealm)
-            .filter(TrackedRealm.user_id == user_id, TrackedRealm.realm_name.ilike(data["realm_name"]), TrackedRealm.id != realm_id)
+            .filter(
+                TrackedRealm.user_id == user_id,
+                TrackedRealm.region == next_region,
+                TrackedRealm.realm_name.ilike(next_realm_name),
+                TrackedRealm.id != realm_id,
+            )
             .first()
         )
         if duplicate:
@@ -64,4 +81,3 @@ def delete_realm(session: Session, user_id: str, realm_id: int) -> None:
         raise LookupError("Realm not found.")
     session.delete(realm)
     session.commit()
-

@@ -32,6 +32,7 @@ class Settings(BaseSettings):
             "https://ah-tool-bice.vercel.app",
         ]
     )
+    cors_origin_regex: str | None = r"https://ah-tool-bice(?:-[a-z0-9-]+)?\.vercel\.app"
     default_region: str = "us"
     default_listing_provider: str = "blizzard_auctions"
     enable_scheduler: bool = True

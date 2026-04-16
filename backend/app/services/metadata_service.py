@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.db.models import Item, ScanResult
+from app.db.models import Item, ScanResult, TrackedRealm
 from app.core.config import get_settings
 from app.schemas.item import (
     ItemDetail,
@@ -374,7 +374,18 @@ def get_live_item_listings(session: Session, item_id: int, user_id: str) -> Live
         )
 
     provider = get_provider_registry().listing_providers["blizzard_auctions"]
-    listings, message = provider.fetch_item_market(item_id=item_id, region="us", tracked_realms=realms)
+    realm_regions = {
+        row.realm_name: row.region
+        for row in session.query(TrackedRealm)
+        .filter(TrackedRealm.user_id == user_id, TrackedRealm.realm_name.in_(realms))
+        .all()
+    }
+    listings, message = provider.fetch_item_market(
+        item_id=item_id,
+        region="us",
+        tracked_realms=realms,
+        realm_regions=realm_regions,
+    )
     if listings:
         return LiveListingLookupResponse(
             provider_name=provider.name,

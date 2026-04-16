@@ -76,8 +76,15 @@ class ListingProvider(BaseProvider, ABC):
     provider_type = "listing"
 
     @abstractmethod
-    def fetch_listings(self, realms: list[str]) -> list[ListingImportRow]:
+    def fetch_listings(self, realms: list[str], *, realm_regions: dict[str, str] | None = None) -> list[ListingImportRow]:
         raise NotImplementedError
 
-    def fetch_item_market(self, *, item_id: int, region: str, tracked_realms: list[str]) -> tuple[list[ListingImportRow], str]:
+    def fetch_item_market(
+        self,
+        *,
+        item_id: int,
+        region: str,
+        tracked_realms: list[str],
+        realm_regions: dict[str, str] | None = None,
+    ) -> tuple[list[ListingImportRow], str]:
         return [], "Live item market lookup is not supported by this provider."
