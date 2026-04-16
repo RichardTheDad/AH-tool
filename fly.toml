@@ -32,6 +32,16 @@ primary_region = "dfw"
     path = "/health/live"
     timeout = "3s"
 
+[[checks]]
+  name = "readiness"
+  type = "http"
+  port = 8000
+  interval = "1m"
+  timeout = "3s"
+  grace_period = "45s"
+  method = "GET"
+  path = "/health/ready"
+
 [[vm]]
   memory = "1gb"
   cpu_kind = "shared"

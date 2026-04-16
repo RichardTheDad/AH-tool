@@ -26,6 +26,30 @@ def liveness_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@router.get("/health/ready")
+def readiness_check(db: Session = Depends(get_db)) -> dict[str, object]:
+    """Readiness probe with lightweight dependency checks."""
+    db_status = "ok"
+    scheduler_status = "ok"
+
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Readiness database check failed")
+        db_status = "unavailable"
+
+    runtime_state = get_scan_runtime_state()
+    if runtime_state.status == "failed":
+        scheduler_status = "degraded"
+
+    overall = "ready" if db_status == "ok" and scheduler_status == "ok" else "degraded"
+    return {
+        "status": overall,
+        "database": db_status,
+        "scheduler": scheduler_status,
+    }
+
+
 def require_health_diagnostics_access(
     x_health_key: str | None = Header(default=None, alias="X-Health-Key"),
     authorization: str | None = Header(default=None, alias="Authorization"),
