@@ -269,7 +269,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                 </td>
                 <td className="px-3 py-3 align-middle whitespace-nowrap text-center text-zinc-300">
                   <div className="font-medium">{result.best_sell_realm}</div>
-                  <div>{formatGold(result.best_sell_price)}</div>
+                  <div><GoldAmount value={result.best_sell_price} /></div>
                   {result.observed_sell_price != null ? (
                     <div className="text-[11px] text-zinc-500">Obs <GoldAmount value={result.observed_sell_price} /></div>
                   ) : null}
@@ -288,7 +288,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                   >
                     {formatPercent(result.spread_percent)}
                   </span>
-                  {result.spread_absolute != null ? <div className="text-[11px] text-zinc-500">{formatGold(result.spread_absolute)}</div> : null}
+                  {result.spread_absolute != null ? <div className="text-[11px] text-zinc-500"><GoldAmount value={result.spread_absolute} className="text-xs" /></div> : null}
                   {result.sale_average_spread_percent != null ? (
                     <div className="text-[11px] text-zinc-500">
                       Avg {formatPercent(result.sale_average_spread_percent)}

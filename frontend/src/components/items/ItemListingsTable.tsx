@@ -1,6 +1,7 @@
 import { Badge } from "../common/Badge";
+import { GoldAmount } from "../common/GoldAmount";
 import type { ListingSnapshot, LiveListingRow } from "../../types/models";
-import { formatDateTime, formatGold } from "../../utils/format";
+import { formatDateTime } from "../../utils/format";
 
 type ItemListingRow = Pick<ListingSnapshot, "realm" | "lowest_price" | "average_price" | "quantity" | "listing_count" | "captured_at"> & {
   id?: number;
@@ -30,8 +31,8 @@ export function ItemListingsTable({ listings }: { listings: Array<ListingSnapsho
                   {"is_stale" in listing && listing.is_stale ? <Badge tone="warning">Stale</Badge> : null}
                 </div>
               </td>
-              <td className="px-4 py-3">{formatGold(listing.lowest_price)}</td>
-              <td className="px-4 py-3">{formatGold(listing.average_price)}</td>
+              <td className="px-4 py-3"><GoldAmount value={listing.lowest_price} /></td>
+              <td className="px-4 py-3"><GoldAmount value={listing.average_price} /></td>
               <td className="px-4 py-3">{listing.quantity ?? "-"}</td>
               <td className="px-4 py-3">{listing.listing_count ?? "-"}</td>
               <td className="px-4 py-3">{formatDateTime(listing.captured_at)}</td>

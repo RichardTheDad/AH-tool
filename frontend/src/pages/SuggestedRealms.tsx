@@ -6,8 +6,9 @@ import { createRealm, getRealms, updateRealm } from "../api/realms";
 import { Card } from "../components/common/Card";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
+import { GoldAmount } from "../components/common/GoldAmount";
 import { LoadingState } from "../components/common/LoadingState";
-import { formatDateTime, formatGold, formatPercent } from "../utils/format";
+import { formatDateTime, formatPercent } from "../utils/format";
 import { getSafeUndermineUrl } from "../utils/safeUrl";
 
 export function SuggestedRealms() {
@@ -175,7 +176,7 @@ export function SuggestedRealms() {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                     <p className="text-xs uppercase tracking-label text-zinc-500">Average profit</p>
-                    <p className="mt-1 font-semibold text-emerald-300">{formatGold(realm.average_profit)}</p>
+                    <p className="mt-1 font-semibold text-emerald-300"><GoldAmount value={realm.average_profit} /></p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                     <p className="text-xs uppercase tracking-label text-zinc-500">Average ROI</p>
@@ -209,7 +210,7 @@ export function SuggestedRealms() {
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                     <p className="text-xs uppercase tracking-label text-zinc-500">Median source buy</p>
-                    <p className="mt-1 font-semibold text-zinc-100">{realm.median_buy_price != null ? formatGold(realm.median_buy_price) : "--"}</p>
+                    <p className="mt-1 font-semibold text-zinc-100">{realm.median_buy_price != null ? <GoldAmount value={realm.median_buy_price} /> : "--"}</p>
                     <p className="mt-1 text-xs text-zinc-500">
                       {realm.best_target_realm ? `Usually routes best into ${realm.best_target_realm}.` : "No clear target realm winner yet."}
                     </p>
@@ -240,10 +241,10 @@ export function SuggestedRealms() {
                           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-zinc-200">{item.turnover_label}</span>
                         </div>
                         <p className="mt-2 text-sm text-zinc-300">
-                          Buy on {realm.realm} for {formatGold(item.buy_price)}, target {item.target_realm} at {formatGold(item.target_sell_price)}.
+                          Buy on {realm.realm} for <GoldAmount value={item.buy_price} />, target {item.target_realm} at <GoldAmount value={item.target_sell_price} />.
                         </p>
                         <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-300">
-                          <span className="rounded-full border border-emerald-400/35 bg-emerald-500/20 px-3 py-1 text-emerald-300">{formatGold(item.estimated_profit)} profit</span>
+                          <span className="rounded-full border border-emerald-400/35 bg-emerald-500/20 px-3 py-1 text-emerald-300"><GoldAmount value={item.estimated_profit} /> profit</span>
                           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">{formatPercent(item.roi)} ROI</span>
                           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">{Math.round(item.confidence_score)}/100 confidence</span>
                           <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1">{Math.round(item.sellability_score)}/100 sellability</span>
