@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
 import { GoldAmount } from "../common/GoldAmount";
+import { ScoreDial } from "../common/ScoreDial";
 import type { ScanResult, ScannerFilters } from "../../types/models";
 import { formatGold, formatPercent, formatScore } from "../../utils/format";
 
@@ -272,29 +273,19 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                   ) : null}
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
-                  {(() => {
-                    const tone = result.confidence_score >= 70
-                        ? "success"
-                        : result.confidence_score >= 50
-                          ? "warning"
-                          : "danger";
-                    return (
-                  <span
+                  <ScoreDial
+                    score={result.confidence_score}
                     title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
-                  >
-                    <Badge tone={tone}>
-                      {formatScore(result.confidence_score)}
-                    </Badge>
-                  </span>
-                    );
-                  })()}
+                  />
                 </td>
                 <td className="px-3 py-3 align-top whitespace-nowrap">
-                  <span title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}${isEvidenceGated(result) ? " | evidence gate active" : ""}`}>
-                    <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
-                      {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
-                    </Badge>
-                  </span>
+                  <div className="flex flex-col items-center gap-1">
+                    <ScoreDial
+                      score={result.sellability_score}
+                      title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}${isEvidenceGated(result) ? " | evidence gate active" : ""}`}
+                    />
+                    <span className="text-[10px] uppercase tracking-link text-zinc-500">{result.turnover_label}</span>
+                  </div>
                 </td>
                 <td
                   className="min-w-[13rem] max-w-[16rem] px-3 py-3 align-top text-zinc-300 [overflow-wrap:anywhere]"

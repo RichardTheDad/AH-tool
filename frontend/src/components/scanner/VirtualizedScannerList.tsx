@@ -5,6 +5,7 @@ import type { ScanResult, ScannerFilters } from "../../types/models";
 import { Badge } from "../common/Badge";
 import { EmptyState } from "../common/EmptyState";
 import { GoldAmount } from "../common/GoldAmount";
+import { ScoreDial } from "../common/ScoreDial";
 import { formatPercent, formatScore } from "../../utils/format";
 
 interface VirtualizedScannerListProps {
@@ -202,15 +203,20 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
         </div>
 
         <div className="min-w-0">
-          <Badge tone={result.confidence_score >= 70 ? "success" : result.confidence_score >= 50 ? "warning" : "danger"}>
-            {formatScore(result.confidence_score)}
-          </Badge>
+          <ScoreDial
+            score={result.confidence_score}
+            title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)}`}
+          />
         </div>
 
         <div className="min-w-0">
-          <Badge tone={result.sellability_score >= 75 ? "success" : result.sellability_score >= 55 ? "warning" : "danger"}>
-            {`${result.turnover_label} ${formatScore(result.sellability_score)}`}
-          </Badge>
+          <div className="flex flex-col items-center gap-1">
+            <ScoreDial
+              score={result.sellability_score}
+              title={`Sellability ${formatScore(result.sellability_score)} | Turnover ${result.turnover_label}${gated ? " | evidence gate active" : ""}`}
+            />
+            <span className="text-[10px] uppercase tracking-label text-zinc-500">{result.turnover_label}</span>
+          </div>
         </div>
       </div>
     </div>
