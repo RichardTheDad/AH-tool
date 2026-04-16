@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_optional_user
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.schemas.provider import ProviderStatusResponse
@@ -17,6 +18,7 @@ router = APIRouter(tags=["providers"])
 
 _CACHE_LOCK = Lock()
 _STATUS_CACHE: tuple[float, ProviderStatusResponse] | None = None
+_CACHE_ENABLED = not get_settings().database_url.startswith("sqlite")
 
 
 @router.get("/providers/status", response_model=ProviderStatusResponse)
@@ -25,6 +27,9 @@ def get_provider_status(request: Request, db: Session = Depends(get_db), current
     global _STATUS_CACHE
     del request
     del current_user
+
+    if not _CACHE_ENABLED:
+        return ProviderStatusResponse(providers=get_provider_registry().get_provider_statuses(db))
 
     now = monotonic()
     with _CACHE_LOCK:

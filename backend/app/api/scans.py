@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user, get_optional_user
-from app.core.config import SYSTEM_USER_ID
+from app.core.config import SYSTEM_USER_ID, get_settings
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.schemas.scan import (
@@ -30,9 +30,13 @@ router = APIRouter(tags=["scans"])
 _T = TypeVar("_T")
 _CACHE_LOCK = Lock()
 _CACHE: dict[str, tuple[float, object]] = {}
+_CACHE_ENABLED = not get_settings().database_url.startswith("sqlite")
 
 
 def _read_through_cache(key: str, ttl_seconds: float, loader: Callable[[], _T]) -> _T:
+    if not _CACHE_ENABLED:
+        return loader()
+
     now = monotonic()
     with _CACHE_LOCK:
         cached = _CACHE.get(key)
