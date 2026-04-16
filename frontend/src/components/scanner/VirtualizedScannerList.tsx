@@ -172,6 +172,7 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
               ) : null}
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
+                {result.item_subclass_name ? <Badge tone="neutral">{result.item_subclass_name}</Badge> : null}
                 {result.is_risky ? <Badge tone="danger">Risky</Badge> : <Badge tone="success">Stable</Badge>}
                 {gated ? <Badge tone="warning">Evidence gate</Badge> : null}
                 <Badge tone={summarizeMoverLikelihood(result) === "likely mover" ? "success" : "warning"}>{summarizeMoverLikelihood(result)}</Badge>

@@ -28,7 +28,7 @@ export function Realms() {
   const [message, setMessage] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: (payload: Omit<TrackedRealm, "id">) => (isGuest ? guestRealms.createRealm(payload) : createRealm(payload)),
+    mutationFn: (payload: Omit<TrackedRealm, "id">) => Promise.resolve(isGuest ? guestRealms.createRealm(payload) : createRealm(payload)),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["realms"] });
@@ -40,7 +40,7 @@ export function Realms() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: Partial<Omit<TrackedRealm, "id">> }) => (isGuest ? guestRealms.updateRealm(id, payload) : updateRealm(id, payload)),
+    mutationFn: ({ id, payload }: { id: number; payload: Partial<Omit<TrackedRealm, "id">> }) => Promise.resolve(isGuest ? guestRealms.updateRealm(id, payload) : updateRealm(id, payload)),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["realms"] });
@@ -53,7 +53,7 @@ export function Realms() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => (isGuest ? guestRealms.deleteRealm(id) : deleteRealm(id)),
+    mutationFn: (id: number) => Promise.resolve(isGuest ? guestRealms.deleteRealm(id) : deleteRealm(id)),
     onSuccess: () => {
       if (!isGuest) {
         queryClient.invalidateQueries({ queryKey: ["realms"] });

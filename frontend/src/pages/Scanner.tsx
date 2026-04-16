@@ -17,6 +17,7 @@ import { VirtualizedScannerList } from "../components/scanner/VirtualizedScanner
 import { useScannerFilters } from "../hooks/useScannerFilters";
 import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus, ScanSession, ScanSessionSummary } from "../types/models";
 import { filterScanResults } from "../utils/filters";
+import { buildCategoryGroupsFromResults } from "../utils/itemCategories";
 import { formatDateTime } from "../utils/format";
 import { formatScore } from "../utils/format";
 import { InfoTooltip } from "../components/common/InfoTooltip";
@@ -66,6 +67,7 @@ function applyPresetToFilterState(preset: ScanPreset) {
     maxBuyPrice: preset.max_buy_price?.toString() ?? "",
     minConfidence: preset.min_confidence?.toString() ?? "",
     category: preset.category_filter ?? "",
+    subcategory: "",
     buyRealm: preset.buy_realms?.[0] ?? "",
     sellRealm: preset.sell_realms?.[0] ?? "",
     hideRisky: preset.hide_risky,
@@ -80,6 +82,7 @@ function matchesPreset(filters: ReturnType<typeof applyPresetToFilterState> & { 
     filters.maxBuyPrice === presetFilters.maxBuyPrice &&
     filters.minConfidence === presetFilters.minConfidence &&
     filters.category === presetFilters.category &&
+    filters.subcategory === presetFilters.subcategory &&
     filters.buyRealm === presetFilters.buyRealm &&
     filters.sellRealm === presetFilters.sellRealm &&
     filters.hideRisky === presetFilters.hideRisky
@@ -117,7 +120,7 @@ export function Scanner() {
   const hasActiveFilters = Boolean(
     filters.minProfit || filters.minRoi || filters.minSpread || filters.maxSpread ||
     filters.maxBuyPrice || filters.minConfidence || filters.category ||
-    filters.buyRealm || filters.sellRealm || filters.hideRisky
+    filters.subcategory || filters.buyRealm || filters.sellRealm || filters.hideRisky
   );
 
   const scanQuery = useQuery({
@@ -256,6 +259,7 @@ export function Scanner() {
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
+  const categoryGroups = buildCategoryGroupsFromResults(asArray(persistedScan?.results));
   const realmOptions = asArray(realmsQuery.data)
     .filter((realm) => realm.enabled)
     .map((realm) => realm.realm_name)
@@ -510,8 +514,9 @@ export function Scanner() {
             filters={filters}
             onChange={handleFilterChange}
             categoryOptions={categoryOptions}
+            categoryGroups={categoryGroups}
             realmOptions={realmOptions}
-            onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
+            onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", subcategory: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
           />
         </div>
 

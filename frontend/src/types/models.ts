@@ -41,6 +41,7 @@ export interface ScanResult {
   undermine_url?: string | null;
   item_quality?: string | null;
   item_class_name?: string | null;
+  item_subclass_name?: string | null;
   item_icon_url?: string | null;
   cheapest_buy_realm: string;
   cheapest_buy_price: number;
@@ -407,6 +408,7 @@ export interface ScannerFilters {
   maxBuyPrice: string;
   minConfidence: string;
   category: string;
+  subcategory: string;
   buyRealm: string;
   sellRealm: string;
   hideRisky: boolean;

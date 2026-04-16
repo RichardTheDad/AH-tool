@@ -20,6 +20,7 @@ function matchesFilters(result: ScanResult, filters: ScannerFilters) {
   if (minConfidence && result.confidence_score < minConfidence) return false;
   if (filters.hideRisky && result.is_risky) return false;
   if (filters.category && result.item_class_name?.toLowerCase() !== filters.category.toLowerCase()) return false;
+  if (filters.subcategory && result.item_subclass_name?.toLowerCase() !== filters.subcategory.toLowerCase()) return false;
   if (filters.buyRealm && result.cheapest_buy_realm?.toLowerCase() !== filters.buyRealm.toLowerCase()) return false;
   if (filters.sellRealm && result.best_sell_realm?.toLowerCase() !== filters.sellRealm.toLowerCase()) return false;
 

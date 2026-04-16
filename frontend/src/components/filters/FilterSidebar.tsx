@@ -3,19 +3,27 @@ import { Select } from "../common/Select";
 import { Checkbox } from "../common/Checkbox";
 import { Button } from "../common/Button";
 import type { ScannerFilters } from "../../types/models";
+import { getCategoryLabel, type ItemCategoryGroup } from "../../utils/itemCategories";
 
 interface FilterSidebarProps {
   filters: ScannerFilters;
   onChange: (next: Partial<ScannerFilters>) => void;
   categoryOptions: string[];
+  categoryGroups?: ItemCategoryGroup[];
   realmOptions: string[];
   onReset?: () => void;
 }
 
 export const DEFAULT_CATEGORY_OPTIONS = ["Armor", "Weapon", "Recipe", "Consumable", "Trade Good", "Container", "Gem", "Glyph", "Miscellaneous"];
 
-export function FilterSidebar({ filters, onChange, categoryOptions, realmOptions, onReset }: FilterSidebarProps) {
-  const categories = Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS, ...categoryOptions])).sort((left, right) => left.localeCompare(right));
+export function FilterSidebar({ filters, onChange, categoryOptions, categoryGroups, realmOptions, onReset }: FilterSidebarProps) {
+  const categories = categoryGroups?.length
+    ? categoryGroups
+    : Array.from(new Set([...DEFAULT_CATEGORY_OPTIONS, ...categoryOptions]))
+      .sort((left, right) => left.localeCompare(right))
+      .map((category) => ({ value: category, label: getCategoryLabel(category), subcategories: [] }));
+  const selectedCategory = categories.find((category) => category.value.toLowerCase() === filters.category.toLowerCase());
+  const subcategories = selectedCategory?.subcategories ?? [];
 
   return (
     <aside className="space-y-4 rounded-2xl border border-white/10 bg-zinc-900/60 p-4 shadow-md backdrop-blur-xl xl:sticky xl:top-6 xl:self-start">
@@ -85,13 +93,28 @@ export function FilterSidebar({ filters, onChange, categoryOptions, realmOptions
           id="scanner-filter-category"
           name="category"
           value={filters.category}
-          onChange={(event) => onChange({ category: event.target.value })}
+          onChange={(event) => onChange({ category: event.target.value, subcategory: "" })}
           isCompact
         >
-          <option value="">All categories</option>
+          <option value="">All main categories</option>
           {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
+            <option key={category.value} value={category.value}>
+              {category.label}
+            </option>
+          ))}
+        </Select>
+        <Select
+          id="scanner-filter-subcategory"
+          name="subcategory"
+          value={filters.subcategory}
+          onChange={(event) => onChange({ subcategory: event.target.value })}
+          disabled={!filters.category}
+          isCompact
+        >
+          <option value="">{filters.category ? `All ${selectedCategory?.label ?? filters.category}` : "Pick a main category first"}</option>
+          {subcategories.map((subcategory) => (
+            <option key={subcategory.value} value={subcategory.value}>
+              {subcategory.label}
             </option>
           ))}
         </Select>

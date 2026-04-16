@@ -13,6 +13,7 @@ class ScanResultRead(BaseModel):
     undermine_url: str | None = None
     item_quality: str | None = None
     item_class_name: str | None = None
+    item_subclass_name: str | None = None
     item_icon_url: str | None = None
     cheapest_buy_realm: str
     cheapest_buy_price: float

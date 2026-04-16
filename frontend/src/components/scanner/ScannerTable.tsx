@@ -239,6 +239,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                       })()}
                       <div className="mt-0.5 flex flex-wrap gap-1">
                         {result.item_class_name ? <Badge tone="neutral">{result.item_class_name}</Badge> : null}
+                        {result.item_subclass_name ? <Badge tone="neutral">{result.item_subclass_name}</Badge> : null}
                         {result.has_stale_data ? <Badge tone="warning">Stale</Badge> : null}
                         {isEvidenceGated(result) ? <Badge tone="warning">Evidence gate</Badge> : null}
                         <Badge

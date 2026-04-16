@@ -444,6 +444,7 @@ def scan_result_to_schema(
         undermine_url=build_undermine_item_url(result.item_id, result.best_sell_realm),
         item_quality=result.item.quality if result.item else None,
         item_class_name=result.item.class_name if result.item else None,
+        item_subclass_name=result.item.subclass_name if result.item else None,
         item_icon_url=result.item.icon_url if result.item else None,
         cheapest_buy_realm=result.cheapest_buy_realm,
         cheapest_buy_price=result.cheapest_buy_price,
