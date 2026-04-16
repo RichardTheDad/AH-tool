@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "../common/Button";
 import { useAuth } from "../../contexts/AuthContext";
+import { Link } from "../common/Link";
 
 type PublicHeaderProps = {
   subtitle: string;
@@ -20,6 +21,15 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
           <p className="text-xs leading-tight text-zinc-400">{subtitle}</p>
         </div>
         <div className="flex items-center gap-3">
+          <Link
+            to="https://ko-fi.com/richardthedad"
+            external
+            variant="muted"
+            className="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 no-underline hover:border-orange-400/45 hover:text-orange-300 sm:inline-flex"
+          >
+            <img src="/kofi-logo.svg" alt="Ko-fi" className="h-4 w-4" />
+            Ko-fi
+          </Link>
           <Button
             variant="secondary"
             size="sm"

@@ -71,13 +71,13 @@ function ItemIcon({ result }: { result: ScanResult }) {
         src={result.item_icon_url}
         alt=""
         loading="lazy"
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-white/15 bg-zinc-900/65 object-cover"
+        className="h-11 w-11 shrink-0 rounded-lg border border-white/15 bg-zinc-900/65 object-cover"
       />
     );
   }
 
   return (
-    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-zinc-900/65 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-zinc-900/65 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
       --
     </div>
   );
@@ -90,6 +90,7 @@ function SortableHeader({
   sortDirection,
   onSortChange,
   className,
+  align = "left",
 }: {
   label: string;
   column: ScannerFilters["sortBy"];
@@ -97,6 +98,7 @@ function SortableHeader({
   sortDirection: ScannerFilters["sortDirection"];
   onSortChange: ScannerTableProps["onSortChange"];
   className?: string;
+  align?: "left" | "center";
 }) {
   const active = sortBy === column;
   const indicator = !active ? "" : sortDirection === "desc" ? " v" : " ^";
@@ -111,7 +113,7 @@ function SortableHeader({
             sortDirection: active && sortDirection === "desc" ? "asc" : "desc",
           })
         }
-        className="whitespace-nowrap text-left transition hover:text-zinc-100"
+        className={`whitespace-nowrap transition hover:text-zinc-100 ${align === "center" ? "mx-auto block text-center" : "text-left"}`}
         aria-pressed={active}
       >
         {label}
@@ -135,25 +137,27 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
           <thead className="bg-white/5 text-left text-xs uppercase tracking-wider font-semibold text-zinc-400 border-b border-white/15">
             <tr>
               <th className="px-4 py-3 min-w-[11rem]">Item</th>
-              <th className="px-3 py-3 whitespace-nowrap">Buy realm</th>
+              <th className="px-3 py-3 whitespace-nowrap text-center">Buy realm</th>
               <SortableHeader
                 label="Buy price"
                 column="cheapest_buy_price"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-3 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap text-center"
+                align="center"
               />
-              <th className="px-3 py-3 whitespace-nowrap">Sell realm</th>
-              <th className="px-3 py-3 whitespace-nowrap">Target sell</th>
-              <th className="px-3 py-3 whitespace-nowrap font-bold text-emerald-300">Profit</th>
+              <th className="px-3 py-3 whitespace-nowrap text-center">Sell realm</th>
+              <th className="px-3 py-3 whitespace-nowrap text-center">Target sell</th>
+              <th className="px-3 py-3 whitespace-nowrap text-center font-bold text-emerald-300">Profit</th>
               <SortableHeader
                 label="ROI"
                 column="roi"
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-3 py-3 whitespace-nowrap font-bold"
+                className="px-3 py-3 whitespace-nowrap text-center font-bold"
+                align="center"
               />
               <SortableHeader
                 label="Spread"
@@ -161,7 +165,8 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-3 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap text-center"
+                align="center"
               />
               <SortableHeader
                 label="Confidence"
@@ -169,7 +174,8 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-3 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap text-center"
+                align="center"
               />
               <SortableHeader
                 label="Sellability"
@@ -177,7 +183,8 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                 sortBy={sortBy}
                 sortDirection={sortDirection}
                 onSortChange={onSortChange}
-                className="px-3 py-3 whitespace-nowrap"
+                className="px-3 py-3 whitespace-nowrap text-center"
+                align="center"
               />
               <th className="px-3 py-3 min-w-[13rem]">Explanation</th>
             </tr>
@@ -186,7 +193,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
             {results.map((result, index) => (
               <tr key={result.id} id={`scanner-item-${result.item_id}`} className="hover:bg-white/5 transition">
                 <td className="min-w-[10rem] px-3 py-3 align-top">
-                  <div className="flex gap-2.5">
+                  <div className="flex items-center gap-3">
                     <ItemIcon result={result} />
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -233,11 +240,11 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">{result.cheapest_buy_realm}</td>
-                <td className="px-3 py-3 align-top whitespace-nowrap"><GoldAmount value={result.cheapest_buy_price} /></td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">{result.best_sell_realm}</td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">
-                  <div className="space-y-1">
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">{result.cheapest_buy_realm}</td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center"><GoldAmount value={result.cheapest_buy_price} /></td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">{result.best_sell_realm}</td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center">
+                  <div className="space-y-1 text-center">
                     <div
                       title={
                         result.observed_sell_price != null && result.observed_sell_price !== result.best_sell_price
@@ -252,9 +259,9 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     ) : null}
                   </div>
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></td>
-                <td className="px-3 py-3 align-top whitespace-nowrap font-bold text-emerald-300">{formatPercent(result.roi)}</td>
-                <td className="px-3 py-3 align-top whitespace-nowrap text-zinc-200">
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center font-bold text-emerald-300"><GoldAmount value={result.estimated_profit} /></td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center font-bold text-emerald-300">{formatPercent(result.roi)}</td>
+                <td className="px-3 py-3 align-middle whitespace-nowrap text-center text-zinc-200">
                   <span
                     title={
                       result.observed_spread_percent != null
@@ -272,13 +279,15 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     </div>
                   ) : null}
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">
-                  <ScoreDial
-                    score={result.confidence_score}
-                    title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
-                  />
+                <td className="px-3 py-3 align-middle whitespace-nowrap">
+                  <div className="flex justify-center">
+                    <ScoreDial
+                      score={result.confidence_score}
+                      title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)} | Liquidity ${formatScore(result.liquidity_score)} | Volatility ${formatScore(result.volatility_score)} | Bait risk ${formatScore(result.bait_risk_score)}`}
+                    />
+                  </div>
                 </td>
-                <td className="px-3 py-3 align-top whitespace-nowrap">
+                <td className="px-3 py-3 align-middle whitespace-nowrap">
                   <div className="flex flex-col items-center gap-1">
                     <ScoreDial
                       score={result.sellability_score}
@@ -304,7 +313,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                             onClick={() => onOpenProvenance(result)}
                             className="ml-2 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
                           >
-                            Details
+                            Why ranked
                           </button>
                         ) : null}
                       </div>
@@ -320,7 +329,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-zinc-400">
                       <div>Recommended sell target: {formatGold(result.best_sell_price)}</div>
                       <div>Observed current listing: {result.observed_sell_price != null ? formatGold(result.observed_sell_price) : "--"}</div>
-                      <div>{focusedModeActive ? "Focused view: this row was filtered by your realm scope." : "Discovery view: this row was ranked from the full scheduled scan universe."}</div>
+                      <div>{focusedModeActive ? "Focused view: you are seeing opportunities only in your selected buy/sell realm scope." : "Discovery view: this row was ranked from all enabled realms to show the widest opportunity set."}</div>
                       <div>
                         Risk readout: {result.is_risky ? "flagged risky" : "within current safety thresholds"}; liquidity {formatScore(result.liquidity_score)}, bait risk {formatScore(result.bait_risk_score)}
                       </div>

@@ -54,7 +54,7 @@ function SortButton({
           sortDirection: active && sortDirection === "desc" ? "asc" : "desc",
         })
       }
-      className="text-left transition hover:text-zinc-100"
+      className="mx-auto block text-center transition hover:text-zinc-100"
       aria-pressed={active}
     >
       {label}
@@ -102,13 +102,13 @@ function ItemIcon({ result }: { result: ScanResult }) {
         src={result.item_icon_url}
         alt=""
         loading="lazy"
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-md border border-white/15 bg-zinc-900/65 object-cover"
+        className="h-11 w-11 shrink-0 rounded-lg border border-white/15 bg-zinc-900/65 object-cover"
       />
     );
   }
 
   return (
-    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-white/15 bg-zinc-900/65 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-zinc-900/65 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
       --
     </div>
   );
@@ -121,7 +121,7 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
 
   return (
     <div style={style} className="overflow-hidden border-b border-white/10 px-4 py-2.5">
-      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-start gap-3 text-sm">
+      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-center gap-3 text-sm">
         <div className="min-w-0">
           <div className="flex gap-2.5">
             <ItemIcon result={result} />
@@ -151,7 +151,7 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
                 ) : null}
               </div>
               <p className="mt-1 line-clamp-2 text-[12px] leading-[1.3] text-zinc-300">{result.explanation}</p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">{focusedModeActive ? "Focused realm scope" : "Broad scheduled-scan ranking"}</p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">{focusedModeActive ? "Focused realm scope" : "Discovery mode across all enabled realms"}</p>
               {provenance ? (
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
                   <span className="min-w-0 truncate">
@@ -165,7 +165,7 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
                       onClick={() => onOpenProvenance(result)}
                       className="shrink-0 rounded-full border border-white/20 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-zinc-200"
                     >
-                      Details
+                      Why ranked
                     </button>
                   ) : null}
                 </div>
@@ -180,33 +180,35 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
           </div>
         </div>
 
-        <div className="min-w-0 text-zinc-300">
+        <div className="min-w-0 text-center text-zinc-300">
           <div className="font-medium">{result.cheapest_buy_realm}</div>
           <div><GoldAmount value={result.cheapest_buy_price} /></div>
         </div>
 
-        <div className="min-w-0 text-zinc-300">
+        <div className="min-w-0 text-center text-zinc-300">
           <div className="font-medium">{result.best_sell_realm}</div>
           <div><GoldAmount value={result.best_sell_price} /></div>
           {result.observed_sell_price != null ? <div className="text-xs text-zinc-500">Obs <GoldAmount value={result.observed_sell_price} /></div> : null}
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 text-center">
           <div className="font-semibold text-emerald-700"><GoldAmount value={result.estimated_profit} /></div>
           <div className="text-zinc-300">{formatPercent(result.roi)}</div>
         </div>
 
-        <div className="min-w-0 text-zinc-300">
+        <div className="min-w-0 text-center text-zinc-300">
           <div>{formatPercent(result.spread_percent)}</div>
           {result.spread_absolute != null ? <div className="text-xs text-zinc-500"><GoldAmount value={result.spread_absolute} /></div> : null}
           {result.sale_average_spread_percent != null ? <div className="text-xs text-zinc-500">Avg {formatPercent(result.sale_average_spread_percent)}</div> : null}
         </div>
 
         <div className="min-w-0">
+          <div className="flex justify-center">
           <ScoreDial
             score={result.confidence_score}
             title={`Confidence ${formatScore(result.confidence_score)} | Sellability ${formatScore(result.sellability_score)}`}
           />
+          </div>
         </div>
 
         <div className="min-w-0">
@@ -293,21 +295,21 @@ export function VirtualizedScannerList({
   }
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/70 shadow-card backdrop-blur-xl">
+    <div className="overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/70 shadow-md backdrop-blur-xl">
       <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] gap-3 border-b border-white/15 bg-white/5 px-4 py-3 text-[11px] uppercase tracking-label text-zinc-500">
         <div>Item</div>
-        <SortButton label="Buy" column="cheapest_buy_price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
-        <div>Sell</div>
-        <SortButton label="Profit / ROI" column="roi" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
-        <SortButton label="Spread" column="spread_percent" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
-        <SortButton label="Confidence" column="confidence_score" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
-        <SortButton label="Sellability" column="sellability_score" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} />
+        <div className="text-center"><SortButton label="Buy" column="cheapest_buy_price" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} /></div>
+        <div className="text-center">Sell</div>
+        <div className="text-center"><SortButton label="Profit / ROI" column="roi" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} /></div>
+        <div className="text-center"><SortButton label="Spread" column="spread_percent" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} /></div>
+        <div className="text-center"><SortButton label="Confidence" column="confidence_score" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} /></div>
+        <div className="text-center"><SortButton label="Sellability" column="sellability_score" sortBy={sortBy} sortDirection={sortDirection} onSortChange={onSortChange} /></div>
       </div>
 
       <List
         style={{ height }}
         rowCount={results.length}
-        rowHeight={160}
+        rowHeight={172}
         rowComponent={Row}
         rowProps={{ results, onOpenProvenance, search, focusedModeActive }}
         listRef={listRef}

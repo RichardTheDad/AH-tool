@@ -1,15 +1,20 @@
-import { Button } from "../components/common/Button";
-import { Link } from "../components/common/Link";
 import { PublicHeader } from "../components/layout/PublicHeader";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { Badge } from "../components/common/Badge";
+import { ScoreDial } from "../components/common/ScoreDial";
 
 type PreviewRow = {
   item: string;
+  category: string;
   buyRealm: string;
+  buyPrice: string;
   sellRealm: string;
+  targetSell: string;
   profit: string;
   roi: string;
-  confidence: string;
+  confidence: number;
+  sellability: number;
+  turnoverLabel: string;
   why: string;
 };
 
@@ -60,29 +65,44 @@ export function Homepage() {
   const previewRows: PreviewRow[] = [
     {
       item: "Stormscale Boots",
+      category: "Armor",
       buyRealm: "Stormrage",
+      buyPrice: "26,000g",
       sellRealm: "Area 52",
+      targetSell: "38,400g",
       profit: "12,400g",
       roi: "31%",
-      confidence: "84",
+      confidence: 84,
+      sellability: 82,
+      turnoverLabel: "fast",
       why: "High spread with stable sell-side depth",
     },
     {
       item: "Siren's Ruby Ring",
+      category: "Gem",
       buyRealm: "Tichondrius",
+      buyPrice: "31,000g",
       sellRealm: "Illidan",
+      targetSell: "40,850g",
       profit: "9,850g",
       roi: "24%",
-      confidence: "78",
+      confidence: 78,
+      sellability: 74,
+      turnoverLabel: "steady",
       why: "Consistent ROI after fee-adjusted target sell",
     },
     {
       item: "Runebound Chestplate",
+      category: "Armor",
       buyRealm: "Frostmourne",
+      buyPrice: "32,400g",
       sellRealm: "Sargeras",
+      targetSell: "40,000g",
       profit: "7,600g",
       roi: "19%",
-      confidence: "72",
+      confidence: 72,
+      sellability: 69,
+      turnoverLabel: "moderate",
       why: "Lower spread but cleaner execution profile",
     },
   ];
@@ -114,21 +134,6 @@ export function Homepage() {
                 <span className="rounded-lg border border-white/10 bg-white/[0.05] px-2.5 py-1 font-semibold text-zinc-200">Confidence scoring</span>
               </div>
 
-
-
-              <div className="rounded-xl border border-orange-400/25 bg-orange-500/8 px-3 py-2 text-sm text-orange-100">
-                <p>
-                  Feel free to donate. Support helps expand infrastructure so Azeroth Flip can process more scan data.
-                  {" "}
-                  <Link
-                    to="https://ko-fi.com/richardthedad"
-                    external
-                    className="font-semibold text-orange-300 hover:text-orange-200"
-                  >
-                    Donate on Ko-fi
-                  </Link>
-                </p>
-              </div>
             </div>
 
             <section className="rounded-2xl border border-orange-400/20 bg-zinc-950/75 p-3 shadow-[0_0_36px_rgba(249,115,22,0.12)] backdrop-blur-xl">
@@ -145,34 +150,34 @@ export function Homepage() {
               </div>
 
               <div className="overflow-hidden rounded-xl border border-white/10 bg-zinc-950/80">
-                <div className="grid grid-cols-[2fr_1fr_1fr_1.3fr_0.9fr] gap-2 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] gap-2 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
                   <span>Opportunity</span>
                   <span>Buy</span>
                   <span>Sell</span>
+                  <span>Target</span>
                   <span>Profit / ROI</span>
-                  <span>Score</span>
+                  <span className="text-center">Confidence</span>
+                  <span className="text-center">Sellability</span>
                 </div>
                 {previewRows.map((row, index) => (
                   <div key={row.item} className="border-b border-white/10 px-3 py-2.5 last:border-b-0">
-                    <div className="grid grid-cols-[2fr_1fr_1fr_1.3fr_0.9fr] items-center gap-2 text-sm">
-                      <span className="truncate pr-2 font-semibold text-zinc-100">{row.item}</span>
-                      <span className="text-zinc-400">{row.buyRealm}</span>
+                    <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] items-center gap-2 text-sm">
+                      <div className="pr-2">
+                        <p className="truncate font-semibold text-zinc-100">{row.item}</p>
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <Badge tone="neutral">{row.category}</Badge>
+                          <Badge tone={index === 0 ? "success" : "warning"}>{index === 0 ? "stable" : "tradable"}</Badge>
+                        </div>
+                      </div>
+                      <span className="text-zinc-400">{row.buyRealm}<span className="block text-xs text-zinc-500">{row.buyPrice}</span></span>
                       <span className="font-medium text-orange-300">{row.sellRealm}</span>
+                      <span className="text-zinc-300">{row.targetSell}</span>
                       <span>
-                        <span className="text-[29px] font-bold leading-none text-emerald-400">{row.profit}</span>
+                        <span className="text-[25px] font-bold leading-none text-emerald-400">{row.profit}</span>
                         <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
                       </span>
-                      <span className="flex justify-center">
-                        <span
-                          className="flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-bold"
-                          style={{
-                            color: index === 0 ? "#34d399" : "#fb923c",
-                            borderColor: index === 0 ? "#34d399" : "#fb923c",
-                          }}
-                        >
-                          {row.confidence}
-                        </span>
-                      </span>
+                      <div className="flex justify-center"><ScoreDial score={row.confidence} /></div>
+                      <div className="flex flex-col items-center gap-1"><ScoreDial score={row.sellability} /><span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span></div>
                     </div>
                     <p className="mt-1 text-[11px] text-zinc-400">Why it ranks: {row.why}</p>
                   </div>

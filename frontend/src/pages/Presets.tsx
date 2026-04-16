@@ -8,6 +8,7 @@ import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
 import { Input } from "../components/common/Input";
 import { Select } from "../components/common/Select";
+import { MultiSelect } from "../components/common/MultiSelect";
 import { Checkbox } from "../components/common/Checkbox";
 import { Link } from "../components/common/Link";
 import { ErrorState } from "../components/common/ErrorState";
@@ -22,21 +23,9 @@ const baseForm = {
   min_confidence: "",
   hide_risky: true,
   category_filter: "",
-  buy_realms: "",
-  sell_realms: "",
+  buy_realms: [] as string[],
+  sell_realms: [] as string[],
 };
-
-function parseRealmCsv(value: string): string[] | null {
-  const cleaned = value
-    .split(",")
-    .map((realm) => realm.trim())
-    .filter(Boolean);
-  return cleaned.length ? cleaned : null;
-}
-
-function formatRealmCsv(value: string[] | null | undefined): string {
-  return Array.isArray(value) ? value.join(", ") : "";
-}
 
 function presetToScannerLink(preset: ScanPreset) {
   const params = new URLSearchParams();
@@ -173,8 +162,8 @@ export function Presets() {
               allow_stale: false,
               hide_risky: form.hide_risky,
               category_filter: form.category_filter || null,
-              buy_realms: parseRealmCsv(form.buy_realms),
-              sell_realms: parseRealmCsv(form.sell_realms),
+              buy_realms: form.buy_realms.length ? form.buy_realms : null,
+              sell_realms: form.sell_realms.length ? form.sell_realms : null,
             };
             if (editingId) {
               updateMutation.mutate({ id: editingId, payload });
@@ -242,20 +231,26 @@ export function Presets() {
             onChange={(event) => setForm((current) => ({ ...current, hide_risky: event.target.checked }))}
             compact
           />
-          <Input
+          <MultiSelect
             id="preset-buy-realms"
-            label="Buy realms (comma separated, optional)"
-            value={form.buy_realms}
-            onChange={(event) => setForm((current) => ({ ...current, buy_realms: event.target.value }))}
-            placeholder={(realmsQuery.data ?? []).filter((realm) => realm.enabled).map((realm) => realm.realm_name).slice(0, 3).join(", ") || "Area 52, Stormrage"}
+            label="Buy realms"
+            values={form.buy_realms}
+            onChange={(nextValues) => setForm((current) => ({ ...current, buy_realms: nextValues }))}
+            options={(realmsQuery.data ?? [])
+              .filter((realm) => realm.enabled)
+              .map((realm) => ({ value: realm.realm_name, label: realm.realm_name }))}
+            placeholder="Select buy realms"
             isCompact
           />
-          <Input
+          <MultiSelect
             id="preset-sell-realms"
-            label="Sell realms (comma separated, optional)"
-            value={form.sell_realms}
-            onChange={(event) => setForm((current) => ({ ...current, sell_realms: event.target.value }))}
-            placeholder={(realmsQuery.data ?? []).filter((realm) => realm.enabled).map((realm) => realm.realm_name).slice(0, 3).join(", ") || "Zul'jin"}
+            label="Sell realms"
+            values={form.sell_realms}
+            onChange={(nextValues) => setForm((current) => ({ ...current, sell_realms: nextValues }))}
+            options={(realmsQuery.data ?? [])
+              .filter((realm) => realm.enabled)
+              .map((realm) => ({ value: realm.realm_name, label: realm.realm_name }))}
+            placeholder="Select sell realms"
             isCompact
           />
           <div className="flex gap-2 pt-2">
@@ -365,8 +360,8 @@ export function Presets() {
                         min_confidence: preset.min_confidence?.toString() ?? "",
                         hide_risky: preset.hide_risky,
                         category_filter: preset.category_filter ?? "",
-                        buy_realms: formatRealmCsv(preset.buy_realms),
-                        sell_realms: formatRealmCsv(preset.sell_realms),
+                        buy_realms: preset.buy_realms ?? [],
+                        sell_realms: preset.sell_realms ?? [],
                       });
                     }}
                   >

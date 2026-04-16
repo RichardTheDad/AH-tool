@@ -49,9 +49,10 @@ export function AppShell({ children }: PropsWithChildren) {
                 to="https://ko-fi.com/richardthedad"
                 external
                 variant="muted"
-                className="hidden rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 no-underline hover:border-orange-400/45 hover:text-orange-300 lg:inline-flex"
+                className="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-300 no-underline hover:border-orange-400/45 hover:text-orange-300 lg:inline-flex"
               >
-                Support data expansion
+                <img src="/kofi-logo.svg" alt="Ko-fi" className="h-4 w-4" />
+                Support on Ko-fi
               </Link>
               <span className="text-xs text-zinc-400 hidden sm:inline">{user.email}</span>
               <Button 

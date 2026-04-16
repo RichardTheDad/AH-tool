@@ -18,6 +18,7 @@ import { useScannerFilters } from "../hooks/useScannerFilters";
 import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus, ScanSession, ScanSessionSummary } from "../types/models";
 import { filterScanResults } from "../utils/filters";
 import { formatDateTime } from "../utils/format";
+import { formatScore } from "../utils/format";
 import { readinessTextColor } from "../utils/statusStyles";
 
 const CALIBRATION_CHART_WIDTH = 640;
@@ -496,11 +497,11 @@ export function Scanner() {
 
         {focusedModeActive ? (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            Focused mode active. Showing {results.length} of {asArray(persistedScan?.results).length} results; {focusedExcludedCount} excluded by buy/sell realm scope.
+            Focused mode is on. Showing {results.length} of {asArray(persistedScan?.results).length} opportunities; {focusedExcludedCount} hidden because they fall outside your selected buy/sell realms.
           </div>
         ) : (
           <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            Discovery mode active. Rankings are computed on the full scheduled scan universe across enabled realms.
+            Discovery mode is on. Rankings use all enabled realms so you see the broadest set of opportunities.
           </div>
         )}
 
@@ -922,7 +923,7 @@ export function Scanner() {
             <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/15 bg-zinc-900/95 p-5 shadow-card backdrop-blur-xl">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-display text-xl font-semibold text-zinc-100">Score provenance drilldown</h3>
+                  <h3 className="font-display text-xl font-semibold text-zinc-100">Why this item ranks here</h3>
                   <p className="mt-1 text-sm text-zinc-300">{selectedProvenanceResult.item_name} • {selectedProvenanceResult.cheapest_buy_realm} → {selectedProvenanceResult.best_sell_realm}</p>
                 </div>
                 <button
@@ -952,12 +953,67 @@ export function Scanner() {
                 const executionRiskReasons = Array.isArray(adjustments.execution_risk_reasons)
                   ? adjustments.execution_risk_reasons.filter((value): value is string => typeof value === "string")
                   : [];
+                const keyStrengths: string[] = [];
+                const watchouts: string[] = [];
+
+                if ((selectedProvenanceResult.sellability_score ?? 0) >= 75) {
+                  keyStrengths.push("Strong sell-side conditions for a likely turnover.");
+                }
+                if ((selectedProvenanceResult.confidence_score ?? 0) >= 75) {
+                  keyStrengths.push("High confidence based on recent and consistent market signals.");
+                }
+                if ((selectedProvenanceResult.liquidity_score ?? 0) >= 70) {
+                  keyStrengths.push("Good market depth supports smoother execution.");
+                }
+
+                if ((selectedProvenanceResult.bait_risk_score ?? 0) >= 55) {
+                  watchouts.push("Higher bait-risk score suggests extra caution before posting.");
+                }
+                if (Boolean(evidence.gate_applied)) {
+                  watchouts.push("Evidence guardrails were applied, which can cap upside when data quality is weaker.");
+                }
+                if (executionRiskReasons.length) {
+                  watchouts.push(`Execution risk flags: ${executionRiskReasons.join(", ")}.`);
+                }
 
                 return (
                   <div className="mt-4 space-y-4">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-zinc-300">
+                      <p className="text-xs uppercase tracking-label text-zinc-500">Summary</p>
+                      <p className="mt-2">
+                        This rank blends expected profit ({selectedProvenanceResult.estimated_profit.toFixed(0)}g), return ({(selectedProvenanceResult.roi * 100).toFixed(1)}%), sellability ({formatScore(selectedProvenanceResult.sellability_score)}), and confidence ({formatScore(selectedProvenanceResult.confidence_score)}).
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-4 py-3">
+                        <p className="text-xs uppercase tracking-label text-emerald-300">What looks good</p>
+                        <div className="mt-2 space-y-1 text-sm text-emerald-100">
+                          {keyStrengths.length ? keyStrengths.map((entry) => <p key={entry}>• {entry}</p>) : <p>• No standout strength signals were detected above the current thresholds.</p>}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-amber-400/25 bg-amber-500/10 px-4 py-3">
+                        <p className="text-xs uppercase tracking-label text-amber-300">What to watch</p>
+                        <div className="mt-2 space-y-1 text-sm text-amber-100">
+                          {watchouts.length ? watchouts.map((entry) => <p key={entry}>• {entry}</p>) : <p>• No major warnings were triggered by the current evidence checks.</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                      <p className="text-xs uppercase tracking-label text-zinc-500">Safety checks</p>
+                      <div className="mt-2 grid gap-2 text-sm text-zinc-300 md:grid-cols-2">
+                        <p>Sell depth check: {Boolean(evidence.sell_depth_ok) ? "Pass" : "Needs caution"}</p>
+                        <p>History coverage: {Boolean(evidence.history_coverage_ok) ? "Pass" : "Needs caution"}</p>
+                        <p>Realm turnover check: {Boolean(evidence.realm_turnover_ok) ? "Pass" : "Needs caution"}</p>
+                        <p>Recency check: {Boolean(evidence.recency_ok) ? "Pass" : "Needs caution"}</p>
+                      </div>
+                      {gateReasons.length ? <p className="mt-2 text-sm text-zinc-400">Evidence gate reasons: {gateReasons.join(", ")}</p> : null}
+                    </div>
+
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                        <p className="text-xs uppercase tracking-label text-zinc-500">Components</p>
+                        <p className="text-xs uppercase tracking-label text-zinc-500">Raw components</p>
                         <div className="mt-2 space-y-1 text-sm text-zinc-300">
                           <p>Liquidity: {(components.liquidity ?? 0).toFixed(2)}</p>
                           <p>Volatility: {(components.volatility ?? 0).toFixed(2)}</p>

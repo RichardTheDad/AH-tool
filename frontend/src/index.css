@@ -34,15 +34,16 @@ select optgroup {
 
 .panel-glow {
   position: relative;
+  overflow: hidden;
 }
 
 .panel-glow::before {
   content: "";
   position: absolute;
-  inset: -1px;
+  inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.35), rgba(255, 255, 255, 0.05));
-  opacity: 0.7;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(255, 255, 255, 0.02));
+  opacity: 0.32;
   pointer-events: none;
 }
 
