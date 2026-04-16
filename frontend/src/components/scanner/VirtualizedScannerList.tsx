@@ -123,8 +123,8 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
 
   return (
     <div style={style} className="overflow-hidden border-b border-white/10 px-4 py-2.5">
-      <div className="grid grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-center gap-3 text-sm">
-        <div className="min-w-0">
+      <div className="grid h-full grid-cols-[minmax(0,2.1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.9fr)_minmax(0,0.9fr)] items-center gap-3 text-sm">
+        <div className="min-w-0 self-stretch overflow-hidden flex flex-col justify-center">
           <div className="flex gap-2.5">
             <ItemIcon result={result} />
             <div className="min-w-0 flex-1">
@@ -152,8 +152,7 @@ function Row({ index, style, results, onOpenProvenance, search, focusedModeActiv
                   </a>
                 ) : null}
               </div>
-              <p className="mt-1 line-clamp-2 text-[12px] leading-[1.3] text-zinc-300">{result.explanation}</p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">{focusedModeActive ? "Focused realm scope" : "Discovery mode across all enabled realms"}</p>
+              <p className="mt-1 line-clamp-1 text-[12px] leading-[1.3] text-zinc-300">{result.explanation}</p>
               {provenance ? (
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-500">
                   <span className="min-w-0 truncate">

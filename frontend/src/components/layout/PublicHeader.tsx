@@ -28,7 +28,7 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
             className="hidden items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-zinc-200 no-underline hover:border-orange-400/45 hover:text-orange-300 sm:inline-flex"
           >
             <img src="/kofi-logo.svg" alt="Ko-fi" className="h-4 w-4" />
-            Ko-fi
+            Support on Ko-fi
           </Link>
           <Button
             variant="secondary"

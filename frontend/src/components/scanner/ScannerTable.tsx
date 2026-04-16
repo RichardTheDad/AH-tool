@@ -322,20 +322,12 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                       </div>
                     ) : null;
                   })()}
-                  <div className="space-y-2">
-                    <p>{result.explanation}</p>
+                  <div className="space-y-1.5">
+                    <p className="line-clamp-3 text-[12px] leading-[1.4]">{result.explanation}</p>
                     <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-link text-zinc-500">
                       <span>{result.turnover_label} turnover</span>
                       <span>{summarizeLiquidity(result.liquidity_score)}</span>
                       <span>{summarizeBaitRisk(result.bait_risk_score)}</span>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-zinc-400">
-                      <div>Recommended sell target: {formatGold(result.best_sell_price)}</div>
-                      <div>Observed current listing: {result.observed_sell_price != null ? formatGold(result.observed_sell_price) : "--"}</div>
-                      <div>{focusedModeActive ? "Focused view: you are seeing opportunities only in your selected buy/sell realm scope." : "Discovery view: this row was ranked from all enabled realms to show the widest opportunity set."}</div>
-                      <div>
-                        Risk readout: {result.is_risky ? "flagged risky" : "within current safety thresholds"}; liquidity {formatScore(result.liquidity_score)}, bait risk {formatScore(result.bait_risk_score)}
-                      </div>
                     </div>
                   </div>
                 </td>
