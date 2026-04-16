@@ -382,16 +382,7 @@ def purge_app_runtime_data(session: Session) -> None:
         session.execute(text("DELETE FROM scan_results"))
         session.execute(text("DELETE FROM scan_sessions"))
         session.execute(text("DELETE FROM listing_snapshots"))
-        session.execute(
-            text(
-                """
-                DELETE FROM items
-                WHERE item_id NOT IN (
-                    SELECT DISTINCT item_id FROM listing_snapshots
-                )
-                """
-            )
-        )
+        _delete_orphan_items(session)
         session.commit()
     except Exception:
         session.rollback()
@@ -422,17 +413,29 @@ def _disk_free_bytes(db_path: Path) -> int:
         return 0
 
 
-def _delete_orphan_items(session: Session) -> None:
-    session.execute(
-        text(
-            """
-            DELETE FROM items
-            WHERE item_id NOT IN (
-                SELECT DISTINCT item_id FROM listing_snapshots
+def _delete_orphan_items(session: Session, *, batch_size: int = 2000) -> int:
+    """Delete items with no snapshots in small batches to avoid statement timeouts."""
+    deleted_total = 0
+
+    while True:
+        orphan_ids = [
+            row[0]
+            for row in (
+                session.query(Item.item_id)
+                .outerjoin(ListingSnapshot, ListingSnapshot.item_id == Item.item_id)
+                .filter(ListingSnapshot.item_id.is_(None))
+                .limit(batch_size)
+                .all()
             )
-            """
-        )
-    )
+        ]
+        if not orphan_ids:
+            break
+
+        session.query(Item).filter(Item.item_id.in_(orphan_ids)).delete(synchronize_session=False)
+        session.commit()
+        deleted_total += len(orphan_ids)
+
+    return deleted_total
 
 
 def _trim_oldest_scan_data_batch(session: Session) -> int:

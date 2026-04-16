@@ -114,18 +114,38 @@ def mark_stale_snapshots(session: Session) -> int:
     app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
     stale_after = app_settings.stale_after_minutes if app_settings.stale_after_minutes is not None else 120
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=stale_after)
-    updated = 0
-    updated += (
-        session.query(ListingSnapshot)
-        .filter(ListingSnapshot.captured_at < cutoff, ListingSnapshot.is_stale.is_(False))
-        .update({ListingSnapshot.is_stale: True}, synchronize_session=False)
-    )
-    updated += (
-        session.query(ListingSnapshot)
-        .filter(ListingSnapshot.captured_at >= cutoff, ListingSnapshot.is_stale.is_(True))
-        .update({ListingSnapshot.is_stale: False}, synchronize_session=False)
-    )
-    session.commit()
+
+    # Large single-shot UPDATEs can hit statement timeout on Postgres.
+    # Process stale flags in bounded batches to keep each transaction short.
+    batch_size = 5000
+
+    def _update_in_batches(set_stale: bool) -> int:
+        updated_count = 0
+        condition = ListingSnapshot.captured_at < cutoff if set_stale else ListingSnapshot.captured_at >= cutoff
+        current_flag = ListingSnapshot.is_stale.is_(False) if set_stale else ListingSnapshot.is_stale.is_(True)
+
+        while True:
+            id_rows = (
+                session.query(ListingSnapshot.id)
+                .filter(condition, current_flag)
+                .limit(batch_size)
+                .all()
+            )
+            if not id_rows:
+                break
+
+            ids = [row[0] for row in id_rows]
+            session.query(ListingSnapshot).filter(ListingSnapshot.id.in_(ids)).update(
+                {ListingSnapshot.is_stale: set_stale},
+                synchronize_session=False,
+            )
+            session.commit()
+            updated_count += len(ids)
+
+        return updated_count
+
+    updated = _update_in_batches(set_stale=True)
+    updated += _update_in_batches(set_stale=False)
     return updated
 
 
@@ -182,7 +202,9 @@ def persist_listing_rows(session: Session, rows: list[ListingImportRow], source_
 
     is_postgres = not get_settings().database_url.startswith("sqlite")
 
-    for chunk in _chunked(payloads, 1000):
+    chunk_size = 250 if is_postgres else 1000
+
+    for chunk in _chunked(payloads, chunk_size):
         if is_postgres:
             stmt = (
                 pg_insert(ListingSnapshot)
