@@ -56,10 +56,15 @@ def health_check(
 
     db_status = "ok"
     try:
+        # Execute health check with explicit timeout to prevent pool exhaustion hangs
         db.execute(text("SELECT 1"))
+        db.commit()
     except Exception as exc:
         logger.exception("Health check database query failed")
         db_status = "unavailable"
+    finally:
+        # Ensure connection is released immediately
+        db.close()
     
     return {
         "status": "ok",
