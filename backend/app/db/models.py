@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -37,6 +38,8 @@ class Item(Base):
     metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     metadata_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_commodity: Mapped[bool] = mapped_column(Boolean, default=False)
+    vendor_price: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expansion: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
 
 
 class ListingSnapshot(Base):

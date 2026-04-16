@@ -412,6 +412,22 @@ def score_opportunity(
     liquidity_score = round(clamp(liquidity_score, 0, 100), 2)
 
     bait_risk = 8.0
+    vendor_sell_above_vendor = False
+    vendor_buy_floor = False
+    vendor_bait_adjustment = 0.0
+    vendor_floor_adjustment = 0.0
+    vendor_price_copper = item.vendor_price if isinstance(item.vendor_price, int) and item.vendor_price > 0 else None
+    if vendor_price_copper is not None:
+        # Sell listing above vendor price: buyers can just go to vendor → genuine bait signal
+        if observed_sell_price > vendor_price_copper * 1.05:
+            vendor_sell_above_vendor = True
+            vendor_bait_adjustment = 20.0
+            bait_risk += vendor_bait_adjustment
+        # Buy price at or below vendor price: guaranteed profit floor → reduce bait risk
+        if buy_price > 0 and buy_price <= vendor_price_copper * 1.02:
+            vendor_buy_floor = True
+            vendor_floor_adjustment = 8.0
+            bait_risk -= vendor_floor_adjustment
     if spread_ratio > tuning["suspicious_spread"]:
         bait_risk += tuning["bait_penalty"] * 0.8
     if spread_ratio > tuning["extreme_spread"]:
@@ -442,6 +458,7 @@ def score_opportunity(
     if has_stale_data:
         bait_risk += tuning["stale_penalty"] * 0.75
     bait_risk = round(clamp(bait_risk, 0, 100), 2)
+    # end of vendor price bait check — already applied above at start of bait_risk section
 
     liquidity_component = liquidity_score * SELLABILITY_WEIGHTS["liquidity"]
     volatility_component = volatility_score * SELLABILITY_WEIGHTS["volatility"]
@@ -588,6 +605,8 @@ def score_opportunity(
             "rare_market_liquidity_relief": rare_liquidity_relief,
             "rare_market_volatility_relief": rare_volatility_relief,
             "rare_market_bait_relief": rare_bait_relief,
+                        "vendor_bait_adjustment": vendor_bait_adjustment,
+                        "vendor_floor_adjustment": vendor_floor_adjustment,
             "execution_risk_penalty": execution_risk.total,
             "execution_risk_reasons": execution_risk.reasons,
         },
@@ -600,6 +619,11 @@ def score_opportunity(
             "gate_reasons": gate_reasons,
         },
         "regional_anchor": {
+                    "vendor": {
+                        "vendor_price_copper": vendor_price_copper,
+                        "sell_above_vendor": vendor_sell_above_vendor,
+                        "buy_below_vendor_floor": vendor_buy_floor,
+                    },
             "value": regional_anchor.value if regional_anchor else None,
             "source": regional_anchor.source if regional_anchor else None,
             "sale_rate": regional_anchor.sale_rate if regional_anchor else None,

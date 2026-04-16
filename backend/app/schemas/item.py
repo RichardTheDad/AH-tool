@@ -27,6 +27,8 @@ class ItemRead(BaseModel):
     metadata_json: dict | None = None
     metadata_updated_at: datetime | None = None
     is_commodity: bool = False
+    vendor_price: int | None = None
+    expansion: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
