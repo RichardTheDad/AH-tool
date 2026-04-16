@@ -491,17 +491,9 @@ export function Scanner() {
           nextScheduledScanLabel={nextScheduledScanLabel}
         />
 
-        <div className="rounded-2xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-300 backdrop-blur-xl">
-          Scanner runs automatically on the scheduler. Use your personal settings and filters to control what you see.
-        </div>
-
-        {focusedModeActive ? (
+        {focusedModeActive && (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             Focused mode is on. Showing {results.length} of {asArray(persistedScan?.results).length} opportunities; {focusedExcludedCount} hidden because they fall outside your selected buy/sell realms.
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-emerald-300/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
-            Discovery mode is on. Rankings use all enabled realms so you see the broadest set of opportunities.
           </div>
         )}
 

@@ -18,6 +18,10 @@ export function ScannerStatusBar({
   nextScheduledScanLabel,
 }: ScannerStatusBarProps) {
   const scanRunning = scanStatus?.status === "running";
+  const showReadinessCaution =
+    readiness.status === "caution" &&
+    readiness.message !== "Checking scanner readiness..." &&
+    !latestScan?.warning_text;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4 shadow-md backdrop-blur-xl space-y-3">
@@ -71,7 +75,7 @@ export function ScannerStatusBar({
         {latestScan?.warning_text && !latestScan.warning_text.includes("incomplete item details") && (
           <span className="text-amber-700 font-medium">⚠️ {latestScan.warning_text}</span>
         )}
-        {readiness.status === "caution" && !latestScan?.warning_text && (
+        {showReadinessCaution && (
           <span className="text-amber-700">⚠️ {readiness.message}</span>
         )}
       </div>
