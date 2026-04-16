@@ -191,7 +191,7 @@ export function ScannerTable({ results, sortBy, sortDirection, onSortChange, foc
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <Link
-                          to={`/items/${result.item_id}`}
+                          to={`/app/items/${result.item_id}`}
                           state={{
                             from: "scanner",
                             scannerSearch: location.search,

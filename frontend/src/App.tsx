@@ -64,6 +64,9 @@ export default function App() {
       
       {/* Protected app routes */}
       <Route path="/app/*" element={<ProtectedAppRoutes />} />
+
+      {/* Legacy deep-link compatibility */}
+      <Route path="/items/:itemId" element={<ProtectedAppRoutes />} />
     </Routes>
   );
 }

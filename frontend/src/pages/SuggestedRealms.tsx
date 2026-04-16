@@ -222,7 +222,7 @@ export function SuggestedRealms() {
                       <div key={`${realm.realm}-${item.item_id}`} className="rounded-2xl border border-white/10 bg-zinc-900/65 px-4 py-3">
                         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                            <Link to={`/items/${item.item_id}`} className="font-semibold text-zinc-100 hover:underline">
+                            <Link to={`/app/items/${item.item_id}`} className="font-semibold text-zinc-100 hover:underline">
                               {item.item_name}
                             </Link>
                             {item.undermine_url ? (
