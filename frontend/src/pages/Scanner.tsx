@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getDefaultPreset, getPresets } from "../api/presets";
@@ -126,6 +126,7 @@ export function Scanner() {
     refetchInterval: scanRefreshIntervalMs,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
+    placeholderData: keepPreviousData,
   });
   const scanHistoryQuery = useQuery({
     queryKey: ["scans", "history"],
@@ -155,6 +156,9 @@ export function Scanner() {
     queryKey: ["scans", fallbackScanId, "persisted", 500],
     queryFn: () => getScan(fallbackScanId as number, 500),
     enabled: typeof fallbackScanId === "number",
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    placeholderData: keepPreviousData,
   });
   const tuningMutation = useMutation({
     mutationFn: applyTuningPreset,
@@ -481,8 +485,8 @@ export function Scanner() {
 
   return (
     <div className="space-y-4">
-      {/* Mobile filter toggle — hidden on xl+ where sidebar is always visible */}
-      <div className="xl:hidden">
+      {/* Mobile filter toggle — hidden on lg+ where sidebar is always visible */}
+      <div className="lg:hidden">
         <button
           type="button"
           onClick={() => setShowFilters((prev) => !prev)}
@@ -501,7 +505,7 @@ export function Scanner() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[240px_minmax(0,1fr)]">
-        <div className={showFilters ? "block xl:block" : "hidden xl:block"}>
+        <div className={showFilters ? "block lg:block" : "hidden lg:block"}>
           <FilterSidebar
             filters={filters}
             onChange={handleFilterChange}
