@@ -165,7 +165,7 @@ export function Homepage() {
                     <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] items-center gap-2 text-sm">
                       <div className="pr-2">
                         <p className="truncate font-semibold text-zinc-100">{row.item}</p>
-                        <div className="mt-1 flex items-center gap-1.5">
+                        <div className="mt-1.5 flex items-center gap-1.5">
                           <Badge tone="neutral">{row.category}</Badge>
                           <Badge tone={index === 0 ? "success" : "warning"}>{index === 0 ? "stable" : "tradable"}</Badge>
                         </div>
