@@ -118,7 +118,7 @@ function RealmSearchSelect({ id, label, value, options, disabled = false, onChan
         <div
           id={`${id}-options`}
           role="listbox"
-          className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/98 p-1.5 text-sm shadow-card backdrop-blur-xl"
+          className="mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-white/15 bg-zinc-950 p-1.5 text-sm shadow-card ring-1 ring-black/40"
         >
           {filteredOptions.length ? (
             filteredOptions.map((realm) => (
@@ -128,14 +128,17 @@ function RealmSearchSelect({ id, label, value, options, disabled = false, onChan
                 role="option"
                 aria-selected={realm.key === value}
                 onClick={() => selectRealm(realm)}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition ${
+                className={`flex w-full items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition ${
                   realm.key === value
-                    ? "bg-orange-500 text-white"
-                    : "text-zinc-200 hover:bg-white/10"
+                    ? "border-ember/50 bg-ember/15 text-zinc-50"
+                    : "border-transparent text-zinc-200 hover:border-white/10 hover:bg-white/10 hover:text-zinc-50"
                 }`}
               >
-                <span className="truncate">{realm.realm_name}</span>
-                <span className={realm.key === value ? "text-xs font-semibold text-white" : "text-xs font-semibold text-zinc-500"}>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{realm.realm_name}</span>
+                  {realm.key === value ? <span className="mt-0.5 block text-xs text-orange-300">Selected</span> : null}
+                </span>
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
                   {realm.region_label}
                 </span>
               </button>
