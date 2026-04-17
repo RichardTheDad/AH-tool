@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ScanResult, ScannerFilters } from "../types/models";
-import { filterScanResults } from "./filters";
+import { ALL_REALMS_FILTER_VALUE, TRACKED_REALMS_FILTER_VALUE, filterScanResults } from "./filters";
 
 const baseFilters: ScannerFilters = {
   minProfit: "",
@@ -11,8 +11,8 @@ const baseFilters: ScannerFilters = {
   minConfidence: "",
   category: "",
   subcategory: "",
-  buyRealm: "",
-  sellRealm: "",
+  buyRealm: TRACKED_REALMS_FILTER_VALUE,
+  sellRealm: TRACKED_REALMS_FILTER_VALUE,
   hideRisky: false,
   sortBy: "final_score",
   sortDirection: "desc",
@@ -60,5 +60,23 @@ describe("filterScanResults", () => {
     const filtered = filterScanResults(rows, { ...baseFilters, category: "Battle Pets" });
 
     expect(filtered.map((row) => row.id).sort()).toEqual([1, 2]);
+  });
+
+  it("defaults realm filters to tracked realms and can expand to all realms", () => {
+    const rows = [
+      result({ id: 1, item_name: "Tracked Route", cheapest_buy_realm: "Stormrage", best_sell_realm: "Area 52" }),
+      result({ id: 2, item_name: "Outside Buy", cheapest_buy_realm: "Illidan", best_sell_realm: "Area 52" }),
+      result({ id: 3, item_name: "Outside Sell", cheapest_buy_realm: "Stormrage", best_sell_realm: "Zul'jin" }),
+    ];
+
+    const trackedOnly = filterScanResults(rows, baseFilters, { trackedRealms: ["Stormrage", "Area 52"] });
+    const allRealms = filterScanResults(
+      rows,
+      { ...baseFilters, buyRealm: ALL_REALMS_FILTER_VALUE, sellRealm: ALL_REALMS_FILTER_VALUE },
+      { trackedRealms: ["Stormrage", "Area 52"] },
+    );
+
+    expect(trackedOnly.map((row) => row.id)).toEqual([1]);
+    expect(allRealms.map((row) => row.id).sort()).toEqual([1, 2, 3]);
   });
 });

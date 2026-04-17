@@ -3,6 +3,7 @@ import { Select } from "../common/Select";
 import { Checkbox } from "../common/Checkbox";
 import { Button } from "../common/Button";
 import type { ScannerFilters } from "../../types/models";
+import { ALL_REALMS_FILTER_VALUE, TRACKED_REALMS_FILTER_VALUE } from "../../utils/filters";
 import { getCategoryLabel, type ItemCategoryGroup } from "../../utils/itemCategories";
 
 interface FilterSidebarProps {
@@ -158,7 +159,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, categoryGrou
           onChange={(event) => onChange({ buyRealm: event.target.value })}
           isCompact
         >
-          <option value="">All buy realms</option>
+          <option value={TRACKED_REALMS_FILTER_VALUE}>All tracked buy realms</option>
+          <option value={ALL_REALMS_FILTER_VALUE}>All buy realms</option>
           {realmOptions.map((realm) => (
             <option key={`buy-${realm}`} value={realm}>
               {realm}
@@ -172,7 +174,8 @@ export function FilterSidebar({ filters, onChange, categoryOptions, categoryGrou
           onChange={(event) => onChange({ sellRealm: event.target.value })}
           isCompact
         >
-          <option value="">All sell realms</option>
+          <option value={TRACKED_REALMS_FILTER_VALUE}>All tracked sell realms</option>
+          <option value={ALL_REALMS_FILTER_VALUE}>All sell realms</option>
           {realmOptions.map((realm) => (
             <option key={`sell-${realm}`} value={realm}>
               {realm}

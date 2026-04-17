@@ -20,7 +20,7 @@ import { useGuestPresets } from "../hooks/useGuestPresets";
 import { useGuestRealms } from "../hooks/useGuestRealms";
 import { useScannerFilters } from "../hooks/useScannerFilters";
 import type { ScanPreset, ScanReadiness, ScanResult, ScanRuntimeStatus, ScanSession, ScanSessionSummary } from "../types/models";
-import { filterScanResults } from "../utils/filters";
+import { ALL_REALMS_FILTER_VALUE, TRACKED_REALMS_FILTER_VALUE, filterScanResults } from "../utils/filters";
 import { buildCategoryGroupsFromResults } from "../utils/itemCategories";
 import { formatDateTime } from "../utils/format";
 import { formatScore } from "../utils/format";
@@ -72,8 +72,8 @@ function applyPresetToFilterState(preset: ScanPreset) {
     minConfidence: preset.min_confidence?.toString() ?? "",
     category: preset.category_filter ?? "",
     subcategory: "",
-    buyRealm: preset.buy_realms?.[0] ?? "",
-    sellRealm: preset.sell_realms?.[0] ?? "",
+    buyRealm: preset.buy_realms?.[0] ?? TRACKED_REALMS_FILTER_VALUE,
+    sellRealm: preset.sell_realms?.[0] ?? TRACKED_REALMS_FILTER_VALUE,
     hideRisky: preset.hide_risky,
   };
 }
@@ -276,16 +276,16 @@ export function Scanner() {
   const calibrationUnavailable = Boolean(calibrationQuery.error);
   const previousScanUnavailable = Boolean(previousScanQuery.error);
   const tuningAudit = isGuest ? [] : asArray(tuningAuditQuery.data?.entries);
-  const results = filterScanResults(asArray(persistedScan?.results), filters);
+  const realmOptions = trackedRealms
+    .filter((realm) => realm.enabled)
+    .map((realm) => realm.realm_name)
+    .sort((left, right) => left.localeCompare(right));
+  const results = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: realmOptions });
   const useVirtualizedResults = results.length > 300 && !isMobileViewport;
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
   const categoryGroups = buildCategoryGroupsFromResults(asArray(persistedScan?.results));
-  const realmOptions = trackedRealms
-    .filter((realm) => realm.enabled)
-    .map((realm) => realm.realm_name)
-    .sort((left, right) => left.localeCompare(right));
   const inferredPreset = presets.find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
     presets.find((preset) => preset.id === selectedPresetId) ??
@@ -297,7 +297,9 @@ export function Scanner() {
     !loadingPersistedScan &&
     (!persistedScan || persistedScan.result_count === 0) &&
     (noEnabledRealms || noUsableListingData || latestWarningText.includes("no listing data found"));
-  const focusedModeActive = Boolean(filters.buyRealm || filters.sellRealm);
+  const focusedModeActive =
+    (filters.buyRealm !== TRACKED_REALMS_FILTER_VALUE || filters.sellRealm !== TRACKED_REALMS_FILTER_VALUE) &&
+    !(filters.buyRealm === ALL_REALMS_FILTER_VALUE && filters.sellRealm === ALL_REALMS_FILTER_VALUE);
   const focusedExcludedCount = Math.max(0, asArray(persistedScan?.results).length - results.length);
 
   const emptyState = noEnabledRealms
@@ -542,7 +544,7 @@ export function Scanner() {
             categoryOptions={categoryOptions}
             categoryGroups={categoryGroups}
             realmOptions={realmOptions}
-            onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", subcategory: "", buyRealm: "", sellRealm: "", hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
+            onReset={() => updateFilters({ minProfit: "", minRoi: "", minSpread: "", maxSpread: "", maxBuyPrice: "", minConfidence: "", category: "", subcategory: "", buyRealm: TRACKED_REALMS_FILTER_VALUE, sellRealm: TRACKED_REALMS_FILTER_VALUE, hideRisky: false, sortBy: "final_score", sortDirection: "desc" })}
           />
         </div>
 

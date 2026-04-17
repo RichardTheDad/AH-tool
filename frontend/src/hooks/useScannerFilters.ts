@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ScannerFilters } from "../types/models";
+import { TRACKED_REALMS_FILTER_VALUE } from "../utils/filters";
 
 const SCANNER_FILTERS_STORAGE_KEY = "scanner.filters.v1";
 const ALLOWED_SORT_BY: ScannerFilters["sortBy"][] = [
@@ -32,6 +33,10 @@ function sanitizeText(value: unknown, maxLength = 64): string {
   }
   const normalized = value.trim();
   return normalized.length > maxLength ? normalized.slice(0, maxLength) : normalized;
+}
+
+function sanitizeRealmFilter(value: unknown): string {
+  return sanitizeText(value) || TRACKED_REALMS_FILTER_VALUE;
 }
 
 function sanitizeNumericString(value: unknown, options: { min: number; max: number }): string {
@@ -78,8 +83,8 @@ function sanitizePartialFilters(input: Partial<ScannerFilters> | null | undefine
     minConfidence: sanitizeNumericString(input.minConfidence, { min: 0, max: 100 }),
     category: sanitizeText(input.category),
     subcategory: sanitizeText(input.subcategory),
-    buyRealm: sanitizeText(input.buyRealm),
-    sellRealm: sanitizeText(input.sellRealm),
+    buyRealm: sanitizeRealmFilter(input.buyRealm),
+    sellRealm: sanitizeRealmFilter(input.sellRealm),
     hideRisky: Boolean(input.hideRisky),
     sortBy: sanitizeSortBy(input.sortBy ?? null),
     sortDirection: sanitizeSortDirection(input.sortDirection ?? null),
@@ -105,8 +110,8 @@ export function useScannerFilters() {
     minConfidence: sanitizeNumericString(searchParams.get("minConfidence"), { min: 0, max: 100 }),
     category: sanitizeText(searchParams.get("category")),
     subcategory: sanitizeText(searchParams.get("subcategory")),
-    buyRealm: sanitizeText(searchParams.get("buyRealm")),
-    sellRealm: sanitizeText(searchParams.get("sellRealm")),
+    buyRealm: sanitizeRealmFilter(searchParams.get("buyRealm") ?? TRACKED_REALMS_FILTER_VALUE),
+    sellRealm: sanitizeRealmFilter(searchParams.get("sellRealm") ?? TRACKED_REALMS_FILTER_VALUE),
     hideRisky: toBoolean(searchParams.get("hideRisky"), false),
     sortBy: sanitizeSortBy(searchParams.get("sortBy")),
     sortDirection: sanitizeSortDirection(searchParams.get("sortDirection")),

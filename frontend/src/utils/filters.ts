@@ -1,11 +1,32 @@
 import type { ScanResult, ScannerFilters } from "../types/models";
 import { isBattlePetCategory, isBattlePetResult } from "./itemCategories";
 
+export const TRACKED_REALMS_FILTER_VALUE = "__tracked_realms__";
+export const ALL_REALMS_FILTER_VALUE = "__all_realms__";
+
 function toSortValue(result: ScanResult, sortBy: ScannerFilters["sortBy"]) {
   return Number(result[sortBy] ?? 0);
 }
 
-function matchesFilters(result: ScanResult, filters: ScannerFilters) {
+function normalizeRealmFilter(value: string) {
+  return value || TRACKED_REALMS_FILTER_VALUE;
+}
+
+function matchesRealmScope(value: string | null | undefined, filterValue: string, trackedRealms: Set<string>) {
+  const normalizedFilter = normalizeRealmFilter(filterValue);
+  const normalizedValue = value?.toLowerCase() ?? "";
+
+  if (normalizedFilter === ALL_REALMS_FILTER_VALUE) {
+    return true;
+  }
+  if (normalizedFilter === TRACKED_REALMS_FILTER_VALUE) {
+    return trackedRealms.size === 0 || trackedRealms.has(normalizedValue);
+  }
+
+  return normalizedValue === normalizedFilter.toLowerCase();
+}
+
+function matchesFilters(result: ScanResult, filters: ScannerFilters, trackedRealms: Set<string>) {
   const minProfit = Number(filters.minProfit || 0);
   const minRoi = Number(filters.minRoi || 0);
   const minSpread = Number(filters.minSpread || 0);
@@ -27,14 +48,15 @@ function matchesFilters(result: ScanResult, filters: ScannerFilters) {
     if (!matchesBattlePetCategory && resultCategory !== selectedCategory) return false;
   }
   if (filters.subcategory && result.item_subclass_name?.toLowerCase() !== filters.subcategory.toLowerCase()) return false;
-  if (filters.buyRealm && result.cheapest_buy_realm?.toLowerCase() !== filters.buyRealm.toLowerCase()) return false;
-  if (filters.sellRealm && result.best_sell_realm?.toLowerCase() !== filters.sellRealm.toLowerCase()) return false;
+  if (!matchesRealmScope(result.cheapest_buy_realm, filters.buyRealm, trackedRealms)) return false;
+  if (!matchesRealmScope(result.best_sell_realm, filters.sellRealm, trackedRealms)) return false;
 
   return true;
 }
 
-export function filterScanResults(results: ScanResult[], filters: ScannerFilters) {
-  return results.filter((result) => matchesFilters(result, filters)).sort((a, b) => {
+export function filterScanResults(results: ScanResult[], filters: ScannerFilters, options?: { trackedRealms?: string[] }) {
+  const trackedRealms = new Set((options?.trackedRealms ?? []).map((realm) => realm.toLowerCase()));
+  return results.filter((result) => matchesFilters(result, filters, trackedRealms)).sort((a, b) => {
     const difference = toSortValue(b, filters.sortBy) - toSortValue(a, filters.sortBy);
     if (difference !== 0) {
       return filters.sortDirection === "asc" ? -difference : difference;
