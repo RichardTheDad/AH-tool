@@ -10,6 +10,16 @@ interface ScannerStatusBarProps {
   nextScheduledScanLabel: string | null;
 }
 
+const FRESH_REALM_WARNING =
+  "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results.";
+
+function visibleScannerWarning(value: string | null | undefined) {
+  if (!value || value.includes("incomplete item details")) {
+    return "";
+  }
+  return value.replace(FRESH_REALM_WARNING, "").replace(/\s{2,}/g, " ").trim();
+}
+
 export function ScannerStatusBar({
   readiness,
   scanStatus,
@@ -18,10 +28,13 @@ export function ScannerStatusBar({
   nextScheduledScanLabel,
 }: ScannerStatusBarProps) {
   const scanRunning = scanStatus?.status === "running";
+  const latestScanWarning = visibleScannerWarning(latestScan?.warning_text);
+  const readinessWarning = visibleScannerWarning(readiness.message);
   const showReadinessCaution =
     readiness.status === "caution" &&
     readiness.message !== "Checking scanner readiness..." &&
-    !latestScan?.warning_text;
+    !latestScanWarning &&
+    Boolean(readinessWarning);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4 shadow-md backdrop-blur-xl space-y-3">
@@ -32,20 +45,18 @@ export function ScannerStatusBar({
             {scanRunning && (
               <div className="flex items-center gap-1.5 bg-sky-500/20 text-sky-300 px-2.5 py-1 rounded-full text-xs font-medium border border-sky-400/35">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-300 animate-pulse" />
-                Scanning…
+                Scanning...
               </div>
             )}
           </div>
           <p className="text-xs text-zinc-500 mt-1">
-            {latestScan 
+            {latestScan
               ? `From ${formatDateTime(latestScan.generated_at)}`
-              : "No scan recorded yet"
-            }
+              : "No scan recorded yet"}
             {showingPersistedResults ? " (previous scan, latest returned no listings)" : ""}
           </p>
         </div>
 
-        {/* Status badges: compact and informative */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
           <Badge tone="neutral">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms</Badge>
           {readiness.realms_with_fresh_data > 0 && (
@@ -55,7 +66,6 @@ export function ScannerStatusBar({
         </div>
       </div>
 
-      {/* Second row: additional status info */}
       <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-400">
         {!scanRunning && scanStatus.finished_at && (
           <span>Last update: {formatDateTime(scanStatus.finished_at)}</span>
@@ -63,11 +73,11 @@ export function ScannerStatusBar({
         {nextScheduledScanLabel && (
           <span>Next scan: {nextScheduledScanLabel}</span>
         )}
-        {latestScan?.warning_text && !latestScan.warning_text.includes("incomplete item details") && (
-          <span className="text-amber-700 font-medium">⚠️ {latestScan.warning_text}</span>
+        {latestScanWarning && (
+          <span className="text-amber-700 font-medium">Warning: {latestScanWarning}</span>
         )}
         {showReadinessCaution && (
-          <span className="text-amber-700">⚠️ {readiness.message}</span>
+          <span className="text-amber-700">Warning: {readinessWarning}</span>
         )}
       </div>
     </div>

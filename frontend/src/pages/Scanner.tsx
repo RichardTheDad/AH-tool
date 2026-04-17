@@ -97,6 +97,21 @@ function asArray<T>(value: T[] | null | undefined): T[] {
   return Array.isArray(value) ? value : [];
 }
 
+function uniqueSortedRealms(values: string[]) {
+  const byKey = new Map<string, string>();
+  values.forEach((value) => {
+    const realm = value.trim();
+    if (!realm) {
+      return;
+    }
+    const key = realm.toLowerCase();
+    if (!byKey.has(key)) {
+      byKey.set(key, realm);
+    }
+  });
+  return Array.from(byKey.values()).sort((left, right) => left.localeCompare(right));
+}
+
 function normalizeSession(session: ScanSession | null | undefined): ScanSession | null {
   if (!session) {
     return null;
@@ -280,7 +295,11 @@ export function Scanner() {
     .filter((realm) => realm.enabled)
     .map((realm) => realm.realm_name)
     .sort((left, right) => left.localeCompare(right));
-  const results = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: realmOptions });
+  const scannerRealmOptions = uniqueSortedRealms(readiness.realms.map((realm) => realm.realm));
+  const trackedRealmFilterOptions = scannerRealmOptions.length
+    ? uniqueSortedRealms([...realmOptions, ...scannerRealmOptions])
+    : realmOptions;
+  const results = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: trackedRealmFilterOptions });
   const useVirtualizedResults = results.length > 300 && !isMobileViewport;
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),

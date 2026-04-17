@@ -79,4 +79,15 @@ describe("filterScanResults", () => {
     expect(trackedOnly.map((row) => row.id)).toEqual([1]);
     expect(allRealms.map((row) => row.id).sort()).toEqual([1, 2, 3]);
   });
+
+  it("keeps scheduled scanner rows when tracked scope comes from readiness realms", () => {
+    const rows = [
+      result({ id: 1, item_name: "Scheduled Route", cheapest_buy_realm: "Area 52", best_sell_realm: "Zul'jin" }),
+      result({ id: 2, item_name: "Untracked Route", cheapest_buy_realm: "Illidan", best_sell_realm: "Tichondrius" }),
+    ];
+
+    const filtered = filterScanResults(rows, baseFilters, { trackedRealms: ["Area 52", "Zul'jin"] });
+
+    expect(filtered.map((row) => row.id)).toEqual([1]);
+  });
 });
