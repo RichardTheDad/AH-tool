@@ -244,6 +244,20 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
     try:
         if realms is None:
             realms = get_enabled_realm_names(session, user_id)
+
+        sanitized_realms: list[str] = []
+        seen_realms: set[str] = set()
+        for raw_realm in realms:
+            realm = str(raw_realm or "").strip()
+            if not realm:
+                continue
+            key = realm.casefold()
+            if key in seen_realms:
+                continue
+            seen_realms.add(key)
+            sanitized_realms.append(realm)
+        realms = sanitized_realms
+
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         enforce_fixed_ah_cut(app_settings)
         latest_snapshots = get_latest_snapshots_for_realms(session, realms)
@@ -267,6 +281,8 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
         latest_snapshot_at = None
 
         for snapshot in latest_snapshots:
+            if not snapshot.realm:
+                continue
             unique_item_ids.add(snapshot.item_id)
             item = items_by_id.get(snapshot.item_id)
             if item is not None and item_has_missing_metadata(item):
@@ -289,6 +305,8 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
             else:
                 stats["fresh_item_count"] = int(stats["fresh_item_count"]) + 1
 
+            if snapshot.captured_at is None:
+                continue
             captured_at = snapshot.captured_at.astimezone(timezone.utc)
             freshest = stats["freshest_captured_at"]
             if freshest is None or captured_at > freshest:
@@ -354,10 +372,14 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
             stale_realms=stale_realms,
             oldest_snapshot_at=oldest_snapshot_at,
             latest_snapshot_at=latest_snapshot_at,
-            realms=sorted(realm_rows, key=lambda row: row.realm.lower()),
+            realms=sorted(realm_rows, key=lambda row: (row.realm or "").lower()),
         )
     except Exception as exc:
-        logger.error("Scan readiness query failed (may indicate connection pool exhaustion): %s", exc)
+        try:
+            session.rollback()
+        except Exception:
+            pass
+        logger.exception("Scan readiness query failed (may indicate connection pool exhaustion): %s", exc)
         # Return degraded but safe readiness state
         return ScanReadinessRead(
             status="blocked",
@@ -691,13 +713,14 @@ def get_scan_session(session: Session, scan_id: int, user_id: str, *, limit: int
     if scan_session is None or scan_session.user_id != user_id:
         return None
 
+    effective_limit = 200 if limit is None else max(1, min(limit, 2000))
+
     query = (
         session.query(ScanResult)
         .filter(ScanResult.scan_session_id == scan_session.id)
         .order_by(ScanResult.final_score.desc(), ScanResult.estimated_profit.desc())
     )
-    if limit is not None:
-        query = query.limit(max(1, min(limit, 2000)))
+    query = query.limit(effective_limit)
     ordered_results = query.all()
 
     total_result_count = int(
@@ -729,7 +752,8 @@ def get_latest_scan(session: Session, user_id: str, *, limit: int | None = None)
         latest = session.query(ScanSession).filter(ScanSession.user_id == user_id).order_by(ScanSession.generated_at.desc()).first()
         if latest is None:
             return None
-        return get_scan_session(session, latest.id, user_id, limit=limit)
+        effective_limit = 200 if limit is None else limit
+        return get_scan_session(session, latest.id, user_id, limit=effective_limit)
     except Exception as exc:
         logger.error("Latest scan query failed (may indicate connection pool exhaustion): %s", exc)
         return None

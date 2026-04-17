@@ -22,10 +22,28 @@ def get_enabled_realm_names(session: Session, user_id: str) -> list[str]:
 
 def get_all_enabled_realm_names(session: Session) -> list[str]:
     """Return the distinct set of enabled realm names across all users (used by the background scheduler)."""
-    return [
-        row[0]
-        for row in session.query(distinct(TrackedRealm.realm_name)).filter(TrackedRealm.enabled.is_(True)).all()
-    ]
+    rows = (
+        session.query(distinct(TrackedRealm.realm_name))
+        .filter(
+            TrackedRealm.enabled.is_(True),
+            TrackedRealm.realm_name.is_not(None),
+            TrackedRealm.realm_name != "",
+        )
+        .all()
+    )
+
+    realms: list[str] = []
+    seen: set[str] = set()
+    for (raw_realm,) in rows:
+        realm = str(raw_realm).strip()
+        if not realm:
+            continue
+        normalized = realm.casefold()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        realms.append(realm)
+    return realms
 
 
 def create_realm(session: Session, user_id: str, payload: TrackedRealmCreate) -> TrackedRealm:

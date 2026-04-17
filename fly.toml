@@ -13,7 +13,7 @@ primary_region = "dfw"
   AZEROTHFLIPLOCAL_DB_MAX_OVERFLOW = "1"
   AZEROTHFLIPLOCAL_DB_POOL_TIMEOUT_SECONDS = "10"
   AZEROTHFLIPLOCAL_DB_POOL_RECYCLE_SECONDS = "1200"
-  AZEROTHFLIPLOCAL_DB_STATEMENT_TIMEOUT_MS = "15000"
+  AZEROTHFLIPLOCAL_DB_STATEMENT_TIMEOUT_MS = "60000"
 
 # Restart the main process automatically if it exits (including OOM kills).
 # Without this, Fly waits 20+ minutes before the VM is recycled.

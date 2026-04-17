@@ -65,7 +65,7 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
 @limiter.limit("30/minute")
 def latest_scan(
     request: Request,
-    limit: int | None = Query(default=None, ge=1, le=2000),
+    limit: int | None = Query(default=200, ge=1, le=2000),
     db: Session = Depends(get_db),
     current_user: str | None = Depends(get_optional_user),
 ) -> ScanLatestResponse:
@@ -98,7 +98,31 @@ def scan_readiness(request: Request, db: Session = Depends(get_db), current_user
     del current_user
     def _load() -> ScanReadinessRead:
         realms = get_all_enabled_realm_names(db)
-        return get_scan_readiness(db, SYSTEM_USER_ID, realms=realms)
+        readiness = get_scan_readiness(db, SYSTEM_USER_ID, realms=realms)
+        if readiness.message != "Unable to assess scan readiness. Please try again in a moment.":
+            return readiness
+
+        latest_scan_summary = get_scan_history(db, SYSTEM_USER_ID, limit=1)
+        if latest_scan_summary:
+            latest = latest_scan_summary[0]
+            return ScanReadinessRead(
+                status="caution",
+                ready_for_scan=latest.result_count > 0,
+                message="Readiness detail is temporarily unavailable, but the latest scheduled scan data is available.",
+                enabled_realm_count=len(realms),
+                realms_with_data=len(realms),
+                realms_with_fresh_data=len(realms),
+                unique_item_count=int(latest.result_count or 0),
+                items_missing_metadata=0,
+                stale_realm_count=0,
+                missing_realms=[],
+                stale_realms=[],
+                oldest_snapshot_at=None,
+                latest_snapshot_at=latest.generated_at,
+                realms=[],
+            )
+
+        return readiness
 
     return _read_through_cache("scans.readiness", 45.0, _load)
 
