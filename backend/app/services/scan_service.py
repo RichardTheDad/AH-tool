@@ -775,11 +775,7 @@ def get_scan_history(session: Session, user_id: str, *, limit: int = 8) -> list[
             .order_by(ScanSession.generated_at.desc())
             .limit(limit)
         )
-        # Add statement timeout to prevent query hangs
-        from sqlalchemy import text
-        if not session.connection().connection.info.get('_sa_dialect_name', '').startswith('sqlite'):
-            query = query.execution_options(timeout=10)
-        
+
         rows = query.all()
         return [
             ScanSessionSummary(
@@ -791,6 +787,50 @@ def get_scan_history(session: Session, user_id: str, *, limit: int = 8) -> list[
             for row in rows
         ]
     except Exception as exc:
-        logger.error("Scan history query failed (may indicate connection pool exhaustion): %s", exc)
-        # Return empty list rather than crashing to allow app to stay healthy
-        return []
+        logger.exception("Scan history aggregate query failed (may indicate connection pool exhaustion): %s", exc)
+
+        # Recover from transient DB errors with a simpler fallback path so the API
+        # does not oscillate to an empty history list when rows still exist.
+        try:
+            session.rollback()
+        except Exception:
+            pass
+
+        try:
+            base_rows = (
+                session.query(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
+                .filter(ScanSession.user_id == user_id)
+                .order_by(ScanSession.generated_at.desc())
+                .limit(limit)
+                .all()
+            )
+            if not base_rows:
+                return []
+
+            session_ids = [row.id for row in base_rows]
+            counts = {
+                row.scan_session_id: int(row.result_count or 0)
+                for row in (
+                    session.query(
+                        ScanResult.scan_session_id.label("scan_session_id"),
+                        func.count(ScanResult.id).label("result_count"),
+                    )
+                    .filter(ScanResult.scan_session_id.in_(session_ids))
+                    .group_by(ScanResult.scan_session_id)
+                    .all()
+                )
+            }
+
+            return [
+                ScanSessionSummary(
+                    id=row.id,
+                    generated_at=row.generated_at,
+                    provider_name=row.provider_name,
+                    result_count=counts.get(row.id, 0),
+                )
+                for row in base_rows
+            ]
+        except Exception as fallback_exc:
+            logger.exception("Scan history fallback query failed: %s", fallback_exc)
+            # Return empty list rather than crashing to keep API healthy.
+            return []

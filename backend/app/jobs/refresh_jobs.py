@@ -132,6 +132,7 @@ def run_refresh_cycle() -> None:
     session = get_session_factory()()
     provider_name = get_settings().default_listing_provider
     cycle_started_at = time.time()
+    current_stage = "init"
 
     def _finish(status: str, message: str, *, details: dict[str, object] | None = None) -> None:
         record_scheduler_event(
@@ -142,10 +143,26 @@ def run_refresh_cycle() -> None:
             details=details,
         )
 
+    def _stage(stage: str, message: str, *, details: dict[str, object] | None = None) -> None:
+        record_scheduler_event(
+            status=f"running.{stage}",
+            message=message,
+            started_at=datetime.fromtimestamp(cycle_started_at, tz=timezone.utc),
+            finished_at=None,
+            details={"provider": provider_name, **(details or {})},
+        )
+
     try:
+        current_stage = "purge"
+        _stage(current_stage, "Purging expired app data.")
         purge_expired_app_data(session)
+
+        current_stage = "mark_stale"
+        _stage(current_stage, "Marking stale listing snapshots.")
         mark_stale_snapshots(session)
 
+        current_stage = "load_realms"
+        _stage(current_stage, "Loading enabled realms.")
         realms = get_all_enabled_realm_names(session)
         if not realms:
             skip_message = "Skipping scheduled data refresh: no enabled realms across all users."
@@ -163,11 +180,15 @@ def run_refresh_cycle() -> None:
         # Cross-machine concurrency is already controlled by the PostgreSQL advisory
         # lock in scheduler.py. Marking started unconditionally here avoids a stale
         # per-process runtime flag from suppressing refresh cycles on a single VM.
+        current_stage = "mark_runtime_started"
+        _stage(current_stage, "Marking runtime scan state started.", details={"realm_count": len(realms)})
         mark_scan_started(provider_name)
 
         inserted = 0
         warning = None
         try:
+            current_stage = "provider_refresh"
+            _stage(current_stage, "Refreshing listing data from provider.", details={"realm_count": len(realms)})
             inserted, warning = refresh_from_provider(session, realms, provider_name)
             if warning:
                 logger.info("Data refresh warning: %s", warning)
@@ -178,10 +199,14 @@ def run_refresh_cycle() -> None:
             mark_scan_failed(provider_name, "Scheduled data refresh failed.")
             raise
 
+        current_stage = "metadata_sweep"
+        _stage(current_stage, "Queueing metadata sweep.")
         queued = queue_missing_metadata_sweep(limit=200)
         if queued:
             logger.info("Queued metadata sweep for %d unresolved item(s).", queued)
 
+        current_stage = "calibration"
+        _stage(current_stage, "Evaluating calibration telemetry.")
         evaluated = _run_with_sqlite_lock_retry(
             session,
             "Calibration telemetry evaluation",
@@ -190,7 +215,12 @@ def run_refresh_cycle() -> None:
         if evaluated:
             logger.info("Updated %d calibration telemetry event(s).", evaluated)
 
+        current_stage = "system_scan"
+        _stage(current_stage, "Running scheduled system scan.", details={"realm_count": len(realms)})
         _run_system_scan(realms)
+
+        current_stage = "realm_suggestions"
+        _stage(current_stage, "Refreshing weekly realm suggestions.")
         suggestion_queued, suggestion_completed = _run_weekly_realm_suggestions(session)
         if suggestion_completed:
             logger.info(
@@ -216,8 +246,13 @@ def run_refresh_cycle() -> None:
     except Exception as exc:  # pragma: no cover - scheduler safety net
         _finish(
             "failed.exception",
-            f"Scheduled refresh cycle failed: {type(exc).__name__}: {exc}",
-            details={"provider": provider_name, "error_type": type(exc).__name__, "error": str(exc)},
+            f"Scheduled refresh cycle failed during stage '{current_stage}': {type(exc).__name__}: {exc}",
+            details={
+                "provider": provider_name,
+                "stage": current_stage,
+                "error_type": type(exc).__name__,
+                "error": str(exc),
+            },
         )
         logger.exception("Scheduled refresh cycle failed.")
     finally:

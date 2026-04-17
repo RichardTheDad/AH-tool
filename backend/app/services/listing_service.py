@@ -117,7 +117,8 @@ def mark_stale_snapshots(session: Session) -> int:
 
     # Large single-shot UPDATEs can hit statement timeout on Postgres.
     # Process stale flags in bounded batches to keep each transaction short.
-    batch_size = 5000
+    # Keep batches conservative for Postgres to avoid statement timeouts under load.
+    batch_size = 500
 
     def _update_in_batches(set_stale: bool) -> int:
         updated_count = 0
