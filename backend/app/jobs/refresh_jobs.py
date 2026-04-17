@@ -62,10 +62,17 @@ def _run_system_scan(realms: list[str]) -> None:
 
     scan_session = get_session_factory()()
     try:
+        buy_realms = realms[:1] if realms else None
+        sell_realms = realms[1:2] if len(realms) > 1 else None
         result = run_user_scan(
             scan_session,
             SYSTEM_USER_ID,
-            ScanRunRequest(refresh_live=False, include_losers=False),
+            ScanRunRequest(
+                refresh_live=False,
+                include_losers=False,
+                buy_realms=buy_realms,
+                sell_realms=sell_realms,
+            ),
             realms=realms,
         )
         logger.info("Scheduled global scan completed with %d result(s).", result.result_count)
@@ -81,6 +88,19 @@ def _run_system_scan(realms: list[str]) -> None:
         raise RuntimeError(f"Scheduled global scan failed: {type(exc).__name__}: {exc}") from exc
     finally:
         scan_session.close()
+
+
+def _select_system_scan_realms(realms: list[str]) -> list[str]:
+    max_realms = max(2, int(get_settings().scheduler_system_scan_max_realms or 2))
+    if len(realms) <= max_realms:
+        return realms
+    selected = sorted(realms, key=str.casefold)[:max_realms]
+    logger.warning(
+        "Capping scheduled system scan realm scope from %d to %d realms to keep automatic scans reliable.",
+        len(realms),
+        len(selected),
+    )
+    return selected
 
 
 def _run_weekly_realm_suggestions(session) -> tuple[int, int]:
@@ -159,7 +179,7 @@ def run_refresh_cycle() -> None:
 
         current_stage = "mark_stale"
         _stage(current_stage, "Marking stale listing snapshots.")
-        mark_stale_snapshots(session)
+        mark_stale_snapshots(session, max_updates_per_run=2_000)
 
         current_stage = "load_realms"
         _stage(current_stage, "Loading enabled realms.")
@@ -184,6 +204,18 @@ def run_refresh_cycle() -> None:
         _stage(current_stage, "Marking runtime scan state started.", details={"realm_count": len(realms)})
         mark_scan_started(provider_name)
 
+        system_scan_realms = _select_system_scan_realms(realms)
+        current_stage = "system_scan"
+        _stage(
+            current_stage,
+            "Running scheduled system scan.",
+            details={
+                "realm_count": len(realms),
+                "system_scan_realm_count": len(system_scan_realms),
+            },
+        )
+        _run_system_scan(system_scan_realms)
+
         inserted = 0
         warning = None
         try:
@@ -194,10 +226,11 @@ def run_refresh_cycle() -> None:
                 logger.info("Data refresh warning: %s", warning)
             else:
                 logger.info("Refreshed listing data for %d realm(s) (%d rows written).", len(realms), inserted)
-            mark_scan_finished(provider_name, result_count=inserted)
-        except Exception:
-            mark_scan_failed(provider_name, "Scheduled data refresh failed.")
-            raise
+        except Exception as exc:
+            warning = f"Provider refresh failed; continuing with cached data. {type(exc).__name__}: {exc}"
+            logger.exception("Scheduled provider refresh failed; continuing with cached listing data.")
+        finally:
+            mark_scan_finished(provider_name, result_count=inserted, warning_text=warning)
 
         current_stage = "metadata_sweep"
         _stage(current_stage, "Queueing metadata sweep.")
@@ -214,10 +247,6 @@ def run_refresh_cycle() -> None:
         )
         if evaluated:
             logger.info("Updated %d calibration telemetry event(s).", evaluated)
-
-        current_stage = "system_scan"
-        _stage(current_stage, "Running scheduled system scan.", details={"realm_count": len(realms)})
-        _run_system_scan(realms)
 
         current_stage = "realm_suggestions"
         _stage(current_stage, "Refreshing weekly realm suggestions.")
@@ -236,6 +265,7 @@ def run_refresh_cycle() -> None:
             details={
                 "provider": provider_name,
                 "realm_count": len(realms),
+                "system_scan_realm_count": len(system_scan_realms),
                 "inserted": inserted,
                 "metadata_queued": queued,
                 "calibration_evaluated": evaluated,

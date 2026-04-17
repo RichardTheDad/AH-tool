@@ -6,6 +6,7 @@ from itertools import islice
 
 from sqlalchemy import and_, func, insert, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -15,6 +16,7 @@ from app.services.provider_service import get_provider_registry
 
 
 logger = logging.getLogger(__name__)
+SMALL_REALM_LATEST_QUERY_THRESHOLD = 4
 
 
 def _chunked(values: list[dict], size: int):
@@ -110,7 +112,7 @@ def snapshot_is_stale(snapshot: ListingSnapshot, settings: AppSettings) -> bool:
     return captured_at < cutoff
 
 
-def mark_stale_snapshots(session: Session) -> int:
+def mark_stale_snapshots(session: Session, *, max_updates_per_run: int | None = None) -> int:
     app_settings = session.get(AppSettings, 1) or AppSettings(id=1)
     stale_after = app_settings.stale_after_minutes if app_settings.stale_after_minutes is not None else 120
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=stale_after)
@@ -120,16 +122,23 @@ def mark_stale_snapshots(session: Session) -> int:
     # Keep batches conservative for Postgres to avoid statement timeouts under load.
     batch_size = 500
 
+    remaining_updates = max_updates_per_run
+
     def _update_in_batches(set_stale: bool) -> int:
+        nonlocal remaining_updates
         updated_count = 0
         condition = ListingSnapshot.captured_at < cutoff if set_stale else ListingSnapshot.captured_at >= cutoff
         current_flag = ListingSnapshot.is_stale.is_(False) if set_stale else ListingSnapshot.is_stale.is_(True)
 
         while True:
+            if remaining_updates is not None and remaining_updates <= 0:
+                break
+
+            effective_batch_size = batch_size if remaining_updates is None else min(batch_size, remaining_updates)
             id_rows = (
                 session.query(ListingSnapshot.id)
                 .filter(condition, current_flag)
-                .limit(batch_size)
+                .limit(effective_batch_size)
                 .all()
             )
             if not id_rows:
@@ -142,6 +151,8 @@ def mark_stale_snapshots(session: Session) -> int:
             )
             session.commit()
             updated_count += len(ids)
+            if remaining_updates is not None:
+                remaining_updates -= len(ids)
 
         return updated_count
 
@@ -240,6 +251,48 @@ def get_latest_snapshots_for_realms(
     if not realms:
         return []
 
+    def _load_latest_per_realm() -> list[ListingSnapshot]:
+        fallback_rows: list[ListingSnapshot] = []
+        for realm in realms:
+            realm_latest_subquery = (
+                session.query(
+                    ListingSnapshot.item_id.label("item_id"),
+                    func.max(ListingSnapshot.captured_at).label("captured_at"),
+                )
+                .filter(ListingSnapshot.realm == realm)
+            )
+            if source_name is not None:
+                realm_latest_subquery = realm_latest_subquery.filter(ListingSnapshot.source_name == source_name)
+            if item_id is not None:
+                realm_latest_subquery = realm_latest_subquery.filter(ListingSnapshot.item_id == item_id)
+            realm_latest_subquery = realm_latest_subquery.group_by(ListingSnapshot.item_id).subquery()
+
+            realm_query = (
+                session.query(ListingSnapshot)
+                .join(
+                    realm_latest_subquery,
+                    and_(
+                        ListingSnapshot.item_id == realm_latest_subquery.c.item_id,
+                        ListingSnapshot.captured_at == realm_latest_subquery.c.captured_at,
+                    ),
+                )
+                .filter(ListingSnapshot.realm == realm)
+                .order_by(ListingSnapshot.item_id.asc())
+            )
+
+            if source_name is not None:
+                realm_query = realm_query.filter(ListingSnapshot.source_name == source_name)
+            if item_id is not None:
+                realm_query = realm_query.filter(ListingSnapshot.item_id == item_id)
+
+            fallback_rows.extend(realm_query.all())
+
+        fallback_rows.sort(key=lambda row: (row.item_id, row.realm))
+        return fallback_rows
+
+    if len(realms) <= SMALL_REALM_LATEST_QUERY_THRESHOLD:
+        return _load_latest_per_realm()
+
     latest_subquery = (
         session.query(
             ListingSnapshot.item_id.label("item_id"),
@@ -270,7 +323,15 @@ def get_latest_snapshots_for_realms(
     if source_name is not None:
         query = query.filter(ListingSnapshot.source_name == source_name)
 
-    return query.all()
+    try:
+        return query.all()
+    except OperationalError:
+        session.rollback()
+        logger.warning(
+            "Latest snapshot aggregate query timed out; falling back to per-realm latest snapshot queries.",
+            exc_info=True,
+        )
+        return _load_latest_per_realm()
 
 
 def get_latest_snapshots_for_item(session: Session, item_id: int, realms: list[str]) -> list[ListingSnapshot]:

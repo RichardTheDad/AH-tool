@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     restrict_health_diagnostics: bool = False
     health_diagnostics_api_key: str = ""
     scheduler_refresh_interval_minutes: int = 65
+    scheduler_system_scan_max_realms: int = 2
     scan_data_retention_days: int = 365
     db_min_free_mb: int = 1024
     db_target_free_mb: int = 1536

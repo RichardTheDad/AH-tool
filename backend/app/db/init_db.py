@@ -30,6 +30,7 @@ SQLITE_SCAN_TRIM_SNAPSHOT_BATCH = 25000
 SQLITE_SCAN_TRIM_SESSION_BATCH = 50
 SQLITE_SCAN_TRIM_CALIBRATION_BATCH = 5000
 SQLITE_SCAN_TRIM_MAX_PASSES = 24
+APP_DATA_PURGE_BATCH_SIZE = 500
 
 
 def _pg_columns(connection, table_name: str) -> set[str]:
@@ -522,16 +523,47 @@ def purge_expired_app_data(session: Session, *, retention_days: int | None = Non
     cutoff = datetime.now(timezone.utc) - timedelta(days=retention_window_days)
 
     try:
-        expired_sessions = session.query(ScanSession).filter(ScanSession.generated_at < cutoff).all()
-        for scan_session in expired_sessions:
-            session.delete(scan_session)
-        session.flush()
+        while True:
+            session_ids = [
+                row[0]
+                for row in session.query(ScanSession.id)
+                .filter(ScanSession.generated_at < cutoff)
+                .order_by(ScanSession.generated_at.asc())
+                .limit(APP_DATA_PURGE_BATCH_SIZE)
+                .all()
+            ]
+            if not session_ids:
+                break
+            session.query(ScanSession).filter(ScanSession.id.in_(session_ids)).delete(synchronize_session=False)
+            session.flush()
 
-        session.query(ListingSnapshot).filter(ListingSnapshot.captured_at < cutoff).delete(synchronize_session=False)
-        session.flush()
+        while True:
+            snapshot_ids = [
+                row[0]
+                for row in session.query(ListingSnapshot.id)
+                .filter(ListingSnapshot.captured_at < cutoff)
+                .order_by(ListingSnapshot.captured_at.asc())
+                .limit(APP_DATA_PURGE_BATCH_SIZE)
+                .all()
+            ]
+            if not snapshot_ids:
+                break
+            session.query(ListingSnapshot).filter(ListingSnapshot.id.in_(snapshot_ids)).delete(synchronize_session=False)
+            session.flush()
 
-        session.query(ScoreCalibrationEvent).filter(ScoreCalibrationEvent.generated_at < cutoff).delete(synchronize_session=False)
-        session.flush()
+        while True:
+            calibration_ids = [
+                row[0]
+                for row in session.query(ScoreCalibrationEvent.id)
+                .filter(ScoreCalibrationEvent.generated_at < cutoff)
+                .order_by(ScoreCalibrationEvent.generated_at.asc())
+                .limit(APP_DATA_PURGE_BATCH_SIZE)
+                .all()
+            ]
+            if not calibration_ids:
+                break
+            session.query(ScoreCalibrationEvent).filter(ScoreCalibrationEvent.id.in_(calibration_ids)).delete(synchronize_session=False)
+            session.flush()
 
         _delete_orphan_items(session)
         session.commit()

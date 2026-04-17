@@ -475,7 +475,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
                 )
                 if fetch_error:
                     warning_parts.append(f"Live refresh failed: {fetch_error}")
-        mark_stale_snapshots(session)
+        mark_stale_snapshots(session, max_updates_per_run=500)
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         enforce_fixed_ah_cut(app_settings)
         latest_snapshots = get_latest_snapshots_for_realms(session, scan_realms)
