@@ -165,7 +165,7 @@ export function Login() {
         </p>
 
         <p className="text-center text-xs text-zinc-500">
-          Browse without an account in <Link to="/app" className="text-ember hover:underline">guest mode</Link>. Read the <Link to="/privacy" className="text-ember hover:underline">Privacy Policy</Link>.
+          Read the <Link to="/privacy" className="text-ember hover:underline">Privacy Policy</Link>.
         </p>
 
         {mode !== "forgot" && (
