@@ -20,12 +20,12 @@ export function AppShell({ children }: PropsWithChildren) {
   return (
     <div className="min-h-screen bg-zinc-950">
       <header className="sticky top-0 z-40 border-b border-white/10 bg-zinc-950/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1680px] items-center justify-between px-4 py-3 lg:px-8 2xl:px-10">
-          <div className="flex items-center gap-8">
-            <div>
+        <div className="mx-auto flex max-w-[1680px] items-center justify-between gap-3 px-3 py-3 sm:px-4 lg:px-8 2xl:px-10">
+          <div className="flex min-w-0 items-center gap-8">
+            <div className="min-w-0">
               <p className="font-display text-xs uppercase tracking-wider text-ember font-semibold">Azeroth Flip</p>
-              <h1 className="font-display text-lg font-bold text-zinc-100 mt-0.5">Cross-realm scanner</h1>
-              {!user ? <p className="mt-0.5 text-xs text-zinc-500">Guest mode saves realms and presets in this browser only.</p> : null}
+              <h1 className="mt-0.5 truncate font-display text-base font-bold text-zinc-100 sm:text-lg">Cross-realm scanner</h1>
+              {!user ? <p className="mt-0.5 hidden text-xs text-zinc-500 sm:block">Guest mode saves realms and presets in this browser only.</p> : null}
             </div>
             <nav className="hidden lg:flex lg:gap-1">
               {visibleNavItems.map((item) => (
@@ -46,7 +46,7 @@ export function AppShell({ children }: PropsWithChildren) {
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 sm:gap-3">
             {!user ? (
               <Button variant="secondary" size="sm" onClick={() => navigate("/login")}>
                 Sign in to sync
@@ -80,7 +80,7 @@ export function AppShell({ children }: PropsWithChildren) {
             ) : null}
           </div>
         </div>
-      <nav className="lg:hidden border-t border-white/10 px-4 py-2 flex gap-1 overflow-x-auto bg-zinc-950/90">
+      <nav className="lg:hidden border-t border-white/10 px-3 py-2 flex gap-1 overflow-x-auto bg-zinc-950/90 sm:px-4">
           {visibleNavItems.map((item) => (
             <NavLink
               key={item.to}
@@ -99,7 +99,7 @@ export function AppShell({ children }: PropsWithChildren) {
           ))}
         </nav>
       </header>
-      <main className="mx-auto max-w-[1680px] px-4 py-6 lg:px-8 2xl:px-10 text-zinc-100">{children}</main>
+      <main className="mx-auto max-w-[1680px] px-3 py-4 text-zinc-100 sm:px-4 sm:py-6 lg:px-8 2xl:px-10">{children}</main>
     </div>
   );
 }

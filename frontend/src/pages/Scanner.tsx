@@ -123,6 +123,7 @@ export function Scanner() {
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<{ itemId: number | null; index: number | null } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const { filters, updateFilters, restoreFiltersFromStorage } = useScannerFilters();
   const [showFilters, setShowFilters] = useState(false);
   const hasActiveFilters = Boolean(
@@ -229,6 +230,16 @@ export function Scanner() {
   }, []);
 
   useEffect(() => {
+    const updateViewport = () => {
+      setIsMobileViewport(window.innerWidth < 768);
+    };
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
+  }, []);
+
+  useEffect(() => {
     restoreFiltersFromStorage();
   }, [restoreFiltersFromStorage]);
 
@@ -266,7 +277,7 @@ export function Scanner() {
   const previousScanUnavailable = Boolean(previousScanQuery.error);
   const tuningAudit = isGuest ? [] : asArray(tuningAuditQuery.data?.entries);
   const results = filterScanResults(asArray(persistedScan?.results), filters);
-  const useVirtualizedResults = results.length > 300;
+  const useVirtualizedResults = results.length > 300 && !isMobileViewport;
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
   ).sort((left, right) => left.localeCompare(right));
@@ -560,11 +571,12 @@ export function Scanner() {
                 <p className="text-xs text-zinc-400">Saved default: {defaultPreset.name}</p>
               ) : null}
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid gap-2 sm:flex sm:flex-wrap">
               {defaultPreset ? (
                 <Button
                   variant={activePreset?.id === defaultPreset.id ? "primary" : "secondary"}
                   size="sm"
+                  className="w-full sm:w-auto"
                   aria-pressed={activePreset?.id === defaultPreset.id}
                   onClick={() => {
                     setSelectedPresetId(defaultPreset.id);
@@ -578,6 +590,7 @@ export function Scanner() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="w-full sm:w-auto"
                   onClick={() => {
                     setSelectedPresetId(defaultPreset.id);
                     updateFilters(applyPresetToFilterState(defaultPreset));
@@ -591,6 +604,7 @@ export function Scanner() {
                   key={preset.id}
                   variant={activePreset?.id === preset.id ? "primary" : "secondary"}
                   size="sm"
+                  className="w-full sm:w-auto"
                   aria-pressed={activePreset?.id === preset.id}
                   onClick={() => {
                     setSelectedPresetId(preset.id);

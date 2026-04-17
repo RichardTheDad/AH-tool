@@ -73,8 +73,8 @@ export function Login() {
   const submitLoadingLabel = mode === "signin" ? "Signing in…" : mode === "signup" ? "Creating account…" : "Sending…";
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/15 bg-zinc-900/60 p-8 shadow-lg backdrop-blur-xl">
+    <div className="flex min-h-screen items-center justify-center px-4 py-6">
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/15 bg-zinc-900/60 p-6 shadow-lg backdrop-blur-xl sm:p-8">
         <div className="space-y-1">
           <p className="font-display text-xs uppercase tracking-wider text-ember font-semibold">Azeroth Flip</p>
           <h1 className="font-display text-2xl font-semibold text-zinc-100">{title}</h1>

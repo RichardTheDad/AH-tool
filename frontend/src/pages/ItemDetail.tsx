@@ -214,7 +214,7 @@ export function ItemDetail() {
             <div>
               <p className="text-xs uppercase tracking-detail text-zinc-500">Tracked realm AuctionDB context</p>
               <div className="mt-3 overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
+                <table className="min-w-[720px] text-left text-sm">
                   <thead className="border-b border-white/15 text-xs uppercase tracking-detail text-zinc-500">
                     <tr>
                       <th className="px-3 py-2">Realm</th>
@@ -300,7 +300,7 @@ export function ItemDetail() {
                   <div>
                     <p className="text-xs uppercase tracking-detail text-zinc-500">Recent personal auction sales</p>
                     <div className="mt-3 overflow-x-auto">
-                      <table className="min-w-full text-left text-sm">
+                      <table className="min-w-[720px] text-left text-sm">
                         <thead className="border-b border-white/15 text-xs uppercase tracking-detail text-zinc-500">
                           <tr>
                             <th className="px-3 py-2">Realm</th>

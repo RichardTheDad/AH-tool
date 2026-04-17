@@ -25,7 +25,7 @@ export function ScannerStatusBar({
 
   return (
     <div className="rounded-2xl border border-white/10 bg-zinc-900/60 p-4 shadow-md backdrop-blur-xl space-y-3">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <h2 className="font-display text-base font-semibold text-zinc-100">Current opportunities</h2>
@@ -46,8 +46,8 @@ export function ScannerStatusBar({
         </div>
 
         {/* Status badges: compact and informative */}
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <div className="px-2.5 py-1.5 rounded-lg border border-white/15 bg-white/10 text-xs font-medium text-zinc-200 whitespace-nowrap">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+          <div className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-center text-xs font-medium text-zinc-200 sm:text-left">
             {readiness.realms_with_data}/{readiness.enabled_realm_count} realms
           </div>
           {readiness.realms_with_fresh_data > 0 && (
@@ -58,7 +58,7 @@ export function ScannerStatusBar({
               label={`${readiness.realms_with_fresh_data} fresh`}
             />
           )}
-          <div className="px-2.5 py-1.5 rounded-lg border border-white/15 bg-white/10 text-xs font-medium text-zinc-200 whitespace-nowrap">
+          <div className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-center text-xs font-medium text-zinc-200 sm:text-left">
             {readiness.unique_item_count} items
           </div>
         </div>

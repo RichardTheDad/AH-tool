@@ -15,12 +15,12 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
 
   return (
     <nav className="sticky top-0 z-20 border-b border-white/10 bg-zinc-950/90 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-        <div>
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="min-w-0">
           <p className="font-display text-xs uppercase tracking-wider text-ember font-semibold">Azeroth Flip</p>
           <p className="text-sm leading-tight text-zinc-400 mt-0.5">{subtitle}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
           <Link
             to="https://ko-fi.com/richardthedad"
             external
@@ -51,7 +51,7 @@ export function PublicHeader({ subtitle, secondaryCtaLabel, secondaryCtaTo }: Pu
               </Button>
             </>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <Button
                 variant="secondary"
                 size="sm"

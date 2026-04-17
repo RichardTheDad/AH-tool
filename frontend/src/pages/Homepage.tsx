@@ -131,47 +131,82 @@ export function Homepage() {
                 </span>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-zinc-950/80">
-                <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] gap-2 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
-                  <span>Opportunity</span>
-                  <span>Buy</span>
-                  <span>Sell</span>
-                  <span>Target</span>
-                  <span className="text-center">Profit / ROI</span>
-                  <span className="text-center">Confidence</span>
-                  <span className="text-center">Sellability</span>
-                </div>
+              <div className="space-y-2 md:hidden">
                 {previewRows.map((row, index) => (
-                  <div key={row.item} className="border-b border-white/10 px-3 py-2.5 last:border-b-0">
-                    <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] items-center gap-2 text-sm">
-                      <div className="pr-2">
-                        <p className="truncate font-semibold text-zinc-100">{row.item}</p>
-                        <div className="mt-2 flex items-center gap-1.5">
+                  <article key={row.item} className="rounded-xl border border-white/10 bg-zinc-950/80 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-zinc-100">{row.item}</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           <Badge tone="neutral">{row.category}</Badge>
                           <Badge tone={index === 0 ? "success" : "warning"}>{index === 0 ? "stable" : "tradable"}</Badge>
                         </div>
                       </div>
-                      <span className="text-zinc-400">{row.buyRealm}<span className="block text-xs text-zinc-500">{row.buyPrice}</span></span>
-                      <span className="font-medium text-orange-300">{row.sellRealm}</span>
-                      <span className="text-zinc-300">{row.targetSell}</span>
-                      <span>
-                        <span className="flex items-center gap-1"><GoldAmount value={row.profit} /></span>
-                        <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
-                      </span>
-                      <div className="flex flex-col items-center gap-1">
-                        <ScoreDial score={row.confidence} />
-                        <span className="text-[10px] uppercase tracking-link opacity-0 select-none" aria-hidden="true">
-                          label
-                        </span>
-                      </div>
-                      <div className="flex flex-col items-center gap-1">
-                        <ScoreDial score={row.sellability} />
-                        <span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span>
+                      <div className="shrink-0 text-right">
+                        <GoldAmount value={row.profit} className="justify-end text-sm text-emerald-300" />
+                        <span className="mt-1 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
                       </div>
                     </div>
-                    <p className="mt-1 text-[11px] text-zinc-400">Why it ranks: {row.why}</p>
-                  </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2">
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Buy</p>
+                        <p className="mt-1 font-medium text-zinc-200">{row.buyRealm}</p>
+                        <p className="text-xs text-zinc-500">{row.buyPrice}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-2">
+                        <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">Sell</p>
+                        <p className="mt-1 font-medium text-orange-300">{row.sellRealm}</p>
+                        <p className="text-xs text-zinc-500">{row.targetSell}</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-400">Why it ranks: {row.why}</p>
+                  </article>
                 ))}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-xl border border-white/10 bg-zinc-950/80 md:block">
+                <div className="min-w-[760px]">
+                  <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] gap-2 border-b border-white/10 bg-white/[0.02] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-400">
+                    <span>Opportunity</span>
+                    <span>Buy</span>
+                    <span>Sell</span>
+                    <span>Target</span>
+                    <span className="text-center">Profit / ROI</span>
+                    <span className="text-center">Confidence</span>
+                    <span className="text-center">Sellability</span>
+                  </div>
+                  {previewRows.map((row, index) => (
+                    <div key={row.item} className="border-b border-white/10 px-3 py-2.5 last:border-b-0">
+                      <div className="grid grid-cols-[2.2fr_1fr_1fr_1.2fr_1fr_0.9fr_0.9fr] items-center gap-2 text-sm">
+                        <div className="pr-2">
+                          <p className="truncate font-semibold text-zinc-100">{row.item}</p>
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <Badge tone="neutral">{row.category}</Badge>
+                            <Badge tone={index === 0 ? "success" : "warning"}>{index === 0 ? "stable" : "tradable"}</Badge>
+                          </div>
+                        </div>
+                        <span className="text-zinc-400">{row.buyRealm}<span className="block text-xs text-zinc-500">{row.buyPrice}</span></span>
+                        <span className="font-medium text-orange-300">{row.sellRealm}</span>
+                        <span className="text-zinc-300">{row.targetSell}</span>
+                        <span>
+                          <span className="flex items-center gap-1"><GoldAmount value={row.profit} /></span>
+                          <span className="ml-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">{row.roi}</span>
+                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <ScoreDial score={row.confidence} />
+                          <span className="text-[10px] uppercase tracking-link opacity-0 select-none" aria-hidden="true">
+                            label
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1">
+                          <ScoreDial score={row.sellability} />
+                          <span className="text-[10px] uppercase tracking-link text-zinc-500">{row.turnoverLabel}</span>
+                        </div>
+                      </div>
+                      <p className="mt-1 text-[11px] text-zinc-400">Why it ranks: {row.why}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] text-zinc-400">
