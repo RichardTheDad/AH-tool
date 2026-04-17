@@ -4,16 +4,21 @@ import { createRealm, deleteRealm, getRealms, updateRealm } from "../api/realms"
 import { getScanStatus } from "../api/scans";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
-import { Checkbox } from "../components/common/Checkbox";
 import { StatusIndicator } from "../components/common/StatusIndicator";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { useAuth } from "../contexts/AuthContext";
 import { useGuestRealms } from "../hooks/useGuestRealms";
 import type { TrackedRealm } from "../types/models";
-import { getRealmCatalogEntry, makeRealmCatalogKey, REALM_CATALOG, type RealmCatalogEntry } from "../utils/realmCatalog";
+import {
+  compareRealmCatalogEntries,
+  getRealmCatalogEntry,
+  makeRealmCatalogKey,
+  REALM_CATALOG,
+  type RealmCatalogEntry,
+} from "../utils/realmCatalog";
 
-const emptyForm = { realm_key: "", enabled: true };
+const emptyForm = { realm_key: "" };
 
 function formatRealmOption(realm: RealmCatalogEntry) {
   return `${realm.realm_name} [${realm.region_label}]`;
@@ -77,7 +82,7 @@ function RealmSearchSelect({ id, label, value, options, disabled = false, onChan
         })
       : options;
 
-    return matching.slice(0, 60);
+    return matching;
   }, [options, query]);
 
   function selectRealm(realm: RealmCatalogEntry) {
@@ -120,6 +125,9 @@ function RealmSearchSelect({ id, label, value, options, disabled = false, onChan
           role="listbox"
           className="mt-2 max-h-64 w-full overflow-y-auto rounded-xl border border-white/15 bg-zinc-950 p-1.5 text-sm shadow-card ring-1 ring-black/40"
         >
+          <div className="px-2.5 pb-1.5 pt-1 text-[11px] font-medium text-zinc-500">
+            Showing {filteredOptions.length} realm{filteredOptions.length === 1 ? "" : "s"}
+          </div>
           {filteredOptions.length ? (
             filteredOptions.map((realm) => (
               <button
@@ -223,7 +231,7 @@ export function Realms() {
     }
   }
 
-  realmOptions.sort((left, right) => left.region_label.localeCompare(right.region_label) || left.realm_name.localeCompare(right.realm_name));
+  realmOptions.sort(compareRealmCatalogEntries);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -247,11 +255,11 @@ export function Realms() {
     }
 
     if (editingId) {
-      updateMutation.mutate({ id: editingId, payload: { realm_name: selectedRealm.realm_name, region: selectedRealm.region, enabled: form.enabled } });
+      updateMutation.mutate({ id: editingId, payload: { realm_name: selectedRealm.realm_name, region: selectedRealm.region, enabled: true } });
       return;
     }
 
-    createMutation.mutate({ realm_name: selectedRealm.realm_name, region: selectedRealm.region, enabled: form.enabled });
+    createMutation.mutate({ realm_name: selectedRealm.realm_name, region: selectedRealm.region, enabled: true });
   }
 
   return (
@@ -270,12 +278,6 @@ export function Realms() {
             options={realmOptions}
             disabled={scanRunning}
             onChange={(nextValue) => setForm((current) => ({ ...current, realm_key: nextValue }))}
-          />
-          <Checkbox
-            id="realm-enabled"
-            label="Enable for scanning"
-            checked={form.enabled}
-            onChange={(event) => setForm((current) => ({ ...current, enabled: event.target.checked }))}
           />
           {message ? <StatusIndicator status="danger" size="sm" variant="inline" label={message} /> : null}
           {scanRunning ? <StatusIndicator status="info" size="sm" variant="inline" label={scanStatusQuery.data?.message || "Scanning..."} /> : null}
@@ -329,7 +331,7 @@ export function Realms() {
                   disabled={scanRunning}
                   onClick={() => {
                     setEditingId(realm.id);
-                    setForm({ realm_key: makeRealmCatalogKey(realm.realm_name, realm.region), enabled: realm.enabled });
+                    setForm({ realm_key: makeRealmCatalogKey(realm.realm_name, realm.region) });
                   }}
                 >
                   Edit

@@ -546,10 +546,15 @@ function toEntries(names: string[], region: RealmRegion, region_label: RealmCata
   }));
 }
 
+export function compareRealmCatalogEntries(left: RealmCatalogEntry, right: RealmCatalogEntry) {
+  const regionOrder: Record<RealmCatalogEntry["region_label"], number> = { NA: 0, EU: 1 };
+  return regionOrder[left.region_label] - regionOrder[right.region_label] || left.realm_name.localeCompare(right.realm_name);
+}
+
 export const REALM_CATALOG: RealmCatalogEntry[] = [
   ...toEntries(NA_REALM_NAMES, "us", "NA"),
   ...toEntries(EU_REALM_NAMES, "eu", "EU"),
-].sort((left, right) => left.region_label.localeCompare(right.region_label) || left.realm_name.localeCompare(right.realm_name));
+].sort(compareRealmCatalogEntries);
 
 const REALM_CATALOG_BY_KEY = new Map(REALM_CATALOG.map((realm) => [realm.key, realm]));
 const REALM_CATALOG_BY_REGION_NAME = new Map(REALM_CATALOG.map((realm) => [`${realm.region}:${realm.realm_name.toLowerCase()}`, realm]));
