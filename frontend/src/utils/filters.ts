@@ -12,9 +12,18 @@ function normalizeRealmFilter(value: string) {
   return value || TRACKED_REALMS_FILTER_VALUE;
 }
 
+function normalizeRealmKey(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u2018\u2019\u02bc]/g, "'")
+    .replace(/\s+/g, " ");
+}
+
 function matchesRealmScope(value: string | null | undefined, filterValue: string, trackedRealms: Set<string>) {
   const normalizedFilter = normalizeRealmFilter(filterValue);
-  const normalizedValue = value?.toLowerCase() ?? "";
+  const normalizedValue = normalizeRealmKey(value);
 
   if (normalizedFilter === ALL_REALMS_FILTER_VALUE) {
     return true;
@@ -23,7 +32,7 @@ function matchesRealmScope(value: string | null | undefined, filterValue: string
     return trackedRealms.size === 0 || trackedRealms.has(normalizedValue);
   }
 
-  return normalizedValue === normalizedFilter.toLowerCase();
+  return normalizedValue === normalizeRealmKey(normalizedFilter);
 }
 
 function matchesFilters(result: ScanResult, filters: ScannerFilters, trackedRealms: Set<string>) {
@@ -55,7 +64,7 @@ function matchesFilters(result: ScanResult, filters: ScannerFilters, trackedReal
 }
 
 export function filterScanResults(results: ScanResult[], filters: ScannerFilters, options?: { trackedRealms?: string[] }) {
-  const trackedRealms = new Set((options?.trackedRealms ?? []).map((realm) => realm.toLowerCase()));
+  const trackedRealms = new Set((options?.trackedRealms ?? []).map((realm) => normalizeRealmKey(realm)).filter(Boolean));
   return results.filter((result) => matchesFilters(result, filters, trackedRealms)).sort((a, b) => {
     const difference = toSortValue(b, filters.sortBy) - toSortValue(a, filters.sortBy);
     if (difference !== 0) {

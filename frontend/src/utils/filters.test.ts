@@ -90,4 +90,18 @@ describe("filterScanResults", () => {
 
     expect(filtered.map((row) => row.id)).toEqual([1]);
   });
+
+  it("matches individual realms despite casing and extra spaces", () => {
+    const rows = [
+      result({ id: 1, cheapest_buy_realm: "Area 52", best_sell_realm: "Zul'jin" }),
+      result({ id: 2, cheapest_buy_realm: "Stormrage", best_sell_realm: "Zul'jin" }),
+    ];
+
+    const filtered = filterScanResults(
+      rows,
+      { ...baseFilters, buyRealm: " area 52 ", sellRealm: ALL_REALMS_FILTER_VALUE },
+    );
+
+    expect(filtered.map((row) => row.id)).toEqual([1]);
+  });
 });
