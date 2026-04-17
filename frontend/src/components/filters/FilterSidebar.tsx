@@ -14,7 +14,18 @@ interface FilterSidebarProps {
   onReset?: () => void;
 }
 
-export const DEFAULT_CATEGORY_OPTIONS = ["Armor", "Weapon", "Recipe", "Consumable", "Trade Good", "Container", "Gem", "Glyph", "Miscellaneous"];
+export const DEFAULT_CATEGORY_OPTIONS = [
+  "Armor",
+  "Weapon",
+  "Battle Pets",
+  "Recipe",
+  "Consumable",
+  "Trade Good",
+  "Container",
+  "Gem",
+  "Glyph",
+  "Miscellaneous",
+];
 
 export function FilterSidebar({ filters, onChange, categoryOptions, categoryGroups, realmOptions, onReset }: FilterSidebarProps) {
   const categories = categoryGroups?.length

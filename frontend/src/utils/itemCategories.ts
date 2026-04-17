@@ -155,6 +155,27 @@ const NON_COMMODITY_CATEGORY_GROUPS: ItemCategoryGroup[] = [
 ];
 
 const CATEGORY_LABELS = new Map(NON_COMMODITY_CATEGORY_GROUPS.map((group) => [group.value.toLowerCase(), group.label]));
+const BATTLE_PET_CATEGORY_KEY = "battle pets";
+const BATTLE_PET_CLASS_KEYS = new Set(["battle pet", BATTLE_PET_CATEGORY_KEY]);
+const BATTLE_PET_SUBCATEGORY_KEYS = new Set([
+  "battle pet",
+  BATTLE_PET_CATEGORY_KEY,
+  "battlepet",
+  "companion pet",
+  "companion pets",
+  "pet",
+  "pets",
+  "humanoid",
+  "dragonkin",
+  "flying",
+  "undead",
+  "critter",
+  "magic",
+  "elemental",
+  "beast",
+  "aquatic",
+  "mechanical",
+]);
 
 function toOption(value: string): ItemCategoryOption {
   return { value, label: value };
@@ -162,6 +183,30 @@ function toOption(value: string): ItemCategoryOption {
 
 function normalizeKey(value: string) {
   return value.trim().toLowerCase();
+}
+
+function isBattlePetName(value?: string | null) {
+  const normalized = value?.trim().toLowerCase() ?? "";
+  return normalized === "pet cage" || normalized.includes("pet cage");
+}
+
+export function isBattlePetCategory(value?: string | null) {
+  return normalizeKey(value ?? "") === BATTLE_PET_CATEGORY_KEY;
+}
+
+export function isBattlePetResult(row: {
+  item_name?: string | null;
+  item_class_name?: string | null;
+  item_subclass_name?: string | null;
+}) {
+  const classKey = normalizeKey(row.item_class_name ?? "");
+  const subclassKey = normalizeKey(row.item_subclass_name ?? "");
+
+  return (
+    BATTLE_PET_CLASS_KEYS.has(classKey) ||
+    BATTLE_PET_SUBCATEGORY_KEYS.has(subclassKey) ||
+    isBattlePetName(row.item_name)
+  );
 }
 
 function sortByCatalogOrder<T extends ItemCategoryOption>(options: T[], catalogOrder: string[]): T[] {
@@ -181,7 +226,7 @@ export function getCategoryLabel(value: string) {
 }
 
 export function buildCategoryGroupsFromResults(
-  rows: Array<{ item_class_name?: string | null; item_subclass_name?: string | null }>,
+  rows: Array<{ item_name?: string | null; item_class_name?: string | null; item_subclass_name?: string | null }>,
 ): ItemCategoryGroup[] {
   const groupsByKey = new Map<string, ItemCategoryGroup>();
 
@@ -193,7 +238,7 @@ export function buildCategoryGroupsFromResults(
   }
 
   for (const row of rows) {
-    const className = row.item_class_name?.trim();
+    const className = isBattlePetResult(row) ? "Battle Pets" : row.item_class_name?.trim();
     if (!className) {
       continue;
     }
