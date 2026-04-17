@@ -40,7 +40,9 @@ describe("Realms page", () => {
     renderWithProviders(<Realms />, "/realms");
     const user = userEvent.setup();
 
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Realm" }), "Stormrage");
+    const realmInput = await screen.findByRole("combobox", { name: "Realm" });
+    await user.type(realmInput, "Stormrage");
+    await user.click(await screen.findByRole("option", { name: /Stormrage/i }));
     await user.click(screen.getByRole("button", { name: "Add realm" }));
 
     expect(await screen.findByText("Realm already tracked.")).toBeInTheDocument();
@@ -66,7 +68,9 @@ describe("Realms page", () => {
     renderWithProviders(<Realms />, "/realms");
     const user = userEvent.setup();
 
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Realm" }), "Illidan");
+    const realmInput = await screen.findByRole("combobox", { name: "Realm" });
+    await user.type(realmInput, "Illidan");
+    await user.click(await screen.findByRole("option", { name: /Illidan/i }));
     await user.click(screen.getByRole("button", { name: "Add realm" }));
     expect(vi.mocked(createRealm).mock.calls[0]?.[0]).toEqual({ realm_name: "Illidan", region: "us", enabled: true });
 

@@ -1,10 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createRealm, deleteRealm, getRealms, updateRealm } from "../api/realms";
 import { getScanStatus } from "../api/scans";
 import { Card } from "../components/common/Card";
 import { Button } from "../components/common/Button";
-import { Select } from "../components/common/Select";
 import { Checkbox } from "../components/common/Checkbox";
 import { StatusIndicator } from "../components/common/StatusIndicator";
 import { ErrorState } from "../components/common/ErrorState";
@@ -15,6 +14,140 @@ import type { TrackedRealm } from "../types/models";
 import { getRealmCatalogEntry, makeRealmCatalogKey, REALM_CATALOG, type RealmCatalogEntry } from "../utils/realmCatalog";
 
 const emptyForm = { realm_key: "", enabled: true };
+
+function formatRealmOption(realm: RealmCatalogEntry) {
+  return `${realm.realm_name} [${realm.region_label}]`;
+}
+
+function resolveRealmInput(value: string, options: RealmCatalogEntry[]) {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  return options.find((realm) => {
+    const label = formatRealmOption(realm).toLowerCase();
+    return (
+      realm.key.toLowerCase() === normalized ||
+      label === normalized ||
+      realm.realm_name.toLowerCase() === normalized
+    );
+  }) ?? null;
+}
+
+interface RealmSearchSelectProps {
+  id: string;
+  label: string;
+  value: string;
+  options: RealmCatalogEntry[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+}
+
+function RealmSearchSelect({ id, label, value, options, disabled = false, onChange }: RealmSearchSelectProps) {
+  const selectedRealm = useMemo(
+    () => getRealmCatalogEntry(value) ?? options.find((realm) => realm.key === value) ?? null,
+    [options, value],
+  );
+  const [query, setQuery] = useState(selectedRealm ? formatRealmOption(selectedRealm) : "");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setQuery(selectedRealm ? formatRealmOption(selectedRealm) : "");
+  }, [selectedRealm]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const matching = normalized
+      ? options.filter((realm) => {
+          const label = formatRealmOption(realm).toLowerCase();
+          return label.includes(normalized) || realm.realm_name.toLowerCase().includes(normalized);
+        })
+      : options;
+
+    return matching.slice(0, 60);
+  }, [options, query]);
+
+  function selectRealm(realm: RealmCatalogEntry) {
+    onChange(realm.key);
+    setQuery(formatRealmOption(realm));
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative space-y-1" ref={containerRef}>
+      <label htmlFor={id} className="block text-sm font-medium text-zinc-200">
+        {label}
+      </label>
+      <input
+        id={id}
+        role="combobox"
+        aria-expanded={open}
+        aria-controls={`${id}-options`}
+        aria-autocomplete="list"
+        type="text"
+        value={query}
+        disabled={disabled}
+        placeholder="Type a realm name, like Stormrage"
+        autoComplete="off"
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          const nextQuery = event.target.value;
+          setQuery(nextQuery);
+          const exactMatch = resolveRealmInput(nextQuery, options);
+          onChange(exactMatch?.key ?? "");
+          setOpen(true);
+        }}
+        className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-zinc-100 transition placeholder:text-zinc-500 focus:border-ember focus:outline-none focus:ring-2 focus:ring-ember/20 disabled:cursor-not-allowed disabled:opacity-60"
+      />
+      <p className="text-xs text-zinc-400">Start typing to narrow the realm list.</p>
+
+      {open && !disabled ? (
+        <div
+          id={`${id}-options`}
+          role="listbox"
+          className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-white/10 bg-zinc-950/98 p-1.5 text-sm shadow-card backdrop-blur-xl"
+        >
+          {filteredOptions.length ? (
+            filteredOptions.map((realm) => (
+              <button
+                key={realm.key}
+                type="button"
+                role="option"
+                aria-selected={realm.key === value}
+                onClick={() => selectRealm(realm)}
+                className={`flex w-full items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left transition ${
+                  realm.key === value
+                    ? "bg-orange-500 text-white"
+                    : "text-zinc-200 hover:bg-white/10"
+                }`}
+              >
+                <span className="truncate">{realm.realm_name}</span>
+                <span className={realm.key === value ? "text-xs font-semibold text-white" : "text-xs font-semibold text-zinc-500"}>
+                  {realm.region_label}
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="px-2.5 py-2 text-zinc-500">No realms match that search.</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function Realms() {
   const { user } = useAuth();
@@ -127,19 +260,14 @@ export function Realms() {
           </div>
         ) : null}
         <form className="space-y-3" onSubmit={handleSubmit}>
-          <Select
+          <RealmSearchSelect
             id="realm-select"
             label="Realm"
             value={form.realm_key}
-            onChange={(event) => setForm((current) => ({ ...current, realm_key: event.target.value }))}
-          >
-            <option value="">Select a realm</option>
-            {realmOptions.map((realm) => (
-              <option key={realm.key} value={realm.key}>
-                {realm.realm_name} [{realm.region_label}]
-              </option>
-            ))}
-          </Select>
+            options={realmOptions}
+            disabled={scanRunning}
+            onChange={(nextValue) => setForm((current) => ({ ...current, realm_key: nextValue }))}
+          />
           <Checkbox
             id="realm-enabled"
             label="Enable for scanning"
