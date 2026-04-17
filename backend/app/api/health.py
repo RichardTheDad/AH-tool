@@ -42,11 +42,25 @@ def readiness_check(db: Session = Depends(get_db)) -> dict[str, object]:
     if runtime_state.status == "failed":
         scheduler_status = "degraded"
 
+    # Surface the last scheduler cycle outcome so it can be inspected without auth.
+    # Only a safe summary is exposed — no user data or internal details.
+    last_cycle_status: str | None = None
+    last_cycle_message: str | None = None
+    try:
+        latest_event = get_latest_scheduler_event(db)
+        if latest_event:
+            last_cycle_status = latest_event.status
+            last_cycle_message = latest_event.message
+    except Exception:
+        pass
+
     overall = "ready" if db_status == "ok" and scheduler_status == "ok" else "degraded"
     return {
         "status": overall,
         "database": db_status,
         "scheduler": scheduler_status,
+        "last_cycle_status": last_cycle_status,
+        "last_cycle_message": last_cycle_message,
     }
 
 

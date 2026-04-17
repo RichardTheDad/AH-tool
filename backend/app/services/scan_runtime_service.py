@@ -23,6 +23,18 @@ _user_last_scan: dict[str, datetime] = {}
 _user_scan_lock = Lock()
 
 USER_SCAN_COOLDOWN_SECONDS: int = 60
+BACKGROUND_SCAN_STALE_SECONDS: int = 20 * 60
+
+
+def _recover_if_background_scan_stale(now: datetime) -> None:
+    if _state.status != "running" or _state.started_at is None:
+        return
+    if (now - _state.started_at).total_seconds() <= BACKGROUND_SCAN_STALE_SECONDS:
+        return
+
+    _state.status = "idle"
+    _state.message = "Recovered from a stale scanner runtime state."
+    _state.finished_at = now
 
 
 def try_mark_user_scan_started(user_id: str, cooldown_seconds: int = USER_SCAN_COOLDOWN_SECONDS) -> bool:
@@ -49,6 +61,7 @@ def get_user_scan_cooldown_remaining(user_id: str, cooldown_seconds: int = USER_
 
 def get_scan_runtime_state() -> ScanRuntimeState:
     with _lock:
+        _recover_if_background_scan_stale(datetime.now(timezone.utc))
         return ScanRuntimeState(
             status=_state.status,
             message=_state.message,
@@ -69,6 +82,7 @@ def mark_scan_started(provider_name: str | None) -> None:
 
 def try_mark_scan_started(provider_name: str | None) -> bool:
     with _lock:
+        _recover_if_background_scan_stale(datetime.now(timezone.utc))
         if _state.status == "running":
             return False
         _state.status = "running"

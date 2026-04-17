@@ -117,8 +117,22 @@ class SchedulerManager:
                 next_run_time = now + timedelta(minutes=1)
             else:
                 eligible_at = last_after + timedelta(minutes=interval)
-                # Never schedule in the past to avoid immediate tight loops.
-                next_run_time = eligible_at if eligible_at > now else now + timedelta(minutes=1)
+                if eligible_at > now:
+                    # Normal case: next eligible window is in the future.
+                    next_run_time = eligible_at
+                elif should_run and last_after == last_before:
+                    # The cycle ran but produced no new ScanSession (e.g., no realms, provider
+                    # unavailable, or system scan failed).  Back off 5 minutes so we don't
+                    # hammer the DB/provider in a tight 1-minute storm while the underlying
+                    # condition persists.
+                    logger.warning(
+                        "Refresh cycle ran but produced no new ScanSession; "
+                        "backing off 5 minutes before retrying."
+                    )
+                    next_run_time = now + timedelta(minutes=5)
+                else:
+                    # We're past the eligible window for some other reason; retry in 1 minute.
+                    next_run_time = now + timedelta(minutes=1)
 
             self._schedule_next_check(next_run_time)
         except Exception:

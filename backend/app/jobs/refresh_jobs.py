@@ -16,7 +16,7 @@ from app.services.provider_service import get_provider_registry
 from app.services.calibration_service import evaluate_due_predictions
 from app.services.realm_service import get_all_enabled_realm_names
 from app.services.scheduler_audit_service import record_scheduler_event
-from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, try_mark_scan_started
+from app.services.scan_runtime_service import mark_scan_failed, mark_scan_finished, mark_scan_started
 from app.services.realm_suggestion_service import run_realm_suggestions, should_refresh_realm_suggestions
 
 
@@ -51,23 +51,36 @@ def _run_with_sqlite_lock_retry(session, operation_name: str, func):
             raise
 
 
-def _run_system_scan(session, realms: list[str]) -> None:
-    """Run a single global scored-opportunities scan after a data refresh."""
+def _run_system_scan(realms: list[str]) -> None:
+    """Run a single global scored-opportunities scan after a data refresh.
+
+    Opens its own DB session so it does not inherit the bloated identity map
+    from the listing-snapshot data-refresh step.
+    """
     from app.schemas.scan import ScanRunRequest
     from app.services.scan_service import ScanAlreadyRunningError, run_user_scan
 
+    scan_session = get_session_factory()()
     try:
         result = run_user_scan(
-            session,
+            scan_session,
             SYSTEM_USER_ID,
             ScanRunRequest(refresh_live=False, include_losers=False),
             realms=realms,
         )
         logger.info("Scheduled global scan completed with %d result(s).", result.result_count)
-    except ScanAlreadyRunningError:
+    except ScanAlreadyRunningError as exc:
         logger.info("Skipping scheduled global scan: scan already running.")
-    except Exception:
+        raise RuntimeError("Scheduled global scan skipped because another scan is already running.") from exc
+    except Exception as exc:
         logger.exception("Scheduled global scan failed.")
+        try:
+            scan_session.rollback()
+        except Exception:
+            pass
+        raise RuntimeError(f"Scheduled global scan failed: {type(exc).__name__}: {exc}") from exc
+    finally:
+        scan_session.close()
 
 
 def _run_weekly_realm_suggestions(session) -> tuple[int, int]:
@@ -147,11 +160,10 @@ def run_refresh_cycle() -> None:
             _finish("skipped.provider_no_live_fetch", skip_message, details={"provider": provider_name, "realm_count": len(realms)})
             return
 
-        if not try_mark_scan_started(provider_name):
-            skip_message = "Skipping scheduled data refresh: a refresh is already running."
-            logger.info(skip_message)
-            _finish("skipped.already_running", skip_message, details={"provider": provider_name, "realm_count": len(realms)})
-            return
+        # Cross-machine concurrency is already controlled by the PostgreSQL advisory
+        # lock in scheduler.py. Marking started unconditionally here avoids a stale
+        # per-process runtime flag from suppressing refresh cycles on a single VM.
+        mark_scan_started(provider_name)
 
         inserted = 0
         warning = None
@@ -178,7 +190,7 @@ def run_refresh_cycle() -> None:
         if evaluated:
             logger.info("Updated %d calibration telemetry event(s).", evaluated)
 
-        _run_system_scan(session, realms)
+        _run_system_scan(realms)
         suggestion_queued, suggestion_completed = _run_weekly_realm_suggestions(session)
         if suggestion_completed:
             logger.info(
@@ -201,11 +213,11 @@ def run_refresh_cycle() -> None:
                 "realm_suggestions_refreshed": suggestion_completed,
             },
         )
-    except Exception:  # pragma: no cover - scheduler safety net
+    except Exception as exc:  # pragma: no cover - scheduler safety net
         _finish(
             "failed.exception",
-            "Scheduled refresh cycle failed unexpectedly.",
-            details={"provider": provider_name},
+            f"Scheduled refresh cycle failed: {type(exc).__name__}: {exc}",
+            details={"provider": provider_name, "error_type": type(exc).__name__, "error": str(exc)},
         )
         logger.exception("Scheduled refresh cycle failed.")
     finally:
