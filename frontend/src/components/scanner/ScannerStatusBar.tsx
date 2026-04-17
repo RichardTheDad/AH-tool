@@ -12,12 +12,18 @@ interface ScannerStatusBarProps {
 
 const FRESH_REALM_WARNING =
   "The scanner can run, but fewer than two enabled realms have fresh listings. Wait for the next Blizzard refresh cycle before trusting top results.";
+const READINESS_FALLBACK_WARNING =
+  "Readiness detail is temporarily unavailable, but the latest scheduled scan data is available.";
 
 function visibleScannerWarning(value: string | null | undefined) {
   if (!value || value.includes("incomplete item details")) {
     return "";
   }
-  return value.replace(FRESH_REALM_WARNING, "").replace(/\s{2,}/g, " ").trim();
+  return value
+    .replace(FRESH_REALM_WARNING, "")
+    .replace(READINESS_FALLBACK_WARNING, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 export function ScannerStatusBar({

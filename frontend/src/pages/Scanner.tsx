@@ -510,7 +510,7 @@ export function Scanner() {
     if (persistedScan?.generated_at) {
       const baseMs = new Date(persistedScan.generated_at).getTime();
       if (Number.isFinite(baseMs)) {
-        return `${formatDateTime(new Date(baseMs + SCHEDULE_INTERVAL_MINUTES_FALLBACK * 60 * 1000).toISOString())} (estimated)`;
+        return formatDateTime(new Date(baseMs + SCHEDULE_INTERVAL_MINUTES_FALLBACK * 60 * 1000).toISOString());
       }
     }
     return null;
