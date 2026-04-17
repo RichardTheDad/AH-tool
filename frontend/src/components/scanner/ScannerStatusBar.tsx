@@ -1,5 +1,5 @@
 import { formatDateTime } from "../../utils/format";
-import { StatusIndicator } from "../common/StatusIndicator";
+import { Badge } from "../common/Badge";
 import type { ScanReadiness, ScanRuntimeStatus, ScanSession } from "../../types/models";
 
 interface ScannerStatusBarProps {
@@ -47,20 +47,11 @@ export function ScannerStatusBar({
 
         {/* Status badges: compact and informative */}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-          <div className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-center text-xs font-medium text-zinc-200 sm:text-left">
-            {readiness.realms_with_data}/{readiness.enabled_realm_count} realms
-          </div>
+          <Badge tone="neutral">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms</Badge>
           {readiness.realms_with_fresh_data > 0 && (
-            <StatusIndicator
-              status="success"
-              size="sm"
-              variant="badge"
-              label={`${readiness.realms_with_fresh_data} fresh`}
-            />
+            <Badge tone="success">{readiness.realms_with_fresh_data} fresh</Badge>
           )}
-          <div className="rounded-lg border border-white/15 bg-white/10 px-2.5 py-1.5 text-center text-xs font-medium text-zinc-200 sm:text-left">
-            {readiness.unique_item_count} items
-          </div>
+          <Badge tone="neutral">{readiness.unique_item_count} items</Badge>
         </div>
       </div>
 
