@@ -378,7 +378,7 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
         try:
             session.rollback()
         except Exception:
-            pass
+            logger.debug("Rollback failed during scan readiness error recovery.", exc_info=True)
         logger.exception("Scan readiness query failed (may indicate connection pool exhaustion): %s", exc)
         # Return degraded but safe readiness state
         return ScanReadinessRead(
@@ -794,7 +794,7 @@ def get_scan_history(session: Session, user_id: str, *, limit: int = 8) -> list[
         try:
             session.rollback()
         except Exception:
-            pass
+            logger.debug("Rollback failed before scan history fallback query.", exc_info=True)
 
         try:
             base_rows = (

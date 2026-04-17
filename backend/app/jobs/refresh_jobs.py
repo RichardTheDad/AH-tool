@@ -84,7 +84,7 @@ def _run_system_scan(realms: list[str]) -> None:
         try:
             scan_session.rollback()
         except Exception:
-            pass
+            logger.debug("Rollback failed after scheduled global scan exception.", exc_info=True)
         raise RuntimeError(f"Scheduled global scan failed: {type(exc).__name__}: {exc}") from exc
     finally:
         scan_session.close()

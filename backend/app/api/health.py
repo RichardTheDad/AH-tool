@@ -52,7 +52,7 @@ def readiness_check(db: Session = Depends(get_db)) -> dict[str, object]:
             last_cycle_status = latest_event.status
             last_cycle_message = latest_event.message
     except Exception:
-        pass
+        logger.warning("Failed to load latest scheduler event for readiness summary.", exc_info=True)
 
     overall = "ready" if db_status == "ok" and scheduler_status == "ok" else "degraded"
     return {
