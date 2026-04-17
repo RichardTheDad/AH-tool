@@ -46,7 +46,7 @@ export function ItemDetail() {
             if (scannerContext?.from === "scanner") {
               navigate(
                 {
-                  pathname: "/",
+                  pathname: "/app",
                   search: scannerContext.scannerSearch ?? "",
                 },
                 {
@@ -59,7 +59,7 @@ export function ItemDetail() {
               );
               return;
             }
-            navigate("/");
+            navigate("/app");
           }}
           className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm font-semibold text-zinc-300 transition hover:border-orange-400/45 hover:text-zinc-100"
         >

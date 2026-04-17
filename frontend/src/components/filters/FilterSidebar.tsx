@@ -120,20 +120,24 @@ export function FilterSidebar({ filters, onChange, categoryOptions, categoryGrou
         </Select>
         <Input
           id="scanner-filter-min-spread"
+          label="Minimum price gap"
           name="minSpread"
           type="number"
           value={filters.minSpread}
           onChange={(event) => onChange({ minSpread: event.target.value })}
-          placeholder="Min spread (ratio, e.g. 0.20)"
+          placeholder="0.20 means 20% higher"
+          hint="Only show flips where the sell price is at least this much above the buy price."
           isCompact
         />
         <Input
           id="scanner-filter-max-spread"
+          label="Maximum price gap"
           name="maxSpread"
           type="number"
           value={filters.maxSpread}
           onChange={(event) => onChange({ maxSpread: event.target.value })}
-          placeholder="Max spread (ratio, e.g. 2.00)"
+          placeholder="2.00 means 200% higher"
+          hint="Hide extreme gaps that may be inflated, thin, or less realistic."
           isCompact
         />
         <Select
