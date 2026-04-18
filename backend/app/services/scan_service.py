@@ -28,6 +28,7 @@ from app.services.scan_runtime_service import (
     USER_SCAN_COOLDOWN_SECONDS,
 )
 from app.services.listing_service import (
+    BLIZZARD_AUCTIONS_SOURCE,
     get_latest_snapshots_for_realms,
     get_recent_snapshot_history_for_items,
     mark_stale_snapshots,
@@ -260,7 +261,7 @@ def get_scan_readiness(session: Session, user_id: str, realms: list[str] | None 
 
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         enforce_fixed_ah_cut(app_settings)
-        latest_snapshots = get_latest_snapshots_for_realms(session, realms)
+        latest_snapshots = get_latest_snapshots_for_realms(session, realms, source_name=BLIZZARD_AUCTIONS_SOURCE)
         metadata_provider = get_provider_registry().metadata_provider
         metadata_configured, _metadata_message = metadata_provider.is_available()
         items_by_id = _load_items_by_id(session, {snapshot.item_id for snapshot in latest_snapshots})
@@ -478,7 +479,7 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
         mark_stale_snapshots(session, max_updates_per_run=500)
         app_settings = session.query(AppSettings).filter(AppSettings.user_id == user_id).first() or AppSettings(user_id=user_id)
         enforce_fixed_ah_cut(app_settings)
-        latest_snapshots = get_latest_snapshots_for_realms(session, scan_realms)
+        latest_snapshots = get_latest_snapshots_for_realms(session, scan_realms, source_name=BLIZZARD_AUCTIONS_SOURCE)
         metadata_configured, _metadata_message = get_provider_registry().metadata_provider.is_available()
 
         grouped: dict[int, list] = {}
@@ -551,7 +552,12 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
         history_item_ids = candidate_item_ids[:500]
         if history_item_ids:
             mark_scan_stage(f"Loading price history for {len(history_item_ids)} candidate items...")
-            history_by_item = get_recent_snapshot_history_for_items(session, history_item_ids, realms)
+            history_by_item = get_recent_snapshot_history_for_items(
+                session,
+                history_item_ids,
+                realms,
+                source_name=BLIZZARD_AUCTIONS_SOURCE,
+            )
         else:
             history_by_item = {}
         mark_scan_stage("Scoring cross-realm opportunities.")
@@ -734,6 +740,7 @@ def get_scan_session(session: Session, scan_id: int, user_id: str, *, limit: int
         list({result.item_id for result in ordered_results}),
         sorted({result.best_sell_realm for result in ordered_results}),
         limit_per_realm=3,
+        source_name=BLIZZARD_AUCTIONS_SOURCE,
     )
     enabled_realms = get_enabled_realm_names(session, scan_session.user_id)
     return ScanSessionRead(

@@ -14,15 +14,23 @@ vi.mock("../../api/scans", () => ({
   getScanStatus: vi.fn(),
 }));
 
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: "test-user" },
+    loading: false,
+  }),
+}));
+
 import { createRealm, deleteRealm, getRealms, updateRealm } from "../../api/realms";
 import { getScanStatus } from "../../api/scans";
 
 describe("Realms page", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(getScanStatus).mockResolvedValue({
       status: "idle",
       message: "Scanner is idle.",
-      provider_name: "file_import",
+      provider_name: "blizzard_auctions",
       started_at: null,
       finished_at: null,
     });

@@ -42,7 +42,7 @@ def _insert_snapshots(rows: list[dict], item_meta: dict[int, dict] | None = None
                     average_price=row["average_price"],
                     quantity=row["quantity"],
                     listing_count=row["listing_count"],
-                    source_name="blizzard_auctions",
+                    source_name=row.get("source_name", "blizzard_auctions"),
                     captured_at=captured,
                 )
             )
@@ -84,6 +84,27 @@ def test_scan_selects_best_buy_and_sell_realms(client) -> None:
     assert staff["observed_sell_price"] == 23900.0
     assert staff["estimated_profit"] > 0
     assert staff["sell_history_prices"] == [23900.0]
+
+
+def test_scan_ignores_non_blizzard_listing_sources(client) -> None:
+    seed_listing_data(client)
+    _insert_snapshots([
+        {
+            "item_id": 873,
+            "realm": "Stormrage",
+            "lowest_price": 1,
+            "average_price": 1,
+            "quantity": 99,
+            "listing_count": 99,
+            "source_name": "manual_import",
+            "captured_at": "2026-04-06T03:45:00+00:00",
+        },
+    ])
+
+    staff = next(result for result in run_scan()["results"] if result["item_id"] == 873)
+
+    assert staff["cheapest_buy_realm"] == "Area 52"
+    assert staff["cheapest_buy_price"] == 12900.0
 
 
 def test_scan_includes_spread_metrics(client) -> None:
@@ -219,7 +240,7 @@ def test_scan_bootstraps_from_blizzard_provider_when_available(client, monkeypat
     monkeypatch.setattr(
         provider,
         "fetch_listings",
-        lambda realms: [
+        lambda realms, **_kwargs: [
             ListingImportRow(item_id=873, realm="Area 52", lowest_price=12900, average_price=13400, quantity=6, listing_count=5, captured_at="2026-04-06T02:45:00+00:00"),
             ListingImportRow(item_id=873, realm="Stormrage", lowest_price=14500, average_price=15000, quantity=7, listing_count=4, captured_at="2026-04-06T02:45:00+00:00"),
             ListingImportRow(item_id=873, realm="Zul'jin", lowest_price=23900, average_price=24550, quantity=5, listing_count=4, captured_at="2026-04-06T02:50:00+00:00"),
@@ -244,7 +265,7 @@ def test_scan_queues_background_metadata_refresh_for_blizzard_results(client, mo
     monkeypatch.setattr(
         provider,
         "fetch_listings",
-        lambda realms: [
+        lambda realms, **_kwargs: [
             ListingImportRow(item_id=873, realm="Area 52", lowest_price=12900, average_price=13400, quantity=6, listing_count=5, captured_at="2026-04-06T02:45:00+00:00"),
             ListingImportRow(item_id=873, realm="Stormrage", lowest_price=14500, average_price=15000, quantity=7, listing_count=4, captured_at="2026-04-06T02:45:00+00:00"),
             ListingImportRow(item_id=873, realm="Zul'jin", lowest_price=23900, average_price=24550, quantity=5, listing_count=4, captured_at="2026-04-06T02:50:00+00:00"),
@@ -293,6 +314,7 @@ def test_scan_warns_when_enabled_realms_have_no_listing_data(client) -> None:
 
 
 def test_scan_readiness_reports_blocked_until_two_realms_have_listing_data(client) -> None:
+    client.app.dependency_overrides[get_optional_user] = lambda: TEST_USER_ID
     client.post("/realms", json={"realm_name": "Stormrage", "region": "us", "enabled": True})
     client.post("/realms", json={"realm_name": "Zul'jin", "region": "us", "enabled": True})
 
@@ -304,8 +326,11 @@ def test_scan_readiness_reports_blocked_until_two_realms_have_listing_data(clien
     _insert_snapshots([
         {"item_id": 873, "realm": "Stormrage", "lowest_price": 15000, "average_price": 15500, "quantity": 2, "listing_count": 2, "captured_at": "2026-04-06T02:45:00+00:00"},
     ])
+    scans_api._CACHE.clear()
 
     readiness = client.get("/scans/readiness")
+    client.app.dependency_overrides.pop(get_optional_user, None)
+
     assert readiness.status_code == 200
     assert readiness.json()["status"] == "blocked"
     assert readiness.json()["realms_with_data"] == 1

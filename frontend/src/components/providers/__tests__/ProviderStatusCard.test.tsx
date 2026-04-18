@@ -46,16 +46,16 @@ describe("ProviderStatusCard", () => {
     expect(screen.getByText("Live fetch")).toBeInTheDocument();
   });
 
-  it("renders the import workflow badge for file imports", () => {
+  it("renders non-live listing providers as unavailable for bulk scanning", () => {
     render(
       <ProviderStatusCard
         provider={{
-          name: "file_import",
+          name: "legacy_listing_source",
           provider_type: "listing",
           status: "available",
           available: true,
           supports_live_fetch: false,
-          message: "Import CSV or JSON listing snapshots to provide scanner data.",
+          message: "This provider cannot refresh live Blizzard listings.",
           cache_records: 0,
           last_checked_at: null,
           last_error: null,
@@ -63,6 +63,6 @@ describe("ProviderStatusCard", () => {
       />,
     );
 
-    expect(screen.getByText("Import workflow")).toBeInTheDocument();
+    expect(screen.getByText("Bulk scan unavailable")).toBeInTheDocument();
   });
 });

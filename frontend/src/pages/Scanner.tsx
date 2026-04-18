@@ -368,8 +368,15 @@ export function Scanner() {
   const latestWarningText = latest?.warning_text?.toLowerCase() ?? "";
   const showingPersistedResults = Boolean(persistedScan && latest && persistedScan.id !== latest.id && persistedScan.result_count > 0);
   const loadingPersistedScan = Boolean(!latest?.result_count && fallbackScanId && fallbackScanQuery.isLoading && !fallbackScanQuery.data);
+  const latestScanUnavailable = Boolean(scanQuery.error) && !scanQuery.data;
+  const scanHistoryUnavailable = Boolean(scanHistoryQuery.error) && !scanHistoryQuery.data;
+  const scanDataUnavailable = Boolean(!persistedScan && (latestScanUnavailable || scanHistoryUnavailable));
+  const scanDataUnavailableMessage = latestScanUnavailable
+    ? "Latest scan data is temporarily unavailable. Make sure the backend API is running, then refresh the scanner."
+    : "Scan history is temporarily unavailable. Make sure the backend API is running, then refresh the scanner.";
   const showGuidedEmptyState =
     !loadingPersistedScan &&
+    !scanDataUnavailable &&
     (!persistedScan || persistedScan.result_count === 0) &&
     (noEnabledRealms || noUsableListingData || latestWarningText.includes("no listing data found"));
   const focusedModeActive =
@@ -972,6 +979,8 @@ export function Scanner() {
 
         {loadingPersistedScan ? (
           <LoadingState label="Loading last populated scan..." />
+        ) : scanDataUnavailable ? (
+          <ErrorState message={scanDataUnavailableMessage} />
         ) : showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : persistedScan ? (

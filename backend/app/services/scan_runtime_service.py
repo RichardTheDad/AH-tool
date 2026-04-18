@@ -75,7 +75,7 @@ def mark_scan_started(provider_name: str | None) -> None:
     with _lock:
         _state.status = "running"
         _state.message = "A scan is currently running. Realm edits are temporarily locked."
-        _state.provider_name = provider_name or "stored"
+        _state.provider_name = provider_name or "blizzard_auctions"
         _state.started_at = datetime.now(timezone.utc)
         _state.finished_at = None
 
@@ -87,7 +87,7 @@ def try_mark_scan_started(provider_name: str | None) -> bool:
             return False
         _state.status = "running"
         _state.message = "A scan is currently running. Realm edits are temporarily locked."
-        _state.provider_name = provider_name or "stored"
+        _state.provider_name = provider_name or "blizzard_auctions"
         _state.started_at = datetime.now(timezone.utc)
         _state.finished_at = None
         return True
@@ -104,7 +104,7 @@ def mark_scan_finished(provider_name: str | None, *, result_count: int, warning_
         _state.status = "idle"
         result_message = f"Last scan finished with {result_count} ranked result{'s' if result_count != 1 else ''}."
         _state.message = f"{result_message} Warning: {warning_text}" if warning_text else result_message
-        _state.provider_name = provider_name or "stored"
+        _state.provider_name = provider_name or "blizzard_auctions"
         _state.finished_at = datetime.now(timezone.utc)
 
 
@@ -112,5 +112,5 @@ def mark_scan_failed(provider_name: str | None, message: str) -> None:
     with _lock:
         _state.status = "idle"
         _state.message = message
-        _state.provider_name = provider_name or "stored"
+        _state.provider_name = provider_name or "blizzard_auctions"
         _state.finished_at = datetime.now(timezone.utc)

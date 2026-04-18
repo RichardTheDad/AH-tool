@@ -202,18 +202,6 @@ def run_refresh_cycle() -> None:
         _stage(current_stage, "Marking runtime scan state started.", details={"realm_count": len(realms)})
         mark_scan_started(provider_name)
 
-        system_scan_realms = _select_system_scan_realms(realms)
-        current_stage = "system_scan"
-        _stage(
-            current_stage,
-            "Running scheduled system scan.",
-            details={
-                "realm_count": len(realms),
-                "system_scan_realm_count": len(system_scan_realms),
-            },
-        )
-        _run_system_scan(system_scan_realms)
-
         inserted = 0
         warning = None
         try:
@@ -229,6 +217,19 @@ def run_refresh_cycle() -> None:
             logger.exception("Scheduled provider refresh failed; continuing with cached listing data.")
         finally:
             mark_scan_finished(provider_name, result_count=inserted, warning_text=warning)
+
+        system_scan_realms = _select_system_scan_realms(realms)
+        current_stage = "system_scan"
+        _stage(
+            current_stage,
+            "Running scheduled system scan from latest provider listings.",
+            details={
+                "realm_count": len(realms),
+                "system_scan_realm_count": len(system_scan_realms),
+                "inserted": inserted,
+            },
+        )
+        _run_system_scan(system_scan_realms)
 
         current_stage = "metadata_sweep"
         _stage(current_stage, "Queueing metadata sweep.")

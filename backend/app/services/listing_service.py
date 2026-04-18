@@ -17,6 +17,7 @@ from app.services.provider_service import get_provider_registry
 
 logger = logging.getLogger(__name__)
 SMALL_REALM_LATEST_QUERY_THRESHOLD = 4
+BLIZZARD_AUCTIONS_SOURCE = "blizzard_auctions"
 
 
 def _chunked(values: list[dict], size: int):
@@ -334,8 +335,14 @@ def get_latest_snapshots_for_realms(
         return _load_latest_per_realm()
 
 
-def get_latest_snapshots_for_item(session: Session, item_id: int, realms: list[str]) -> list[ListingSnapshot]:
-    return get_latest_snapshots_for_realms(session, realms, item_id=item_id)
+def get_latest_snapshots_for_item(
+    session: Session,
+    item_id: int,
+    realms: list[str],
+    *,
+    source_name: str | None = None,
+) -> list[ListingSnapshot]:
+    return get_latest_snapshots_for_realms(session, realms, item_id=item_id, source_name=source_name)
 
 
 def get_recent_snapshot_history_for_item(
@@ -344,8 +351,15 @@ def get_recent_snapshot_history_for_item(
     realms: list[str],
     *,
     limit_per_realm: int = 5,
+    source_name: str | None = None,
 ) -> dict[str, list[ListingSnapshot]]:
-    return get_recent_snapshot_history_for_items(session, [item_id], realms, limit_per_realm=limit_per_realm).get(item_id, {})
+    return get_recent_snapshot_history_for_items(
+        session,
+        [item_id],
+        realms,
+        limit_per_realm=limit_per_realm,
+        source_name=source_name,
+    ).get(item_id, {})
 
 
 def get_recent_snapshot_history_for_items(
@@ -354,6 +368,7 @@ def get_recent_snapshot_history_for_items(
     realms: list[str],
     *,
     limit_per_realm: int = 5,
+    source_name: str | None = None,
 ) -> dict[int, dict[str, list[ListingSnapshot]]]:
     if not realms:
         return {}
@@ -365,16 +380,14 @@ def get_recent_snapshot_history_for_items(
     chunk_size = 500
     for start in range(0, len(item_ids), chunk_size):
         chunk = item_ids[start : start + chunk_size]
-        rows = (
-            session.query(ListingSnapshot)
-            .filter(
-                ListingSnapshot.item_id.in_(chunk),
-                ListingSnapshot.realm.in_(realms),
-                ListingSnapshot.captured_at >= cutoff,
-            )
-            .order_by(ListingSnapshot.item_id.asc(), ListingSnapshot.realm.asc(), ListingSnapshot.captured_at.desc())
-            .all()
+        query = session.query(ListingSnapshot).filter(
+            ListingSnapshot.item_id.in_(chunk),
+            ListingSnapshot.realm.in_(realms),
+            ListingSnapshot.captured_at >= cutoff,
         )
+        if source_name is not None:
+            query = query.filter(ListingSnapshot.source_name == source_name)
+        rows = query.order_by(ListingSnapshot.item_id.asc(), ListingSnapshot.realm.asc(), ListingSnapshot.captured_at.desc()).all()
         for snapshot in rows:
             item_history = history.setdefault(snapshot.item_id, {})
             bucket = item_history.setdefault(snapshot.realm, [])

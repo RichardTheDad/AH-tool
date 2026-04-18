@@ -11,9 +11,6 @@ const statusCopy = {
 };
 
 function workflowLabel(provider: ProviderStatus) {
-  if (provider.name === "file_import") {
-    return { label: "Import workflow", tone: "neutral" as const };
-  }
   if (provider.supports_live_fetch) {
     return { label: "Live fetch", tone: "success" as const };
   }

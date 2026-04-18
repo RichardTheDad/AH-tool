@@ -122,8 +122,8 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_default_listing_provider(cls, value: object) -> str:
         raw = str(value or "").strip().lower()
-        if not raw or raw in {"stored", "mock"}:
-            return "file_import"
+        if not raw or raw in {"stored", "mock", "file_import"}:
+            return "blizzard_auctions"
         if raw in {"blizzard", "blizzard_ah", "blizzard_retail"}:
             return "blizzard_auctions"
         return raw

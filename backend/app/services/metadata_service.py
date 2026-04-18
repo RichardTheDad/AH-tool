@@ -20,7 +20,7 @@ from app.schemas.item import (
 )
 from app.schemas.listing import LiveListingLookupResponse, LiveListingLookupRow, ListingSnapshotRead
 from app.schemas.scan import ScanResultRead
-from app.services.listing_service import get_latest_snapshots_for_item, get_recent_snapshot_history_for_item
+from app.services.listing_service import BLIZZARD_AUCTIONS_SOURCE, get_latest_snapshots_for_item, get_recent_snapshot_history_for_item
 from app.providers.base import ItemNotFoundError
 from app.services.provider_service import get_provider_registry
 from app.services.realm_service import get_enabled_realm_names
@@ -290,8 +290,14 @@ def get_item_detail(session: Session, item_id: int, user_id: str, *, refresh_met
         metadata_message = f"Metadata cached locally from {item.metadata_updated_at.astimezone(timezone.utc).isoformat()}."
 
     realms = get_enabled_realm_names(session, user_id)
-    listings = get_latest_snapshots_for_item(session, item_id, realms)
-    auction_history_map = get_recent_snapshot_history_for_item(session, item_id, realms, limit_per_realm=30)
+    listings = get_latest_snapshots_for_item(session, item_id, realms, source_name=BLIZZARD_AUCTIONS_SOURCE)
+    auction_history_map = get_recent_snapshot_history_for_item(
+        session,
+        item_id,
+        realms,
+        limit_per_realm=30,
+        source_name=BLIZZARD_AUCTIONS_SOURCE,
+    )
     auction_history = [
         ItemRealmHistoryRead(
             realm=realm,

@@ -33,6 +33,15 @@ vi.mock("../../api/presets", () => ({
   getDefaultPreset: vi.fn(),
 }));
 
+vi.mock("../../contexts/AuthContext", () => ({
+  useAuth: () => ({
+    user: { id: "test-user" },
+    session: null,
+    loading: false,
+    signOut: vi.fn(),
+  }),
+}));
+
 import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../../api/scans";
 import { refreshMissingMetadata } from "../../api/items";
 import { getProviderStatus } from "../../api/providers";
@@ -45,21 +54,10 @@ const providerResponse = {
     {
       name: "blizzard_auctions",
       provider_type: "listing",
-      status: "unavailable" as const,
-      available: false,
-      supports_live_fetch: true,
-      message: "No Blizzard Battle.net client credentials are configured.",
-      cache_records: 0,
-      last_checked_at: null,
-      last_error: null,
-    },
-    {
-      name: "file_import",
-      provider_type: "listing",
       status: "available" as const,
       available: true,
-      supports_live_fetch: false,
-      message: "Import CSV or JSON listing snapshots to provide scanner data.",
+      supports_live_fetch: true,
+      message: "Live Blizzard retail refresh is configured.",
       cache_records: 0,
       last_checked_at: null,
       last_error: null,
@@ -89,7 +87,7 @@ const readinessResponse = {
       stale_item_count: 0,
       latest_item_count: 1,
       freshest_captured_at: new Date().toISOString(),
-      latest_source_name: "file_import",
+      latest_source_name: "blizzard_auctions",
     },
   ],
 };
@@ -97,21 +95,27 @@ const readinessResponse = {
 const scanStatusResponse = {
   status: "idle" as const,
   message: "Scanner is idle.",
-  provider_name: "file_import",
+  provider_name: "blizzard_auctions",
   started_at: null,
   finished_at: null,
 };
 
 describe("Scanner page", () => {
   beforeEach(() => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
     vi.mocked(refreshMissingMetadata).mockResolvedValue({ queued_count: 0, warnings: [] });
     vi.mocked(getProviderStatus).mockResolvedValue(providerResponse);
-    vi.mocked(getRealms).mockResolvedValue([{ id: 1, realm_name: "Stormrage", region: "us", enabled: true }]);
+    vi.mocked(getRealms).mockResolvedValue([
+      { id: 1, realm_name: "Area 52", region: "us", enabled: true },
+      { id: 2, realm_name: "Stormrage", region: "us", enabled: true },
+      { id: 3, realm_name: "Zul'jin", region: "us", enabled: true },
+    ]);
     vi.mocked(getPresets).mockResolvedValue([]);
     vi.mocked(getDefaultPreset).mockResolvedValue(null);
     vi.mocked(getScan).mockResolvedValue({
       id: 2,
-      provider_name: "file_import",
+      provider_name: "blizzard_auctions",
       generated_at: new Date().toISOString(),
       result_count: 0,
       results: [],
@@ -145,13 +149,14 @@ describe("Scanner page", () => {
     renderWithProviders(<Scanner />, "/scanner");
 
     expect(await screen.findByText("Current opportunities")).toBeInTheDocument();
+    expect(await screen.findByText("Latest scan data is temporarily unavailable. Make sure the backend API is running, then refresh the scanner.")).toBeInTheDocument();
   });
 
   it("renders scan results and only offers scan-usable providers", async () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
         id: 1,
-        provider_name: "file_import",
+        provider_name: "blizzard_auctions",
         generated_at: new Date().toISOString(),
         result_count: 1,
         results: [
@@ -187,8 +192,8 @@ describe("Scanner page", () => {
 
     renderWithProviders(<Scanner />, "/scanner");
 
-    expect(await screen.findByText("Staff of Jordan")).toBeInTheDocument();
-    expect(screen.getByText("Enabled realms have enough local listing coverage for a trustworthy scan.")).toBeInTheDocument();
+    expect((await screen.findAllByText("Staff of Jordan")).length).toBeGreaterThan(0);
+    expect(screen.getByText("1 items")).toBeInTheDocument();
   });
 
   it("renders import-required state when enabled realms have no listing data", async () => {
@@ -206,15 +211,15 @@ describe("Scanner page", () => {
 
     renderWithProviders(<Scanner />, "/scanner");
 
-    expect(await screen.findByText("No listing data found")).toBeInTheDocument();
-    expect(screen.getByText(/Live Blizzard listing refresh is not available right now/)).toBeInTheDocument();
+    expect(await screen.findByText("No local listing cache yet")).toBeInTheDocument();
+    expect(screen.getByText(/Automatic scheduled scans will pull fresh Blizzard listings/)).toBeInTheDocument();
   });
 
   it("shows when a quick preset has been applied", async () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
         id: 1,
-        provider_name: "file_import",
+        provider_name: "blizzard_auctions",
         generated_at: new Date().toISOString(),
         result_count: 1,
         results: [
@@ -275,7 +280,7 @@ describe("Scanner page", () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
         id: 1,
-        provider_name: "file_import",
+        provider_name: "blizzard_auctions",
         generated_at: new Date().toISOString(),
         result_count: 1,
         results: [
@@ -360,7 +365,7 @@ describe("Scanner page", () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
         id: 1,
-        provider_name: "file_import",
+        provider_name: "blizzard_auctions",
         generated_at: new Date().toISOString(),
         result_count: 2,
         results: [
@@ -422,7 +427,7 @@ describe("Scanner page", () => {
 
     renderWithProviders(<Scanner />, "/scanner");
 
-    expect(await screen.findByRole("option", { name: "Weapon" })).toBeInTheDocument();
+    expect(await screen.findByRole("option", { name: "Weapons" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Armor" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Final score" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Highest to lowest" })).toBeInTheDocument();
@@ -432,7 +437,7 @@ describe("Scanner page", () => {
     vi.mocked(getLatestScan).mockResolvedValue({
       latest: {
         id: 1,
-        provider_name: "file_import",
+        provider_name: "blizzard_auctions",
         generated_at: new Date().toISOString(),
         result_count: 2,
         results: [
@@ -494,12 +499,12 @@ describe("Scanner page", () => {
 
     renderWithProviders(<Scanner />, "/scanner");
 
-    expect(await screen.findByText("Staff of Jordan")).toBeInTheDocument();
-    expect(screen.getByText("Commander Helm")).toBeInTheDocument();
+    expect((await screen.findAllByText("Staff of Jordan")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Commander Helm").length).toBeGreaterThan(0);
 
-    fireEvent.change(screen.getByLabelText("Min profit"), { target: { value: "9000" } });
+    fireEvent.change(screen.getByPlaceholderText("Min profit"), { target: { value: "9000" } });
 
-    expect(screen.getByText("Staff of Jordan")).toBeInTheDocument();
-    expect(screen.queryByText("Commander Helm")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Staff of Jordan").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("Commander Helm")).toHaveLength(0);
   });
 });

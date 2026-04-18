@@ -93,7 +93,7 @@ class ListingImportCoverage(BaseModel):
 
 class ListingImportResponse(BaseModel):
     committed: bool
-    provider_name: str = "file_import"
+    provider_name: str = "blizzard_auctions"
     accepted_count: int = 0
     inserted_count: int = 0
     skipped_duplicates: int = 0
