@@ -79,6 +79,9 @@ export interface ScanSession {
   generated_at: string;
   result_count: number;
   results: ScanResult[];
+  available_item_classes: string[];
+  available_realms: string[];
+  available_category_pairs: Array<{ item_class_name: string | null; item_subclass_name: string | null }>;
 }
 
 export interface ScanSessionSummary {

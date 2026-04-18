@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import func, or_
+from sqlalchemy import distinct, func, or_
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -772,6 +772,30 @@ def get_scan_session(
         source_name=BLIZZARD_AUCTIONS_SOURCE,
     )
     enabled_realms = get_enabled_realm_names(session, scan_session.user_id)
+
+    category_pair_rows = (
+        session.query(Item.class_name, Item.subclass_name)
+        .join(ScanResult, ScanResult.item_id == Item.item_id)
+        .filter(ScanResult.scan_session_id == scan_session.id, Item.class_name.isnot(None))
+        .distinct()
+        .all()
+    )
+    seen_classes: set[str] = set()
+    all_category_pairs: list[dict[str, str | None]] = []
+    for class_name, subclass_name in category_pair_rows:
+        if class_name:
+            seen_classes.add(class_name)
+            all_category_pairs.append({"item_class_name": class_name, "item_subclass_name": subclass_name})
+    all_item_classes = sorted(seen_classes)
+
+    buy_realm_rows = session.query(distinct(ScanResult.cheapest_buy_realm)).filter(
+        ScanResult.scan_session_id == scan_session.id
+    ).all()
+    sell_realm_rows = session.query(distinct(ScanResult.best_sell_realm)).filter(
+        ScanResult.scan_session_id == scan_session.id
+    ).all()
+    all_realms = sorted({row[0] for row in buy_realm_rows + sell_realm_rows if row[0]})
+
     return ScanSessionRead(
         id=scan_session.id,
         provider_name=scan_session.provider_name,
@@ -779,6 +803,9 @@ def get_scan_session(
         generated_at=scan_session.generated_at,
         result_count=total_result_count,
         results=_serialize_scan_results(ordered_results, history_by_item, history_by_item, enabled_realms),
+        available_item_classes=all_item_classes,
+        available_realms=all_realms,
+        available_category_pairs=all_category_pairs,
     )
 
 

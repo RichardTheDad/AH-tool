@@ -19,7 +19,8 @@
       "Bash(python -m json.tool)",
       "Bash(curl -s http://localhost:5000/scans/readiness)",
       "Bash(curl -s http://localhost:3000/api/scans/readiness)",
-      "Bash(curl -s http://localhost:8080/scans/readiness)"
+      "Bash(curl -s http://localhost:8080/scans/readiness)",
+      "Bash(xargs grep *)"
     ]
   }
 }

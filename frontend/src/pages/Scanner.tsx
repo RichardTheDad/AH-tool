@@ -343,7 +343,9 @@ export function Scanner() {
   const previousScanUnavailable = Boolean(previousScanQuery.error);
   const tuningAudit = isGuest ? [] : asArray(tuningAuditQuery.data?.entries);
   const scanResultRealmOptions = uniqueSortedRealms(
-    asArray(persistedScan?.results).flatMap((result) => [result.cheapest_buy_realm, result.best_sell_realm]),
+    asArray(persistedScan?.available_realms).length > 0
+      ? asArray(persistedScan?.available_realms)
+      : asArray(persistedScan?.results).flatMap((result) => [result.cheapest_buy_realm, result.best_sell_realm]),
   );
   const realmOptions = uniqueSortedRealms([
     ...enabledTrackedRealmOptions,
@@ -375,10 +377,16 @@ export function Scanner() {
     noTrackedOverlapWithLatestScan;
   const results = broadRealmFallbackActive ? relaxedRealmResults : strictFilteredResults;
   const useVirtualizedResults = results.length > 300 && !isMobileViewport;
-  const categoryOptions = Array.from(
-    new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
-  ).sort((left, right) => left.localeCompare(right));
-  const categoryGroups = buildCategoryGroupsFromResults(asArray(persistedScan?.results));
+  const categoryOptions = asArray(persistedScan?.available_item_classes).length > 0
+    ? asArray(persistedScan?.available_item_classes)
+    : Array.from(
+        new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
+      ).sort((left, right) => left.localeCompare(right));
+  const categoryGroups = buildCategoryGroupsFromResults(
+    asArray(persistedScan?.available_category_pairs).length > 0
+      ? asArray(persistedScan?.available_category_pairs)
+      : asArray(persistedScan?.results),
+  );
   const inferredPreset = presets.find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
     presets.find((preset) => preset.id === selectedPresetId) ??

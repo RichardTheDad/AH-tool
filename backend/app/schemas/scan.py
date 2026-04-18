@@ -51,6 +51,9 @@ class ScanSessionRead(BaseModel):
     generated_at: datetime
     result_count: int
     results: list[ScanResultRead] = Field(default_factory=list)
+    available_item_classes: list[str] = Field(default_factory=list)
+    available_realms: list[str] = Field(default_factory=list)
+    available_category_pairs: list[dict[str, str | None]] = Field(default_factory=list)
 
 
 class ScanRunRequest(BaseModel):

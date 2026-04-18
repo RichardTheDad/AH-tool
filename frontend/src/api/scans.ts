@@ -10,6 +10,9 @@ function normalizeScanSession(session: ScanSession | null | undefined): ScanSess
     warning_text: session.warning_text ?? null,
     result_count: typeof session.result_count === "number" ? session.result_count : Array.isArray(session.results) ? session.results.length : 0,
     results: Array.isArray(session.results) ? session.results : [],
+    available_item_classes: Array.isArray(session.available_item_classes) ? session.available_item_classes : [],
+    available_realms: Array.isArray(session.available_realms) ? session.available_realms : [],
+    available_category_pairs: Array.isArray(session.available_category_pairs) ? session.available_category_pairs : [],
   };
 }
 
