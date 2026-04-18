@@ -3,10 +3,12 @@ from time import monotonic
 from typing import Callable, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user, get_optional_user
 from app.core.config import SYSTEM_USER_ID, get_settings
+from app.db.models import ScanResult
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.schemas.scan import (
@@ -163,10 +165,26 @@ def scan_status(
         refresh_cycle = scheduler_status.get("refresh_cycle") if isinstance(scheduler_status, dict) else None
         next_scheduled_at = refresh_cycle.get("next_run_time") if isinstance(refresh_cycle, dict) else None
 
-        latest_scan = get_latest_scan(db, SYSTEM_USER_ID, limit=1)
-        latest_results = latest_scan.results if latest_scan else []
-        buy_realms = {result.cheapest_buy_realm for result in latest_results if result.cheapest_buy_realm}
-        sell_realms = {result.best_sell_realm for result in latest_results if result.best_sell_realm}
+        latest_summary = next(iter(get_scan_history(db, SYSTEM_USER_ID, limit=1)), None)
+        latest_scan_id = latest_summary.id if latest_summary else None
+        latest_scan_result_count = int(latest_summary.result_count or 0) if latest_summary else 0
+
+        if latest_scan_id is not None:
+            latest_buy_realm_count = int(
+                db.query(func.count(func.distinct(ScanResult.cheapest_buy_realm)))
+                .filter(ScanResult.scan_session_id == latest_scan_id)
+                .scalar()
+                or 0
+            )
+            latest_sell_realm_count = int(
+                db.query(func.count(func.distinct(ScanResult.best_sell_realm)))
+                .filter(ScanResult.scan_session_id == latest_scan_id)
+                .scalar()
+                or 0
+            )
+        else:
+            latest_buy_realm_count = 0
+            latest_sell_realm_count = 0
 
         tracked_realms = (
             get_enabled_realm_names(db, current_user)
@@ -181,10 +199,10 @@ def scan_status(
             "diagnostic_buy_filter": buy_realm,
             "diagnostic_sell_filter": sell_realm,
             "diagnostic_tracked_realm_count": len(tracked_realms),
-            "diagnostic_latest_scan_id": latest_scan.id if latest_scan else None,
-            "diagnostic_latest_scan_result_count": latest_scan.result_count if latest_scan else 0,
-            "diagnostic_latest_buy_realm_count": len(buy_realms),
-            "diagnostic_latest_sell_realm_count": len(sell_realms),
+            "diagnostic_latest_scan_id": latest_scan_id,
+            "diagnostic_latest_scan_result_count": latest_scan_result_count,
+            "diagnostic_latest_buy_realm_count": latest_buy_realm_count,
+            "diagnostic_latest_sell_realm_count": latest_sell_realm_count,
         }
         return ScanRuntimeStatusRead.model_validate(payload)
 
