@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(python -c \"import ast; ast.parse\\(open\\('app/services/scan_service.py'\\).read\\(\\)\\); print\\('scan_service.py OK'\\)\")",
-      "Bash(python -c \"import ast; ast.parse\\(open\\('app/api/scans.py'\\).read\\(\\)\\); print\\('scans.py OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app/api/scans.py'\\).read\\(\\)\\); print\\('scans.py OK'\\)\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(claude plugin *)",
+      "Bash(claude.exe plugin *)",
+      "Bash(npx @anthropic-ai/claude-code plugin marketplace add JuliusBrussee/caveman)",
+      "Bash(npx @anthropic-ai/claude-code plugin install caveman@caveman)"
     ]
   }
 }
