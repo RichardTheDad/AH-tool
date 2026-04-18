@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app/services/scan_service.py'\\).read\\(\\)\\); print\\('scan_service.py OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('app/api/scans.py'\\).read\\(\\)\\); print\\('scans.py OK'\\)\")"
+    ]
+  }
+}

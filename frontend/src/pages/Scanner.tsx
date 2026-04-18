@@ -170,9 +170,34 @@ export function Scanner() {
     filters.subcategory || filters.buyRealm || filters.sellRealm || filters.hideRisky
   );
 
+  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
+  const trackedRealms = isGuest ? guestRealms.realms : realmsQuery.data ?? [];
+  const enabledTrackedRealmOptions = uniqueSortedRealms(
+    trackedRealms.filter((realm) => realm.enabled).map((realm) => realm.realm_name),
+  );
+
+  // Expand realm filter sentinels to concrete realm names for server-side pre-filtering.
+  // The backend will return ALL results matching those realms (up to 2000) so that
+  // client-side numeric/category filters operate on the full realm-relevant set rather
+  // than just the global top-50 by score.
+  const scanBuyRealms: string[] | undefined = (() => {
+    if (filters.buyRealm === ALL_REALMS_FILTER_VALUE) return undefined;
+    if (filters.buyRealm === TRACKED_REALMS_FILTER_VALUE) {
+      return enabledTrackedRealmOptions.length > 0 ? enabledTrackedRealmOptions : undefined;
+    }
+    return [filters.buyRealm];
+  })();
+  const scanSellRealms: string[] | undefined = (() => {
+    if (filters.sellRealm === ALL_REALMS_FILTER_VALUE) return undefined;
+    if (filters.sellRealm === TRACKED_REALMS_FILTER_VALUE) {
+      return enabledTrackedRealmOptions.length > 0 ? enabledTrackedRealmOptions : undefined;
+    }
+    return [filters.sellRealm];
+  })();
+
   const scanQuery = useQuery({
-    queryKey: ["scans", "latest", 50],
-    queryFn: () => getLatestScan(50),
+    queryKey: ["scans", "latest", 50, scanBuyRealms ?? null, scanSellRealms ?? null],
+    queryFn: () => getLatestScan(50, { buyRealms: scanBuyRealms, sellRealms: scanSellRealms }),
     refetchInterval: scanRefreshIntervalMs,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
@@ -197,7 +222,6 @@ export function Scanner() {
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
   const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
-  const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, staleTime: 5 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
   const previousScanId = (scanHistoryQuery.data?.scans ?? [])[1]?.id;
   const previousScanQuery = useQuery({
     queryKey: ["scans", previousScanId, "summary", 200],
@@ -226,7 +250,6 @@ export function Scanner() {
   const providers = (providersQuery.data?.providers ?? []).filter((provider) => provider.provider_type === "listing");
   const presets = isGuest ? guestPresets.presets : presetsQuery.data ?? [];
   const defaultPreset = isGuest ? guestPresets.defaultPreset : defaultPresetQuery.data;
-  const trackedRealms = isGuest ? guestRealms.realms : realmsQuery.data ?? [];
   const activeProvider = providers.find((p) => p.name === "blizzard_auctions") ?? providers[0] ?? null;
   const readinessLoaded = Boolean(readinessQuery.data);
   const readiness: ScanReadiness =
@@ -321,11 +344,6 @@ export function Scanner() {
   const tuningAudit = isGuest ? [] : asArray(tuningAuditQuery.data?.entries);
   const scanResultRealmOptions = uniqueSortedRealms(
     asArray(persistedScan?.results).flatMap((result) => [result.cheapest_buy_realm, result.best_sell_realm]),
-  );
-  const enabledTrackedRealmOptions = uniqueSortedRealms(
-    trackedRealms
-      .filter((realm) => realm.enabled)
-      .map((realm) => realm.realm_name),
   );
   const realmOptions = uniqueSortedRealms([
     ...enabledTrackedRealmOptions,

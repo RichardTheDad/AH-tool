@@ -68,13 +68,27 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
 def latest_scan(
     request: Request,
     limit: int | None = Query(default=50, ge=1, le=2000),
+    buy_realm: list[str] | None = Query(default=None),
+    sell_realm: list[str] | None = Query(default=None),
     db: Session = Depends(get_db),
     current_user: str | None = Depends(get_optional_user),
 ) -> ScanLatestResponse:
     del request
     del current_user
-    cache_key = f"scans.latest:{limit}"
-    return _read_through_cache(cache_key, 20.0, lambda: ScanLatestResponse(latest=get_latest_scan(db, SYSTEM_USER_ID, limit=limit)))
+    has_realm_filter = bool(buy_realm or sell_realm)
+    if has_realm_filter:
+        sorted_buy = ",".join(sorted(r.strip().lower() for r in (buy_realm or []) if r.strip()))
+        sorted_sell = ",".join(sorted(r.strip().lower() for r in (sell_realm or []) if r.strip()))
+        cache_key = f"scans.latest.realm:{sorted_buy}|{sorted_sell}"
+        ttl = 10.0
+    else:
+        cache_key = f"scans.latest:{limit}"
+        ttl = 20.0
+    return _read_through_cache(
+        cache_key,
+        ttl,
+        lambda: ScanLatestResponse(latest=get_latest_scan(db, SYSTEM_USER_ID, limit=limit, buy_realms=buy_realm, sell_realms=sell_realm)),
+    )
 
 
 @router.get("/scans/history", response_model=ScanHistoryResponse)

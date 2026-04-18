@@ -13,9 +13,15 @@ function normalizeScanSession(session: ScanSession | null | undefined): ScanSess
   };
 }
 
-export function getLatestScan(limit?: number) {
-  const query = typeof limit === "number" ? `?limit=${Math.max(1, Math.floor(limit))}` : "";
-  return apiOptionalAuthRequest<LatestScanResponse>(`/scans/latest${query}`).then((payload) => ({
+export function getLatestScan(limit?: number, options?: { buyRealms?: string[]; sellRealms?: string[] }) {
+  const params = new URLSearchParams();
+  if (typeof limit === "number") {
+    params.set("limit", String(Math.max(1, Math.floor(limit))));
+  }
+  options?.buyRealms?.forEach((r) => { if (r.trim()) params.append("buy_realm", r.trim()); });
+  options?.sellRealms?.forEach((r) => { if (r.trim()) params.append("sell_realm", r.trim()); });
+  const query = params.toString();
+  return apiOptionalAuthRequest<LatestScanResponse>(`/scans/latest${query ? `?${query}` : ""}`).then((payload) => ({
     ...payload,
     latest: normalizeScanSession(payload?.latest),
   }));
