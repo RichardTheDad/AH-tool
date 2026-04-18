@@ -294,18 +294,16 @@ export function Scanner() {
   const scanResultRealmOptions = uniqueSortedRealms(
     asArray(persistedScan?.results).flatMap((result) => [result.cheapest_buy_realm, result.best_sell_realm]),
   );
-  const realmOptions = uniqueSortedRealms([
-    ...trackedRealms
+  const enabledTrackedRealmOptions = uniqueSortedRealms(
+    trackedRealms
       .filter((realm) => realm.enabled)
       .map((realm) => realm.realm_name),
+  );
+  const realmOptions = uniqueSortedRealms([
+    ...enabledTrackedRealmOptions,
     ...scanResultRealmOptions,
   ]);
-  const scannerRealmOptions = uniqueSortedRealms(readiness.realms.map((realm) => realm.realm));
-  const trackedRealmFilterOptions = uniqueSortedRealms([
-    ...realmOptions,
-    ...scannerRealmOptions,
-    ...scanResultRealmOptions,
-  ]);
+  const trackedRealmFilterOptions = enabledTrackedRealmOptions;
   const results = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: trackedRealmFilterOptions });
   const useVirtualizedResults = results.length > 300 && !isMobileViewport;
   const categoryOptions = Array.from(

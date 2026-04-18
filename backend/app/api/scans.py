@@ -18,7 +18,7 @@ from app.schemas.scan import (
     ScanRuntimeStatusRead,
     ScanSessionRead,
 )
-from app.services.realm_service import get_all_enabled_realm_names
+from app.services.realm_service import get_all_enabled_realm_names, get_enabled_realm_names
 from app.services.calibration_service import get_calibration_summary
 from app.jobs.scheduler import manager as scheduler_manager
 from app.services.scan_runtime_service import get_scan_runtime_state
@@ -95,10 +95,15 @@ def scan_calibration(request: Request, db: Session = Depends(get_db), current_us
 @limiter.limit("12/minute")
 def scan_readiness(request: Request, db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanReadinessRead:
     del request
-    del current_user
     def _load() -> ScanReadinessRead:
-        realms = get_all_enabled_realm_names(db)
-        readiness = get_scan_readiness(db, SYSTEM_USER_ID, realms=realms)
+        if current_user:
+            realms = get_enabled_realm_names(db, current_user)
+            readiness_user_id = current_user
+        else:
+            realms = get_all_enabled_realm_names(db)
+            readiness_user_id = SYSTEM_USER_ID
+
+        readiness = get_scan_readiness(db, readiness_user_id, realms=realms)
         if readiness.message != "Unable to assess scan readiness. Please try again in a moment.":
             return readiness
 

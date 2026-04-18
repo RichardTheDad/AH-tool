@@ -4,7 +4,8 @@ from datetime import datetime, timezone
 
 import app.services.scan_service as scan_service_module
 
-from app.db.models import Item, ListingSnapshot
+from app.core.auth import get_optional_user
+from app.db.models import Item, ListingSnapshot, TrackedRealm
 from app.db.session import get_session_factory
 from app.core.config import SYSTEM_USER_ID
 from app.schemas.scan import ScanRunRequest
@@ -307,6 +308,36 @@ def test_scan_readiness_reports_blocked_until_two_realms_have_listing_data(clien
     assert readiness.status_code == 200
     assert readiness.json()["status"] == "blocked"
     assert readiness.json()["realms_with_data"] == 1
+
+
+def test_scan_readiness_scopes_realms_to_authenticated_user(client) -> None:
+    client.app.dependency_overrides[get_optional_user] = lambda: TEST_USER_ID
+    session = get_session_factory()()
+    try:
+        session.add_all(
+            [
+                TrackedRealm(user_id=TEST_USER_ID, realm_name="Area 52", region="us", enabled=True),
+                TrackedRealm(user_id=TEST_USER_ID, realm_name="Stormrage", region="us", enabled=True),
+                TrackedRealm(user_id="other-user", realm_name="Illidan", region="us", enabled=True),
+            ]
+        )
+        session.commit()
+    finally:
+        session.close()
+
+    _insert_snapshots([
+        {"item_id": 873, "realm": "Area 52", "lowest_price": 12900, "average_price": 13400, "quantity": 6, "listing_count": 5, "captured_at": "2026-04-06T02:45:00+00:00"},
+        {"item_id": 873, "realm": "Stormrage", "lowest_price": 14500, "average_price": 15000, "quantity": 7, "listing_count": 4, "captured_at": "2026-04-06T02:45:00+00:00"},
+        {"item_id": 873, "realm": "Illidan", "lowest_price": 23900, "average_price": 24550, "quantity": 5, "listing_count": 4, "captured_at": "2026-04-06T02:50:00+00:00"},
+    ])
+
+    readiness = client.get("/scans/readiness")
+
+    client.app.dependency_overrides.pop(get_optional_user, None)
+
+    assert readiness.status_code == 200
+    readiness_realms = {row["realm"] for row in readiness.json()["realms"]}
+    assert readiness_realms == {"Area 52", "Stormrage"}
 
 
 def test_scan_filters_commodities_by_default(client) -> None:
