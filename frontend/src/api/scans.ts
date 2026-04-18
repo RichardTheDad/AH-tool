@@ -36,8 +36,17 @@ export function getScanReadiness() {
   }));
 }
 
-export function getScanStatus() {
-  return apiOptionalAuthRequest<ScanRuntimeStatus>("/scans/status");
+export function getScanStatus(filters?: { buyRealm?: string; sellRealm?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.buyRealm) {
+    params.set("buy_realm", filters.buyRealm);
+  }
+  if (filters?.sellRealm) {
+    params.set("sell_realm", filters.sellRealm);
+  }
+  const query = params.toString();
+  const path = query ? `/scans/status?${query}` : "/scans/status";
+  return apiOptionalAuthRequest<ScanRuntimeStatus>(path);
 }
 
 export function getScanCalibration() {

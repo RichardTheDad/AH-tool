@@ -99,6 +99,14 @@ class ScanRuntimeStatusRead(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
     next_scheduled_at: datetime | None = None
+    diagnostic_active_scope: str | None = None
+    diagnostic_buy_filter: str | None = None
+    diagnostic_sell_filter: str | None = None
+    diagnostic_tracked_realm_count: int = 0
+    diagnostic_latest_scan_id: int | None = None
+    diagnostic_latest_scan_result_count: int = 0
+    diagnostic_latest_buy_realm_count: int = 0
+    diagnostic_latest_sell_realm_count: int = 0
 
 
 class ScanResultFilterState(BaseModel):

@@ -126,6 +126,14 @@ export interface ScanRuntimeStatus {
   started_at?: string | null;
   finished_at?: string | null;
   next_scheduled_at?: string | null;
+  diagnostic_active_scope?: "tracked_realms" | "all_realms" | "mixed" | "custom_realms" | string | null;
+  diagnostic_buy_filter?: string | null;
+  diagnostic_sell_filter?: string | null;
+  diagnostic_tracked_realm_count?: number;
+  diagnostic_latest_scan_id?: number | null;
+  diagnostic_latest_scan_result_count?: number;
+  diagnostic_latest_buy_realm_count?: number;
+  diagnostic_latest_sell_realm_count?: number;
 }
 
 export interface SuggestedRealmItem {

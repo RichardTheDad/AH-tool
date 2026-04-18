@@ -360,6 +360,26 @@ def test_scan_readiness_cache_key_is_user_scoped(client, monkeypatch) -> None:
     assert captured_keys[0] == f"scans.readiness:{TEST_USER_ID}"
 
 
+def test_scan_status_exposes_diagnostic_scope_and_realm_counts(client) -> None:
+    seed_listing_data(client)
+    run_scan(
+        {"refresh_live": False, "include_losers": False},
+        user_id=SYSTEM_USER_ID,
+        realms=["Area 52", "Stormrage", "Zul'jin"],
+    )
+
+    response = client.get("/scans/status?buy_realm=__tracked_realms__&sell_realm=__tracked_realms__")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["diagnostic_active_scope"] == "tracked_realms"
+    assert payload["diagnostic_latest_scan_id"] is not None
+    assert payload["diagnostic_latest_scan_result_count"] >= 0
+    assert payload["diagnostic_latest_buy_realm_count"] >= 1
+    assert payload["diagnostic_latest_sell_realm_count"] >= 1
+    assert payload["diagnostic_tracked_realm_count"] >= 1
+
+
 def test_scan_filters_commodities_by_default(client) -> None:
     seed_listing_data(client)
 

@@ -139,6 +139,7 @@ export function Scanner() {
   const [restoreTarget, setRestoreTarget] = useState<{ itemId: number | null; index: number | null } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [copyDiagnosticsStatus, setCopyDiagnosticsStatus] = useState<"idle" | "copied" | "failed">("idle");
   const { filters, updateFilters, restoreFiltersFromStorage } = useScannerFilters();
   const [showFilters, setShowFilters] = useState(false);
   const hasActiveFilters = Boolean(
@@ -165,7 +166,12 @@ export function Scanner() {
   const calibrationQuery = useQuery({ queryKey: ["scans", "calibration"], queryFn: getScanCalibration, refetchInterval: 15000, staleTime: 5 * 60 * 1000 });
   const tuningAuditQuery = useQuery({ queryKey: ["settings", "tuning-audit"], queryFn: () => getTuningAudit(8), refetchInterval: 15000, staleTime: 5 * 60 * 1000, enabled: !isGuest });
   const readinessQuery = useQuery({ queryKey: ["scans", "readiness"], queryFn: getScanReadiness, refetchInterval: 120000, staleTime: 30_000 });
-  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: scanRefreshIntervalMs, staleTime: 30_000 });
+  const scanStatusQuery = useQuery({
+    queryKey: ["scans", "status", filters.buyRealm, filters.sellRealm],
+    queryFn: () => getScanStatus({ buyRealm: filters.buyRealm, sellRealm: filters.sellRealm }),
+    refetchInterval: scanRefreshIntervalMs,
+    staleTime: 30_000,
+  });
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: getProviderStatus });
   const presetsQuery = useQuery({ queryKey: ["presets"], queryFn: getPresets, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
   const defaultPresetQuery = useQuery({ queryKey: ["presets", "default"], queryFn: getDefaultPreset, staleTime: 10 * 60 * 1000, gcTime: 30 * 60 * 1000, enabled: !isGuest });
@@ -541,6 +547,56 @@ export function Scanner() {
     return null;
   })();
 
+  async function handleCopyDiagnostics() {
+    const payload = {
+      status: "scanner-filter-diagnostics",
+      timestamp: new Date().toISOString(),
+      activeScope: scanStatus.diagnostic_active_scope ?? "unknown",
+      buyFilter: filters.buyRealm,
+      sellFilter: filters.sellRealm,
+      trackedRealmCount: scanStatus.diagnostic_tracked_realm_count ?? trackedRealmFilterOptions.length,
+      latestScanId: scanStatus.diagnostic_latest_scan_id ?? null,
+      latestScanResultCount: scanStatus.diagnostic_latest_scan_result_count ?? asArray(persistedScan?.results).length,
+      latestBuyRealmCount: scanStatus.diagnostic_latest_buy_realm_count ?? 0,
+      latestSellRealmCount: scanStatus.diagnostic_latest_sell_realm_count ?? 0,
+      focusedModeActive,
+      focusedExcludedCount,
+      filteredResultCount: results.length,
+      totalResultCount: asArray(persistedScan?.results).length,
+      readinessStatus: readiness.status,
+      readinessMessage: readiness.message,
+    };
+
+    const text = JSON.stringify(payload, null, 2);
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else if (typeof document !== "undefined") {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "true");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (!ok) {
+          throw new Error("copy command failed");
+        }
+      } else {
+        throw new Error("clipboard unavailable");
+      }
+
+      setCopyDiagnosticsStatus("copied");
+    } catch {
+      setCopyDiagnosticsStatus("failed");
+    }
+
+    window.setTimeout(() => setCopyDiagnosticsStatus("idle"), 2000);
+  }
+
   useEffect(() => {
     if (!restoreTarget || useVirtualizedResults) {
       return;
@@ -619,6 +675,20 @@ export function Scanner() {
             No opportunities match the current realm scope. Reset buy/sell realms to tracked defaults or choose all realms.
             <div className="mt-1 text-xs text-rose-100/80">
               Active buy filter: {filters.buyRealm}. Active sell filter: {filters.sellRealm}. Tracked realm count: {trackedRealmFilterOptions.length}.
+            </div>
+            <div className="mt-1 text-xs text-rose-100/80">
+              Diagnostic scope: {scanStatus.diagnostic_active_scope ?? "unknown"}. Latest scan id: {scanStatus.diagnostic_latest_scan_id ?? "none"}. Realm counts (buy/sell/tracked): {scanStatus.diagnostic_latest_buy_realm_count ?? 0}/{scanStatus.diagnostic_latest_sell_realm_count ?? 0}/{scanStatus.diagnostic_tracked_realm_count ?? 0}.
+            </div>
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void handleCopyDiagnostics()}
+                className="rounded-full border border-rose-200/30 bg-rose-200/10 px-3 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-200/20"
+              >
+                Copy diagnostics
+              </button>
+              {copyDiagnosticsStatus === "copied" ? <span className="text-xs text-emerald-200">Copied</span> : null}
+              {copyDiagnosticsStatus === "failed" ? <span className="text-xs text-rose-100/90">Copy failed</span> : null}
             </div>
           </div>
         )}

@@ -135,22 +135,62 @@ def scan_readiness(request: Request, db: Session = Depends(get_db), current_user
 
 @router.get("/scans/status", response_model=ScanRuntimeStatusRead)
 @limiter.limit("30/minute")
-def scan_status(request: Request, current_user: str | None = Depends(get_optional_user)) -> ScanRuntimeStatusRead:
+def scan_status(
+    request: Request,
+    buy_realm: str | None = Query(default=None),
+    sell_realm: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: str | None = Depends(get_optional_user),
+) -> ScanRuntimeStatusRead:
     del request
-    del current_user
+
+    def _derive_active_scope(buy_filter: str | None, sell_filter: str | None) -> str:
+        tracked_key = "__tracked_realms__"
+        all_key = "__all_realms__"
+        buy = (buy_filter or tracked_key).strip()
+        sell = (sell_filter or tracked_key).strip()
+        if buy == all_key and sell == all_key:
+            return "all_realms"
+        if buy == tracked_key and sell == tracked_key:
+            return "tracked_realms"
+        if buy in {tracked_key, all_key} or sell in {tracked_key, all_key}:
+            return "mixed"
+        return "custom_realms"
 
     def _load() -> ScanRuntimeStatusRead:
         runtime_state = get_scan_runtime_state().__dict__
         scheduler_status = scheduler_manager.status()
         refresh_cycle = scheduler_status.get("refresh_cycle") if isinstance(scheduler_status, dict) else None
         next_scheduled_at = refresh_cycle.get("next_run_time") if isinstance(refresh_cycle, dict) else None
+
+        latest_scan = get_latest_scan(db, SYSTEM_USER_ID, limit=1)
+        latest_results = latest_scan.results if latest_scan else []
+        buy_realms = {result.cheapest_buy_realm for result in latest_results if result.cheapest_buy_realm}
+        sell_realms = {result.best_sell_realm for result in latest_results if result.best_sell_realm}
+
+        tracked_realms = (
+            get_enabled_realm_names(db, current_user)
+            if current_user
+            else get_all_enabled_realm_names(db)
+        )
+
         payload = {
             **runtime_state,
             "next_scheduled_at": next_scheduled_at,
+            "diagnostic_active_scope": _derive_active_scope(buy_realm, sell_realm),
+            "diagnostic_buy_filter": buy_realm,
+            "diagnostic_sell_filter": sell_realm,
+            "diagnostic_tracked_realm_count": len(tracked_realms),
+            "diagnostic_latest_scan_id": latest_scan.id if latest_scan else None,
+            "diagnostic_latest_scan_result_count": latest_scan.result_count if latest_scan else 0,
+            "diagnostic_latest_buy_realm_count": len(buy_realms),
+            "diagnostic_latest_sell_realm_count": len(sell_realms),
         }
         return ScanRuntimeStatusRead.model_validate(payload)
 
-    return _read_through_cache("scans.status", 10.0, _load)
+    identity = current_user or "guest"
+    cache_key = f"scans.status:{identity}:{buy_realm or '__tracked_realms__'}:{sell_realm or '__tracked_realms__'}"
+    return _read_through_cache(cache_key, 10.0, _load)
 
 
 @router.get("/scans/{scan_id}", response_model=ScanSessionRead)
