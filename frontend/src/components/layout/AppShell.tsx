@@ -63,9 +63,6 @@ export function AppShell({ children }: PropsWithChildren) {
                   <img src="/kofi-logo.svg" alt="Ko-fi" className="h-4 w-4" />
                   Support on Ko-fi
                 </Link>
-                <Button variant="secondary" size="sm" onClick={() => navigate("/app/account")}>
-                  Account
-                </Button>
                 <Button
                   variant="secondary"
                   size="sm"

@@ -78,6 +78,24 @@ function applyPresetToFilterState(preset: ScanPreset) {
   };
 }
 
+function deriveActiveScope(buyFilter: string, sellFilter: string) {
+  if (buyFilter === ALL_REALMS_FILTER_VALUE && sellFilter === ALL_REALMS_FILTER_VALUE) {
+    return "all_realms";
+  }
+  if (buyFilter === TRACKED_REALMS_FILTER_VALUE && sellFilter === TRACKED_REALMS_FILTER_VALUE) {
+    return "tracked_realms";
+  }
+  if (
+    buyFilter === ALL_REALMS_FILTER_VALUE ||
+    buyFilter === TRACKED_REALMS_FILTER_VALUE ||
+    sellFilter === ALL_REALMS_FILTER_VALUE ||
+    sellFilter === TRACKED_REALMS_FILTER_VALUE
+  ) {
+    return "mixed";
+  }
+  return "custom_realms";
+}
+
 function matchesPreset(filters: ReturnType<typeof applyPresetToFilterState> & { sortBy?: string }, preset: ScanPreset) {
   const presetFilters = applyPresetToFilterState(preset);
   return (
@@ -333,6 +351,7 @@ export function Scanner() {
   const focusedExcludedCount = Math.max(0, asArray(persistedScan?.results).length - results.length);
   const hasAnyResults = asArray(persistedScan?.results).length > 0;
   const hasFocusedEmptyState = hasAnyResults && results.length === 0 && focusedModeActive;
+  const diagnosticActiveScope = scanStatus.diagnostic_active_scope ?? deriveActiveScope(filters.buyRealm, filters.sellRealm);
 
   useEffect(() => {
     const validRealmKeys = new Set(realmOptions.map((realm) => realm.toLowerCase()));
@@ -551,20 +570,28 @@ export function Scanner() {
     const payload = {
       status: "scanner-filter-diagnostics",
       timestamp: new Date().toISOString(),
-      activeScope: scanStatus.diagnostic_active_scope ?? "unknown",
+      activeScope: diagnosticActiveScope,
       buyFilter: filters.buyRealm,
       sellFilter: filters.sellRealm,
       trackedRealmCount: scanStatus.diagnostic_tracked_realm_count ?? trackedRealmFilterOptions.length,
       latestScanId: scanStatus.diagnostic_latest_scan_id ?? null,
-      latestScanResultCount: scanStatus.diagnostic_latest_scan_result_count ?? asArray(persistedScan?.results).length,
+      latestScanResultCount: scanStatus.diagnostic_latest_scan_result_count ?? 0,
       latestBuyRealmCount: scanStatus.diagnostic_latest_buy_realm_count ?? 0,
       latestSellRealmCount: scanStatus.diagnostic_latest_sell_realm_count ?? 0,
+      displayedScanId: persistedScan?.id ?? null,
+      displayedResultCount: asArray(persistedScan?.results).length,
       focusedModeActive,
       focusedExcludedCount,
       filteredResultCount: results.length,
       totalResultCount: asArray(persistedScan?.results).length,
       readinessStatus: readiness.status,
       readinessMessage: readiness.message,
+      statusQueryHasData: Boolean(scanStatusQuery.data),
+      statusQueryLoading: scanStatusQuery.isLoading,
+      statusQueryError: Boolean(scanStatusQuery.error),
+      readinessQueryHasData: Boolean(readinessQuery.data),
+      readinessQueryLoading: readinessQuery.isLoading,
+      readinessQueryError: Boolean(readinessQuery.error),
     };
 
     const text = JSON.stringify(payload, null, 2);
@@ -677,7 +704,7 @@ export function Scanner() {
               Active buy filter: {filters.buyRealm}. Active sell filter: {filters.sellRealm}. Tracked realm count: {trackedRealmFilterOptions.length}.
             </div>
             <div className="mt-1 text-xs text-rose-100/80">
-              Diagnostic scope: {scanStatus.diagnostic_active_scope ?? "unknown"}. Latest scan id: {scanStatus.diagnostic_latest_scan_id ?? "none"}. Realm counts (buy/sell/tracked): {scanStatus.diagnostic_latest_buy_realm_count ?? 0}/{scanStatus.diagnostic_latest_sell_realm_count ?? 0}/{scanStatus.diagnostic_tracked_realm_count ?? 0}.
+              Diagnostic scope: {diagnosticActiveScope}. Latest scan id: {scanStatus.diagnostic_latest_scan_id ?? "none"}. Realm counts (buy/sell/tracked): {scanStatus.diagnostic_latest_buy_realm_count ?? 0}/{scanStatus.diagnostic_latest_sell_realm_count ?? 0}/{scanStatus.diagnostic_tracked_realm_count ?? 0}.
             </div>
             <div className="mt-2 flex items-center gap-3">
               <button
