@@ -114,20 +114,44 @@ def scan_calibration(request: Request, db: Session = Depends(get_db), current_us
 def scan_readiness(request: Request, db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ScanReadinessRead:
     del request
     def _load() -> ScanReadinessRead:
-        if current_user:
-            realms = get_enabled_realm_names(db, current_user)
-            readiness_user_id = current_user
-        else:
-            # Public scanner views consume scheduler/system scans; querying all users' tracked realms
-            # can become expensive at scale and block readiness telemetry.
-            realms = get_enabled_realm_names(db, SYSTEM_USER_ID)
-            readiness_user_id = SYSTEM_USER_ID
+        _degraded = ScanReadinessRead(
+            status="caution",
+            ready_for_scan=True,
+            message="Readiness detail is temporarily unavailable, but the latest scheduled scan data is available.",
+            enabled_realm_count=0,
+            realms_with_data=0,
+            realms_with_fresh_data=0,
+            unique_item_count=0,
+            items_missing_metadata=0,
+            stale_realm_count=0,
+            missing_realms=[],
+            stale_realms=[],
+            oldest_snapshot_at=None,
+            latest_snapshot_at=None,
+            realms=[],
+        )
+        try:
+            if current_user:
+                realms = get_enabled_realm_names(db, current_user)
+                readiness_user_id = current_user
+            else:
+                # Public scanner views consume scheduler/system scans; querying all users' tracked realms
+                # can become expensive at scale and block readiness telemetry.
+                realms = get_enabled_realm_names(db, SYSTEM_USER_ID)
+                readiness_user_id = SYSTEM_USER_ID
+        except Exception:
+            logger.warning("get_enabled_realm_names failed in scan_readiness; returning degraded state.")
+            return _degraded
 
         readiness = get_scan_readiness(db, readiness_user_id, realms=realms)
         if readiness.message != "Unable to assess scan readiness. Please try again in a moment.":
             return readiness
 
-        latest_scan_summary = get_scan_history(db, SYSTEM_USER_ID, limit=1)
+        try:
+            latest_scan_summary = get_scan_history(db, SYSTEM_USER_ID, limit=1)
+        except Exception:
+            logger.warning("get_scan_history failed in scan_readiness fallback.")
+            return _degraded
         if latest_scan_summary:
             latest = latest_scan_summary[0]
             return ScanReadinessRead(
