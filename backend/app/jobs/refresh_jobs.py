@@ -62,16 +62,14 @@ def _run_system_scan(realms: list[str]) -> None:
 
     scan_session = get_session_factory()()
     try:
-        buy_realms = realms[:1] if realms else None
-        sell_realms = realms[1:2] if len(realms) > 1 else None
         result = run_user_scan(
             scan_session,
             SYSTEM_USER_ID,
             ScanRunRequest(
                 refresh_live=False,
                 include_losers=False,
-                buy_realms=buy_realms,
-                sell_realms=sell_realms,
+                buy_realms=None,
+                sell_realms=None,
             ),
             realms=realms,
         )

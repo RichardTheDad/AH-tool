@@ -139,6 +139,80 @@ def create_db_and_tables() -> None:
 
     # --- SQLite-specific post-creation migrations ---
     with engine.begin() as connection:
+        def _sqlite_columns(table_name: str) -> set[str]:
+            return {
+                row[1]
+                for row in connection.execute(text(f"PRAGMA table_info('{table_name}')")).fetchall()
+            }
+
+        # Legacy local DBs (single-user schema) can be missing user_id columns.
+        # Add and backfill them in place so scheduler/scanner queries do not fail.
+        legacy_user_scoped_tables = [
+            "tracked_realms",
+            "scan_presets",
+            "scan_sessions",
+            "app_settings",
+            "tuning_action_audit",
+            "score_calibration_events",
+            "realm_suggestion_runs",
+        ]
+        for table_name in legacy_user_scoped_tables:
+            if "user_id" in _sqlite_columns(table_name):
+                continue
+            default_user_id = SYSTEM_USER_ID.replace("'", "''")
+            connection.execute(
+                text(
+                    f"ALTER TABLE {table_name} ADD COLUMN user_id VARCHAR(64) DEFAULT '{default_user_id}'"
+                )
+            )
+            connection.execute(
+                text(f"UPDATE {table_name} SET user_id = :user_id WHERE user_id IS NULL OR trim(user_id) = ''"),
+                {"user_id": SYSTEM_USER_ID},
+            )
+
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_tracked_realms_user_id "
+                "ON tracked_realms(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_scan_presets_user_id "
+                "ON scan_presets(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_scan_sessions_user_id "
+                "ON scan_sessions(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_app_settings_user_id "
+                "ON app_settings(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_tuning_action_audit_user_id "
+                "ON tuning_action_audit(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_score_calibration_events_user_id "
+                "ON score_calibration_events(user_id)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_realm_suggestion_runs_user_id "
+                "ON realm_suggestion_runs(user_id)"
+            )
+        )
+
         connection.execute(
             text(
                 """
@@ -188,18 +262,9 @@ def create_db_and_tables() -> None:
                 "ON listing_snapshots(item_id, realm, source_name, captured_at)"
             )
         )
-        existing_scan_result_columns = {
-            row[1]
-            for row in connection.execute(text("PRAGMA table_info('scan_results')")).fetchall()
-        }
-        existing_scan_preset_columns = {
-            row[1]
-            for row in connection.execute(text("PRAGMA table_info('scan_presets')")).fetchall()
-        }
-        existing_realm_suggestion_run_columns = {
-            row[1]
-            for row in connection.execute(text("PRAGMA table_info('realm_suggestion_runs')")).fetchall()
-        }
+        existing_scan_result_columns = _sqlite_columns("scan_results")
+        existing_scan_preset_columns = _sqlite_columns("scan_presets")
+        existing_realm_suggestion_run_columns = _sqlite_columns("realm_suggestion_runs")
         if "sellability_score" not in existing_scan_result_columns:
             connection.execute(text("ALTER TABLE scan_results ADD COLUMN sellability_score FLOAT DEFAULT 0"))
         if "turnover_label" not in existing_scan_result_columns:
@@ -226,10 +291,7 @@ def create_db_and_tables() -> None:
                 )
             )
 
-        existing_calibration_columns = {
-            row[1]
-            for row in connection.execute(text("PRAGMA table_info('score_calibration_events')")).fetchall()
-        }
+        existing_calibration_columns = _sqlite_columns("score_calibration_events")
         if existing_calibration_columns and "horizon_outcomes_json" not in existing_calibration_columns:
             connection.execute(text("ALTER TABLE score_calibration_events ADD COLUMN horizon_outcomes_json JSON"))
         if "source_realms_json" not in existing_realm_suggestion_run_columns:
@@ -267,10 +329,7 @@ def create_db_and_tables() -> None:
                 "ON realm_suggestion_runs(target_set_key)"
             )
         )
-        existing_realm_suggestion_recommendation_columns = {
-            row[1]
-            for row in connection.execute(text("PRAGMA table_info('realm_suggestion_recommendations')")).fetchall()
-        }
+        existing_realm_suggestion_recommendation_columns = _sqlite_columns("realm_suggestion_recommendations")
         if "median_buy_price" not in existing_realm_suggestion_recommendation_columns:
             connection.execute(text("ALTER TABLE realm_suggestion_recommendations ADD COLUMN median_buy_price FLOAT"))
         if "best_target_realm" not in existing_realm_suggestion_recommendation_columns:
