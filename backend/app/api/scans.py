@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import get_current_user, get_optional_user
 from app.core.config import SYSTEM_USER_ID, get_settings
-from app.db.models import ScanResult
+from app.db.models import ScanResult, ScanSession
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.schemas.scan import (
@@ -20,7 +20,7 @@ from app.schemas.scan import (
     ScanRuntimeStatusRead,
     ScanSessionRead,
 )
-from app.services.realm_service import get_all_enabled_realm_names, get_enabled_realm_names
+from app.services.realm_service import get_enabled_realm_names
 from app.services.calibration_service import get_calibration_summary
 from app.jobs.scheduler import manager as scheduler_manager
 from app.services.scan_runtime_service import get_scan_runtime_state
@@ -102,7 +102,9 @@ def scan_readiness(request: Request, db: Session = Depends(get_db), current_user
             realms = get_enabled_realm_names(db, current_user)
             readiness_user_id = current_user
         else:
-            realms = get_all_enabled_realm_names(db)
+            # Public scanner views consume scheduler/system scans; querying all users' tracked realms
+            # can become expensive at scale and block readiness telemetry.
+            realms = get_enabled_realm_names(db, SYSTEM_USER_ID)
             readiness_user_id = SYSTEM_USER_ID
 
         readiness = get_scan_readiness(db, readiness_user_id, realms=realms)
@@ -165,9 +167,19 @@ def scan_status(
         refresh_cycle = scheduler_status.get("refresh_cycle") if isinstance(scheduler_status, dict) else None
         next_scheduled_at = refresh_cycle.get("next_run_time") if isinstance(refresh_cycle, dict) else None
 
-        latest_summary = next(iter(get_scan_history(db, SYSTEM_USER_ID, limit=1)), None)
-        latest_scan_id = latest_summary.id if latest_summary else None
-        latest_scan_result_count = int(latest_summary.result_count or 0) if latest_summary else 0
+        latest_row = (
+            db.query(ScanSession.id)
+            .filter(ScanSession.user_id == SYSTEM_USER_ID)
+            .order_by(ScanSession.generated_at.desc())
+            .first()
+        )
+        latest_scan_id = int(latest_row.id) if latest_row else None
+        latest_scan_result_count = int(
+            db.query(func.count(ScanResult.id))
+            .filter(ScanResult.scan_session_id == latest_scan_id)
+            .scalar()
+            or 0
+        ) if latest_scan_id is not None else 0
 
         if latest_scan_id is not None:
             latest_buy_realm_count = int(
@@ -189,8 +201,11 @@ def scan_status(
         tracked_realms = (
             get_enabled_realm_names(db, current_user)
             if current_user
-            else get_all_enabled_realm_names(db)
+            else get_enabled_realm_names(db, SYSTEM_USER_ID)
         )
+        tracked_realm_count = len(tracked_realms)
+        if tracked_realm_count == 0 and not current_user:
+            tracked_realm_count = max(latest_buy_realm_count, latest_sell_realm_count)
 
         payload = {
             **runtime_state,
@@ -198,7 +213,7 @@ def scan_status(
             "diagnostic_active_scope": _derive_active_scope(buy_realm, sell_realm),
             "diagnostic_buy_filter": buy_realm,
             "diagnostic_sell_filter": sell_realm,
-            "diagnostic_tracked_realm_count": len(tracked_realms),
+            "diagnostic_tracked_realm_count": tracked_realm_count,
             "diagnostic_latest_scan_id": latest_scan_id,
             "diagnostic_latest_scan_result_count": latest_scan_result_count,
             "diagnostic_latest_buy_realm_count": latest_buy_realm_count,
