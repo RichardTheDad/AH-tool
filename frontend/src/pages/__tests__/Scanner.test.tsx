@@ -119,6 +119,9 @@ describe("Scanner page", () => {
       generated_at: new Date().toISOString(),
       result_count: 0,
       results: [],
+      available_item_classes: [],
+      available_realms: [],
+      available_category_pairs: [],
     });
     vi.mocked(getScanCalibration).mockResolvedValue({
       total_evaluated: 0,
@@ -187,6 +190,9 @@ describe("Scanner page", () => {
             has_missing_metadata: false,
           },
         ],
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
       },
     });
 
@@ -250,6 +256,9 @@ describe("Scanner page", () => {
             has_missing_metadata: false,
           },
         ],
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
       },
     });
     vi.mocked(getPresets).mockResolvedValue([
@@ -311,6 +320,9 @@ describe("Scanner page", () => {
             has_missing_metadata: false,
           },
         ],
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
       },
     });
     vi.mocked(getPresets).mockResolvedValue([
@@ -422,6 +434,9 @@ describe("Scanner page", () => {
             has_missing_metadata: false,
           },
         ],
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
       },
     });
 
@@ -494,6 +509,9 @@ describe("Scanner page", () => {
             has_missing_metadata: false,
           },
         ],
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
       },
     });
 

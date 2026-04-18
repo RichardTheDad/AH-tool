@@ -77,6 +77,9 @@ describe("Scanner realm filter restore hardening", () => {
       generated_at: new Date().toISOString(),
       result_count: 0,
       results: [],
+      available_item_classes: [],
+      available_realms: [],
+      available_category_pairs: [],
     });
     vi.mocked(getScanCalibration).mockResolvedValue({
       total_evaluated: 0,
@@ -173,6 +176,9 @@ describe("Scanner realm filter restore hardening", () => {
             has_missing_metadata: false,
           },
         ],
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
       },
     });
   });
