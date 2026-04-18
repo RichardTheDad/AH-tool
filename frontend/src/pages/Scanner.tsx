@@ -130,6 +130,10 @@ function uniqueSortedRealms(values: string[]) {
   return Array.from(byKey.values()).sort((left, right) => left.localeCompare(right));
 }
 
+function normalizeRealmLookupKey(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
 function normalizeSession(session: ScanSession | null | undefined): ScanSession | null {
   if (!session) {
     return null;
@@ -328,7 +332,30 @@ export function Scanner() {
     ...scanResultRealmOptions,
   ]);
   const trackedRealmFilterOptions = enabledTrackedRealmOptions;
-  const results = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: trackedRealmFilterOptions });
+  const strictFilteredResults = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: trackedRealmFilterOptions });
+  const trackedRealmLookup = new Set(trackedRealmFilterOptions.map((realm) => normalizeRealmLookupKey(realm)).filter(Boolean));
+  const latestBuyRealms = uniqueSortedRealms(asArray(persistedScan?.results).map((result) => result.cheapest_buy_realm));
+  const latestSellRealms = uniqueSortedRealms(asArray(persistedScan?.results).map((result) => result.best_sell_realm));
+  const trackedBuyOverlapCount = latestBuyRealms.filter((realm) => trackedRealmLookup.has(normalizeRealmLookupKey(realm))).length;
+  const trackedSellOverlapCount = latestSellRealms.filter((realm) => trackedRealmLookup.has(normalizeRealmLookupKey(realm))).length;
+  const mixedTrackedScopeActive =
+    (filters.buyRealm === TRACKED_REALMS_FILTER_VALUE && filters.sellRealm === ALL_REALMS_FILTER_VALUE) ||
+    (filters.buyRealm === ALL_REALMS_FILTER_VALUE && filters.sellRealm === TRACKED_REALMS_FILTER_VALUE);
+  const noTrackedOverlapWithLatestScan =
+    trackedRealmLookup.size > 0 &&
+    trackedBuyOverlapCount === 0 &&
+    trackedSellOverlapCount === 0;
+  const relaxedRealmFilters = {
+    ...filters,
+    buyRealm: filters.buyRealm === TRACKED_REALMS_FILTER_VALUE ? ALL_REALMS_FILTER_VALUE : filters.buyRealm,
+    sellRealm: filters.sellRealm === TRACKED_REALMS_FILTER_VALUE ? ALL_REALMS_FILTER_VALUE : filters.sellRealm,
+  };
+  const relaxedRealmResults = filterScanResults(asArray(persistedScan?.results), relaxedRealmFilters, { trackedRealms: trackedRealmFilterOptions });
+  const broadRealmFallbackActive =
+    strictFilteredResults.length === 0 &&
+    mixedTrackedScopeActive &&
+    noTrackedOverlapWithLatestScan;
+  const results = broadRealmFallbackActive ? relaxedRealmResults : strictFilteredResults;
   const useVirtualizedResults = results.length > 300 && !isMobileViewport;
   const categoryOptions = Array.from(
     new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
@@ -595,9 +622,14 @@ export function Scanner() {
       statusDiagnosticsPending,
       readinessDiagnosticsPending,
       focusedModeActive,
+      broadRealmFallbackActive,
       focusedExcludedCount,
       filteredResultCount: results.length,
       totalResultCount: asArray(persistedScan?.results).length,
+      trackedBuyOverlapCount,
+      trackedSellOverlapCount,
+      latestBuyRealms: latestBuyRealms.slice(0, 8),
+      latestSellRealms: latestSellRealms.slice(0, 8),
       readinessStatus: readiness.status,
       readinessMessage: readiness.message,
       statusQueryHasData: Boolean(scanStatusQuery.data),
@@ -714,6 +746,11 @@ export function Scanner() {
         {focusedModeActive && (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             Focused mode is on. Showing {results.length} of {asArray(persistedScan?.results).length} opportunities; {focusedExcludedCount} hidden because they fall outside your selected buy/sell realms.
+            {broadRealmFallbackActive ? (
+              <div className="mt-1 text-xs text-amber-100/90">
+                Tracked realms do not overlap the current scan realm universe, so scanner temporarily broadened realm scope to avoid an empty state.
+              </div>
+            ) : null}
           </div>
         )}
 
