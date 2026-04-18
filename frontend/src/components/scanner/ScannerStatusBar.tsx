@@ -4,6 +4,7 @@ import type { ScanReadiness, ScanRuntimeStatus, ScanSession } from "../../types/
 
 interface ScannerStatusBarProps {
   readiness: ScanReadiness;
+  readinessLoaded: boolean;
   scanStatus: ScanRuntimeStatus;
   latestScan: ScanSession | null;
   showingPersistedResults: boolean;
@@ -28,6 +29,7 @@ function visibleScannerWarning(value: string | null | undefined) {
 
 export function ScannerStatusBar({
   readiness,
+  readinessLoaded,
   scanStatus,
   latestScan,
   showingPersistedResults,
@@ -63,13 +65,15 @@ export function ScannerStatusBar({
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
-          <Badge tone="neutral">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms</Badge>
-          {readiness.realms_with_fresh_data > 0 && (
-            <Badge tone="success">{readiness.realms_with_fresh_data} fresh</Badge>
-          )}
-          <Badge tone="neutral">{readiness.unique_item_count} items</Badge>
-        </div>
+        {readinessLoaded && (
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+            <Badge tone="neutral">{readiness.realms_with_data}/{readiness.enabled_realm_count} realms</Badge>
+            {readiness.realms_with_fresh_data > 0 && (
+              <Badge tone="success">{readiness.realms_with_fresh_data} fresh</Badge>
+            )}
+            <Badge tone="neutral">{readiness.unique_item_count} items</Badge>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-3 flex-wrap text-xs text-zinc-400">

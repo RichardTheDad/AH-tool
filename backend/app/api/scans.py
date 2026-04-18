@@ -1,3 +1,4 @@
+import logging
 from threading import Lock
 from time import monotonic
 from typing import Callable, TypeVar
@@ -28,6 +29,7 @@ from app.services.scan_service import get_latest_scan, get_scan_history, get_sca
 
 
 router = APIRouter(tags=["scans"])
+logger = logging.getLogger(__name__)
 
 _T = TypeVar("_T")
 _CACHE_LOCK = Lock()
@@ -248,7 +250,11 @@ def get_scan(
     current_user: str | None = Depends(get_optional_user),
 ) -> ScanSessionRead:
     del current_user
-    scan = get_scan_session(db, scan_id, SYSTEM_USER_ID, limit=limit)
+    try:
+        scan = get_scan_session(db, scan_id, SYSTEM_USER_ID, limit=limit)
+    except Exception as exc:
+        logger.error("Scan session query failed for scan_id=%s: %s", scan_id, exc)
+        raise HTTPException(status_code=503, detail="Scan data temporarily unavailable.")
     if scan is None:
         raise HTTPException(status_code=404, detail="Scan not found.")
     return scan

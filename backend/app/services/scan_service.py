@@ -732,7 +732,7 @@ def get_scan_session(
     # client-side numeric/category filters operate on the full realm-relevant set
     # rather than just the global top-N by score.
     if has_realm_filter:
-        effective_limit = min(limit or 2000, 2000)
+        effective_limit = 2000
     else:
         effective_limit = 200 if limit is None else max(1, min(limit, 2000))
 

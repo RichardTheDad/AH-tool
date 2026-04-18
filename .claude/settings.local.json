@@ -11,7 +11,15 @@
       "Bash(npx @anthropic-ai/claude-code plugin install caveman@caveman)",
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "Bash(node \"/c/Users/Richard/.claude/plugins/cache/caveman/caveman/84cc3c14fa1e/hooks/caveman-activate.js\")"
+      "Bash(node \"/c/Users/Richard/.claude/plugins/cache/caveman/caveman/84cc3c14fa1e/hooks/caveman-activate.js\")",
+      "Bash(ls backend/logs/)",
+      "Bash(ls backend/*.log)",
+      "Bash(ls *.log)",
+      "Bash(curl -s http://localhost:8000/scans/readiness)",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s http://localhost:5000/scans/readiness)",
+      "Bash(curl -s http://localhost:3000/api/scans/readiness)",
+      "Bash(curl -s http://localhost:8080/scans/readiness)"
     ]
   }
 }

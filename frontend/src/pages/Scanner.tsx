@@ -760,8 +760,9 @@ export function Scanner() {
         </div>
 
       <div className="space-y-4">
-        <ScannerStatusBar 
+        <ScannerStatusBar
           readiness={readiness}
+          readinessLoaded={readinessLoaded}
           scanStatus={scanStatus}
           latestScan={persistedScan}
           showingPersistedResults={showingPersistedResults}
