@@ -91,6 +91,18 @@ describe("filterScanResults", () => {
     expect(filtered.map((row) => row.id)).toEqual([1]);
   });
 
+  it("falls back to tracked opportunities when strict tracked buy+sell scope would be empty", () => {
+    const rows = [
+      result({ id: 1, item_name: "Tracked Buy", cheapest_buy_realm: "Stormrage", best_sell_realm: "Illidan" }),
+      result({ id: 2, item_name: "Tracked Sell", cheapest_buy_realm: "Tichondrius", best_sell_realm: "Area 52" }),
+      result({ id: 3, item_name: "Untracked Route", cheapest_buy_realm: "Illidan", best_sell_realm: "Tichondrius" }),
+    ];
+
+    const filtered = filterScanResults(rows, baseFilters, { trackedRealms: ["Stormrage", "Area 52"] });
+
+    expect(filtered.map((row) => row.id).sort()).toEqual([1, 2]);
+  });
+
   it("matches individual realms despite casing and extra spaces", () => {
     const rows = [
       result({ id: 1, cheapest_buy_realm: "Area 52", best_sell_realm: "Zul'jin" }),

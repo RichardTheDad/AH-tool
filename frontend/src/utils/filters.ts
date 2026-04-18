@@ -63,9 +63,29 @@ function matchesFilters(result: ScanResult, filters: ScannerFilters, trackedReal
   return true;
 }
 
+function matchesTrackedEitherSide(result: ScanResult, trackedRealms: Set<string>) {
+  if (trackedRealms.size === 0) {
+    return true;
+  }
+  const buyRealm = normalizeRealmKey(result.cheapest_buy_realm);
+  const sellRealm = normalizeRealmKey(result.best_sell_realm);
+  return trackedRealms.has(buyRealm) || trackedRealms.has(sellRealm);
+}
+
 export function filterScanResults(results: ScanResult[], filters: ScannerFilters, options?: { trackedRealms?: string[] }) {
   const trackedRealms = new Set((options?.trackedRealms ?? []).map((realm) => normalizeRealmKey(realm)).filter(Boolean));
-  return results.filter((result) => matchesFilters(result, filters, trackedRealms)).sort((a, b) => {
+  const filtered = results.filter((result) => matchesFilters(result, filters, trackedRealms));
+
+  const shouldFallbackToEitherTrackedSide =
+    filtered.length === 0 &&
+    filters.buyRealm === TRACKED_REALMS_FILTER_VALUE &&
+    filters.sellRealm === TRACKED_REALMS_FILTER_VALUE;
+
+  const effectiveResults = shouldFallbackToEitherTrackedSide
+    ? results.filter((result) => matchesTrackedEitherSide(result, trackedRealms))
+    : filtered;
+
+  return effectiveResults.sort((a, b) => {
     const difference = toSortValue(b, filters.sortBy) - toSortValue(a, filters.sortBy);
     if (difference !== 0) {
       return filters.sortDirection === "asc" ? -difference : difference;
