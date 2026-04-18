@@ -1,6 +1,7 @@
 import { supabase } from "../lib/supabase";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_TIMEOUT_MS = 15000;
 let redirectingToLogin = false;
 type AuthMode = "required" | "optional";
 
@@ -51,14 +52,43 @@ async function handleUnauthorized(response: Response, hasSession: boolean): Prom
 
 async function requestJson<T>(path: string, init: RequestInit | undefined, authMode: AuthMode): Promise<T> {
   const { headers: authHeaders, hasSession } = await getAuthHeaders(authMode);
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders,
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
+  const timeoutController = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    timeoutController.abort();
+  }, API_TIMEOUT_MS);
+
+  const upstreamSignal = init?.signal;
+  const abortUpstream = () => timeoutController.abort();
+  if (upstreamSignal) {
+    if (upstreamSignal.aborted) {
+      timeoutController.abort();
+    } else {
+      upstreamSignal.addEventListener("abort", abortUpstream, { once: true });
+    }
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+        ...(init?.headers ?? {}),
+      },
+      ...init,
+      signal: timeoutController.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`Request timed out after ${API_TIMEOUT_MS / 1000}s for ${path}`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+    if (upstreamSignal) {
+      upstreamSignal.removeEventListener("abort", abortUpstream);
+    }
+  }
 
   if (!response.ok) {
     await handleUnauthorized(response, hasSession);

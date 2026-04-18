@@ -76,10 +76,17 @@ export function filterScanResults(results: ScanResult[], filters: ScannerFilters
   const trackedRealms = new Set((options?.trackedRealms ?? []).map((realm) => normalizeRealmKey(realm)).filter(Boolean));
   const filtered = results.filter((result) => matchesFilters(result, filters, trackedRealms));
 
-  const shouldFallbackToEitherTrackedSide =
+  const strictTrackedBothSides =
     filtered.length === 0 &&
     filters.buyRealm === TRACKED_REALMS_FILTER_VALUE &&
     filters.sellRealm === TRACKED_REALMS_FILTER_VALUE;
+
+  const mixedTrackedAndAllRealms =
+    filtered.length === 0 &&
+    ((filters.buyRealm === TRACKED_REALMS_FILTER_VALUE && filters.sellRealm === ALL_REALMS_FILTER_VALUE) ||
+      (filters.buyRealm === ALL_REALMS_FILTER_VALUE && filters.sellRealm === TRACKED_REALMS_FILTER_VALUE));
+
+  const shouldFallbackToEitherTrackedSide = strictTrackedBothSides || mixedTrackedAndAllRealms;
 
   const effectiveResults = shouldFallbackToEitherTrackedSide
     ? results.filter((result) => matchesTrackedEitherSide(result, trackedRealms))

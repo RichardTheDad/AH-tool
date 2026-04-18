@@ -103,6 +103,21 @@ describe("filterScanResults", () => {
     expect(filtered.map((row) => row.id).sort()).toEqual([1, 2]);
   });
 
+  it("falls back to tracked opportunities when mixed tracked/all scope would be empty", () => {
+    const rows = [
+      result({ id: 1, item_name: "Tracked Sell Only", cheapest_buy_realm: "Illidan", best_sell_realm: "Area 52" }),
+      result({ id: 2, item_name: "Untracked Route", cheapest_buy_realm: "Illidan", best_sell_realm: "Tichondrius" }),
+    ];
+
+    const filtered = filterScanResults(
+      rows,
+      { ...baseFilters, buyRealm: TRACKED_REALMS_FILTER_VALUE, sellRealm: ALL_REALMS_FILTER_VALUE },
+      { trackedRealms: ["Stormrage", "Area 52"] },
+    );
+
+    expect(filtered.map((row) => row.id)).toEqual([1]);
+  });
+
   it("treats tracked scope as broad scope when no tracked realms are configured", () => {
     const rows = [
       result({ id: 1, item_name: "Route One", cheapest_buy_realm: "Illidan", best_sell_realm: "Tichondrius" }),
