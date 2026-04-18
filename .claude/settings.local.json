@@ -8,7 +8,10 @@
       "Bash(claude plugin *)",
       "Bash(claude.exe plugin *)",
       "Bash(npx @anthropic-ai/claude-code plugin marketplace add JuliusBrussee/caveman)",
-      "Bash(npx @anthropic-ai/claude-code plugin install caveman@caveman)"
+      "Bash(npx @anthropic-ai/claude-code plugin install caveman@caveman)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(node \"/c/Users/Richard/.claude/plugins/cache/caveman/caveman/84cc3c14fa1e/hooks/caveman-activate.js\")"
     ]
   }
 }
