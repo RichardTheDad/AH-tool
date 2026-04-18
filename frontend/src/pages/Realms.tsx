@@ -166,7 +166,7 @@ export function Realms() {
   const queryClient = useQueryClient();
   const guestRealms = useGuestRealms();
   const realmsQuery = useQuery({ queryKey: ["realms"], queryFn: getRealms, enabled: !isGuest });
-  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: getScanStatus, refetchInterval: 2000 });
+  const scanStatusQuery = useQuery({ queryKey: ["scans", "status"], queryFn: () => getScanStatus(), refetchInterval: 2000 });
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
