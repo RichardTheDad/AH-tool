@@ -352,6 +352,8 @@ export function Scanner() {
   const hasAnyResults = asArray(persistedScan?.results).length > 0;
   const hasFocusedEmptyState = hasAnyResults && results.length === 0 && focusedModeActive;
   const diagnosticActiveScope = scanStatus.diagnostic_active_scope ?? deriveActiveScope(filters.buyRealm, filters.sellRealm);
+  const statusDiagnosticsPending = !scanStatusQuery.data && (scanStatusQuery.isLoading || scanStatusQuery.isFetching);
+  const readinessDiagnosticsPending = !readinessQuery.data && (readinessQuery.isLoading || readinessQuery.isFetching);
 
   useEffect(() => {
     const validRealmKeys = new Set(realmOptions.map((realm) => realm.toLowerCase()));
@@ -567,19 +569,31 @@ export function Scanner() {
   })();
 
   async function handleCopyDiagnostics() {
+    const endpointLatestScanId = scanStatusQuery.data?.diagnostic_latest_scan_id ?? null;
+    const endpointLatestScanResultCount = scanStatusQuery.data?.diagnostic_latest_scan_result_count ?? 0;
+    const endpointLatestBuyRealmCount = scanStatusQuery.data?.diagnostic_latest_buy_realm_count ?? 0;
+    const endpointLatestSellRealmCount = scanStatusQuery.data?.diagnostic_latest_sell_realm_count ?? 0;
+    const endpointTrackedRealmCount = scanStatusQuery.data?.diagnostic_tracked_realm_count ?? trackedRealmFilterOptions.length;
+    const effectiveLatestScanId = endpointLatestScanId ?? persistedScan?.id ?? null;
+    const effectiveLatestScanResultCount = endpointLatestScanResultCount || asArray(persistedScan?.results).length;
+
     const payload = {
       status: "scanner-filter-diagnostics",
       timestamp: new Date().toISOString(),
       activeScope: diagnosticActiveScope,
       buyFilter: filters.buyRealm,
       sellFilter: filters.sellRealm,
-      trackedRealmCount: scanStatus.diagnostic_tracked_realm_count ?? trackedRealmFilterOptions.length,
-      latestScanId: scanStatus.diagnostic_latest_scan_id ?? null,
-      latestScanResultCount: scanStatus.diagnostic_latest_scan_result_count ?? 0,
-      latestBuyRealmCount: scanStatus.diagnostic_latest_buy_realm_count ?? 0,
-      latestSellRealmCount: scanStatus.diagnostic_latest_sell_realm_count ?? 0,
+      trackedRealmCount: endpointTrackedRealmCount,
+      latestScanId: endpointLatestScanId,
+      latestScanResultCount: endpointLatestScanResultCount,
+      latestBuyRealmCount: endpointLatestBuyRealmCount,
+      latestSellRealmCount: endpointLatestSellRealmCount,
       displayedScanId: persistedScan?.id ?? null,
       displayedResultCount: asArray(persistedScan?.results).length,
+      effectiveLatestScanId,
+      effectiveLatestScanResultCount,
+      statusDiagnosticsPending,
+      readinessDiagnosticsPending,
       focusedModeActive,
       focusedExcludedCount,
       filteredResultCount: results.length,
@@ -587,10 +601,16 @@ export function Scanner() {
       readinessStatus: readiness.status,
       readinessMessage: readiness.message,
       statusQueryHasData: Boolean(scanStatusQuery.data),
+      statusQueryFetchStatus: scanStatusQuery.fetchStatus,
       statusQueryLoading: scanStatusQuery.isLoading,
+      statusQueryFetching: scanStatusQuery.isFetching,
+      statusQueryPending: scanStatusQuery.isPending,
       statusQueryError: Boolean(scanStatusQuery.error),
       readinessQueryHasData: Boolean(readinessQuery.data),
+      readinessQueryFetchStatus: readinessQuery.fetchStatus,
       readinessQueryLoading: readinessQuery.isLoading,
+      readinessQueryFetching: readinessQuery.isFetching,
+      readinessQueryPending: readinessQuery.isPending,
       readinessQueryError: Boolean(readinessQuery.error),
     };
 
@@ -704,7 +724,7 @@ export function Scanner() {
               Active buy filter: {filters.buyRealm}. Active sell filter: {filters.sellRealm}. Tracked realm count: {trackedRealmFilterOptions.length}.
             </div>
             <div className="mt-1 text-xs text-rose-100/80">
-              Diagnostic scope: {diagnosticActiveScope}. Latest scan id: {scanStatus.diagnostic_latest_scan_id ?? "none"}. Realm counts (buy/sell/tracked): {scanStatus.diagnostic_latest_buy_realm_count ?? 0}/{scanStatus.diagnostic_latest_sell_realm_count ?? 0}/{scanStatus.diagnostic_tracked_realm_count ?? 0}.
+              Diagnostic scope: {diagnosticActiveScope}. Latest scan id: {statusDiagnosticsPending ? "pending" : (scanStatus.diagnostic_latest_scan_id ?? "none")}. Realm counts (buy/sell/tracked): {statusDiagnosticsPending ? "pending" : (scanStatus.diagnostic_latest_buy_realm_count ?? 0)}/{statusDiagnosticsPending ? "pending" : (scanStatus.diagnostic_latest_sell_realm_count ?? 0)}/{scanStatus.diagnostic_tracked_realm_count ?? trackedRealmFilterOptions.length}.
             </div>
             <div className="mt-2 flex items-center gap-3">
               <button
