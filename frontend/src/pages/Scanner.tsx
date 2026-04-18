@@ -171,8 +171,8 @@ export function Scanner() {
   );
 
   const scanQuery = useQuery({
-    queryKey: ["scans", "latest"],
-    queryFn: () => getLatestScan(),
+    queryKey: ["scans", "latest", 50],
+    queryFn: () => getLatestScan(50),
     refetchInterval: scanRefreshIntervalMs,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,

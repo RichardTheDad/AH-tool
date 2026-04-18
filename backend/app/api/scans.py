@@ -67,7 +67,7 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
 @limiter.limit("30/minute")
 def latest_scan(
     request: Request,
-    limit: int | None = Query(default=200, ge=1, le=2000),
+    limit: int | None = Query(default=50, ge=1, le=2000),
     db: Session = Depends(get_db),
     current_user: str | None = Depends(get_optional_user),
 ) -> ScanLatestResponse:

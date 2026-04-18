@@ -759,7 +759,7 @@ def get_latest_scan(session: Session, user_id: str, *, limit: int | None = None)
         latest = session.query(ScanSession).filter(ScanSession.user_id == user_id).order_by(ScanSession.generated_at.desc()).first()
         if latest is None:
             return None
-        effective_limit = 200 if limit is None else limit
+        effective_limit = 50 if limit is None else limit
         return get_scan_session(session, latest.id, user_id, limit=effective_limit)
     except Exception as exc:
         logger.error("Latest scan query failed (may indicate connection pool exhaustion): %s", exc)
@@ -769,29 +769,37 @@ def get_latest_scan(session: Session, user_id: str, *, limit: int | None = None)
 def get_scan_history(session: Session, user_id: str, *, limit: int = 8) -> list[ScanSessionSummary]:
     """Retrieve recent scan summaries with timeout protection."""
     try:
-        query = (
-            session.query(
-                ScanSession.id,
-                ScanSession.generated_at,
-                ScanSession.provider_name,
-                func.count(ScanResult.id).label("result_count"),
-            )
+        base_rows = (
+            session.query(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
             .filter(ScanSession.user_id == user_id)
-            .outerjoin(ScanResult, ScanResult.scan_session_id == ScanSession.id)
-            .group_by(ScanSession.id, ScanSession.generated_at, ScanSession.provider_name)
             .order_by(ScanSession.generated_at.desc())
             .limit(limit)
+            .all()
         )
+        if not base_rows:
+            return []
 
-        rows = query.all()
+        session_ids = [row.id for row in base_rows]
+        counts = {
+            row.scan_session_id: int(row.result_count or 0)
+            for row in (
+                session.query(
+                    ScanResult.scan_session_id.label("scan_session_id"),
+                    func.count(ScanResult.id).label("result_count"),
+                )
+                .filter(ScanResult.scan_session_id.in_(session_ids))
+                .group_by(ScanResult.scan_session_id)
+                .all()
+            )
+        }
         return [
             ScanSessionSummary(
                 id=row.id,
                 generated_at=row.generated_at,
                 provider_name=row.provider_name,
-                result_count=int(row.result_count or 0),
+                result_count=counts.get(row.id, 0),
             )
-            for row in rows
+            for row in base_rows
         ]
     except Exception as exc:
         logger.exception("Scan history aggregate query failed (may indicate connection pool exhaustion): %s", exc)
