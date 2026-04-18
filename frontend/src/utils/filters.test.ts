@@ -103,6 +103,17 @@ describe("filterScanResults", () => {
     expect(filtered.map((row) => row.id).sort()).toEqual([1, 2]);
   });
 
+  it("treats tracked scope as broad scope when no tracked realms are configured", () => {
+    const rows = [
+      result({ id: 1, item_name: "Route One", cheapest_buy_realm: "Illidan", best_sell_realm: "Tichondrius" }),
+      result({ id: 2, item_name: "Route Two", cheapest_buy_realm: "Stormrage", best_sell_realm: "Area 52" }),
+    ];
+
+    const filtered = filterScanResults(rows, baseFilters, { trackedRealms: [] });
+
+    expect(filtered.map((row) => row.id).sort()).toEqual([1, 2]);
+  });
+
   it("matches individual realms despite casing and extra spaces", () => {
     const rows = [
       result({ id: 1, cheapest_buy_realm: "Area 52", best_sell_realm: "Zul'jin" }),

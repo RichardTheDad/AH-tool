@@ -129,7 +129,8 @@ def scan_readiness(request: Request, db: Session = Depends(get_db), current_user
 
         return readiness
 
-    return _read_through_cache("scans.readiness", 45.0, _load)
+    identity = current_user or "guest"
+    return _read_through_cache(f"scans.readiness:{identity}", 45.0, _load)
 
 
 @router.get("/scans/status", response_model=ScanRuntimeStatusRead)

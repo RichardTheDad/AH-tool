@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 import app.services.scan_service as scan_service_module
+import app.api.scans as scans_api
 
 from app.core.auth import get_optional_user
 from app.db.models import Item, ListingSnapshot, TrackedRealm
@@ -338,6 +339,25 @@ def test_scan_readiness_scopes_realms_to_authenticated_user(client) -> None:
     assert readiness.status_code == 200
     readiness_realms = {row["realm"] for row in readiness.json()["realms"]}
     assert readiness_realms == {"Area 52", "Stormrage"}
+
+
+def test_scan_readiness_cache_key_is_user_scoped(client, monkeypatch) -> None:
+    captured_keys: list[str] = []
+
+    def _capture_key(key: str, ttl_seconds: float, loader):
+        captured_keys.append(key)
+        return loader()
+
+    monkeypatch.setattr(scans_api, "_read_through_cache", _capture_key)
+    client.app.dependency_overrides[get_optional_user] = lambda: TEST_USER_ID
+
+    response = client.get("/scans/readiness")
+
+    client.app.dependency_overrides.pop(get_optional_user, None)
+
+    assert response.status_code == 200
+    assert captured_keys
+    assert captured_keys[0] == f"scans.readiness:{TEST_USER_ID}"
 
 
 def test_scan_filters_commodities_by_default(client) -> None:

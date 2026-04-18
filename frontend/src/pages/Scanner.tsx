@@ -325,6 +325,33 @@ export function Scanner() {
     (filters.buyRealm !== TRACKED_REALMS_FILTER_VALUE || filters.sellRealm !== TRACKED_REALMS_FILTER_VALUE) &&
     !(filters.buyRealm === ALL_REALMS_FILTER_VALUE && filters.sellRealm === ALL_REALMS_FILTER_VALUE);
   const focusedExcludedCount = Math.max(0, asArray(persistedScan?.results).length - results.length);
+  const hasAnyResults = asArray(persistedScan?.results).length > 0;
+  const hasFocusedEmptyState = hasAnyResults && results.length === 0 && focusedModeActive;
+
+  useEffect(() => {
+    const validRealmKeys = new Set(realmOptions.map((realm) => realm.toLowerCase()));
+    const next: { buyRealm?: string; sellRealm?: string } = {};
+
+    if (
+      filters.buyRealm !== TRACKED_REALMS_FILTER_VALUE &&
+      filters.buyRealm !== ALL_REALMS_FILTER_VALUE &&
+      !validRealmKeys.has(filters.buyRealm.trim().toLowerCase())
+    ) {
+      next.buyRealm = TRACKED_REALMS_FILTER_VALUE;
+    }
+
+    if (
+      filters.sellRealm !== TRACKED_REALMS_FILTER_VALUE &&
+      filters.sellRealm !== ALL_REALMS_FILTER_VALUE &&
+      !validRealmKeys.has(filters.sellRealm.trim().toLowerCase())
+    ) {
+      next.sellRealm = TRACKED_REALMS_FILTER_VALUE;
+    }
+
+    if (Object.keys(next).length > 0) {
+      updateFilters(next);
+    }
+  }, [filters.buyRealm, filters.sellRealm, realmOptions, updateFilters]);
 
   const emptyState = noEnabledRealms
     ? {
@@ -584,6 +611,15 @@ export function Scanner() {
         {focusedModeActive && (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
             Focused mode is on. Showing {results.length} of {asArray(persistedScan?.results).length} opportunities; {focusedExcludedCount} hidden because they fall outside your selected buy/sell realms.
+          </div>
+        )}
+
+        {hasFocusedEmptyState && (
+          <div className="rounded-2xl border border-rose-300/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
+            No opportunities match the current realm scope. Reset buy/sell realms to tracked defaults or choose all realms.
+            <div className="mt-1 text-xs text-rose-100/80">
+              Active buy filter: {filters.buyRealm}. Active sell filter: {filters.sellRealm}. Tracked realm count: {trackedRealmFilterOptions.length}.
+            </div>
           </div>
         )}
 
