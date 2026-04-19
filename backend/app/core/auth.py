@@ -157,4 +157,8 @@ def get_current_user(authorization: str | None = Header(None, alias="Authorizati
 
 def get_optional_user(authorization: str | None = Header(None, alias="Authorization")) -> str | None:
     """Return the caller's user UUID when a valid bearer token is provided, otherwise allow guest access."""
-    return _resolve_user_from_authorization(authorization, allow_missing=True)
+    try:
+        return _resolve_user_from_authorization(authorization, allow_missing=True)
+    except HTTPException as exc:
+        logger.warning("Optional auth ignored invalid bearer token: %s", exc.detail)
+        return None

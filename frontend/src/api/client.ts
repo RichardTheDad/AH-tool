@@ -85,17 +85,23 @@ async function requestJson<T>(path: string, init: RequestInit | undefined, authM
     }
   }
 
-  let response: Response;
-  try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+  const fetchJson = (headers: Record<string, string>) =>
+    fetch(`${API_BASE_URL}${path}`, {
       headers: {
         "Content-Type": "application/json",
-        ...authHeaders,
+        ...headers,
         ...(init?.headers ?? {}),
       },
       ...init,
       signal: timeoutController.signal,
     });
+
+  let response: Response;
+  try {
+    response = await fetchJson(authHeaders);
+    if (response.status === 401 && authMode === "optional" && hasSession) {
+      response = await fetchJson({});
+    }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
       throw new Error(`Request timed out after ${API_TIMEOUT_MS / 1000}s for ${path}`);
@@ -109,7 +115,9 @@ async function requestJson<T>(path: string, init: RequestInit | undefined, authM
   }
 
   if (!response.ok) {
-    await handleUnauthorized(response, hasSession);
+    if (authMode === "required") {
+      await handleUnauthorized(response, hasSession);
+    }
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.detail ?? `Request failed for ${path}`);
   }
