@@ -719,7 +719,6 @@ _SORT_COLUMNS: dict[str, object] = {
     "estimated_profit": ScanResult.estimated_profit,
     "cheapest_buy_price": ScanResult.cheapest_buy_price,
     "roi": ScanResult.roi,
-    "spread_percent": ScanResult.spread_percent,
     "confidence_score": ScanResult.confidence_score,
     "sellability_score": ScanResult.sellability_score,
 }

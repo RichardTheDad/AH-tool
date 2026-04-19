@@ -65,7 +65,7 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
     )
 
 
-_VALID_SORT_FIELDS = {"final_score", "estimated_profit", "cheapest_buy_price", "roi", "spread_percent", "confidence_score", "sellability_score"}
+_VALID_SORT_FIELDS = {"final_score", "estimated_profit", "cheapest_buy_price", "roi", "confidence_score", "sellability_score"}
 
 
 @router.get("/scans/latest", response_model=ScanLatestResponse)
