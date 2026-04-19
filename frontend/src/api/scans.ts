@@ -33,7 +33,7 @@ export interface ScanFetchOptions {
 
 export const SCAN_PAGE_SIZE = 100;
 
-export function getLatestScan(options?: ScanFetchOptions) {
+export function getLatestScan(options?: ScanFetchOptions): Promise<LatestScanResponse> {
   const params = new URLSearchParams();
   params.set("limit", String(options?.limit ?? SCAN_PAGE_SIZE));
   if (typeof options?.offset === "number" && options.offset > 0) {
