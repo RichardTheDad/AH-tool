@@ -1,6 +1,24 @@
 import { supabase } from "../lib/supabase";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const PRODUCTION_API_BASE_URL = "https://azerothflip-backend.fly.dev";
+
+function resolveApiBaseUrl() {
+  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (typeof window !== "undefined") {
+    const hostname = window.location.hostname;
+    if (hostname === "localhost" || hostname === "127.0.0.1") {
+      return "http://localhost:8000";
+    }
+  }
+
+  return PRODUCTION_API_BASE_URL;
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 const API_TIMEOUT_MS = 15000;
 let redirectingToLogin = false;
 type AuthMode = "required" | "optional";

@@ -6,8 +6,8 @@ primary_region = "dfw"
 
 [env]
   PORT = "8000"
-  AZEROTHFLIPLOCAL_CORS_ORIGINS = "[\"http://127.0.0.1:5173\",\"http://localhost:5173\",\"https://ah-tool-bice.vercel.app\"]"
-  AZEROTHFLIPLOCAL_CORS_ORIGIN_REGEX = "https://ah-tool-bice(?:-[a-z0-9-]+)?\\.vercel\\.app"
+  AZEROTHFLIPLOCAL_CORS_ORIGINS = "[\"http://127.0.0.1:5173\",\"http://localhost:5173\",\"https://ah-tool-bice.vercel.app\",\"https://azerothfliplocal.com\",\"https://www.azerothfliplocal.com\"]"
+  AZEROTHFLIPLOCAL_CORS_ORIGIN_REGEX = "https://ah-tool-bice(?:-[a-z0-9-]+)?\\.vercel\\.app|https://(?:www\\.)?azerothfliplocal\\.com"
   AZEROTHFLIPLOCAL_RESTRICT_HEALTH_DIAGNOSTICS = "true"
   AZEROTHFLIPLOCAL_DB_POOL_SIZE = "5"
   AZEROTHFLIPLOCAL_DB_MAX_OVERFLOW = "1"
