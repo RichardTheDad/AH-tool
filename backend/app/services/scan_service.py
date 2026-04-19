@@ -721,6 +721,7 @@ _SORT_COLUMNS: dict[str, object] = {
     "roi": ScanResult.roi,
     "confidence_score": ScanResult.confidence_score,
     "sellability_score": ScanResult.sellability_score,
+    "spread_percent": ScanResult.best_sell_price / ScanResult.cheapest_buy_price - 1,
 }
 
 
@@ -739,6 +740,9 @@ def get_scan_session(
     min_confidence: float | None = None,
     hide_risky: bool = False,
     category: str | None = None,
+    min_spread: float | None = None,
+    max_spread: float | None = None,
+    subcategory: str | None = None,
     sort_by: str = "final_score",
     sort_direction: str = "desc",
 ) -> ScanSessionRead | None:
@@ -784,6 +788,17 @@ def get_scan_session(
             .subquery()
         )
         query = query.filter(ScanResult.item_id.in_(item_ids_for_category))
+    if subcategory:
+        item_ids_for_subcategory = (
+            session.query(Item.item_id)
+            .filter(func.lower(Item.subclass_name) == subcategory.strip().lower())
+            .subquery()
+        )
+        query = query.filter(ScanResult.item_id.in_(item_ids_for_subcategory))
+    if min_spread is not None:
+        query = query.filter(ScanResult.best_sell_price / ScanResult.cheapest_buy_price - 1 >= min_spread)
+    if max_spread is not None:
+        query = query.filter(ScanResult.best_sell_price / ScanResult.cheapest_buy_price - 1 <= max_spread)
 
     filtered_count = query.count()
 
@@ -875,6 +890,9 @@ def get_latest_scan(
     min_confidence: float | None = None,
     hide_risky: bool = False,
     category: str | None = None,
+    min_spread: float | None = None,
+    max_spread: float | None = None,
+    subcategory: str | None = None,
     sort_by: str = "final_score",
     sort_direction: str = "desc",
 ) -> ScanSessionRead | None:
@@ -895,6 +913,9 @@ def get_latest_scan(
             min_confidence=min_confidence,
             hide_risky=hide_risky,
             category=category,
+            min_spread=min_spread,
+            max_spread=max_spread,
+            subcategory=subcategory,
             sort_by=sort_by,
             sort_direction=sort_direction,
         )

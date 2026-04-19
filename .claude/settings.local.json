@@ -21,7 +21,8 @@
       "Bash(curl -s http://localhost:3000/api/scans/readiness)",
       "Bash(curl -s http://localhost:8080/scans/readiness)",
       "Bash(xargs grep *)",
-      "Bash(python -c \"from app.services.scan_service import get_latest_scan; print\\('import ok'\\)\")"
+      "Bash(python -c \"from app.services.scan_service import get_latest_scan; print\\('import ok'\\)\")",
+      "Bash(python -c \"from app.services.scan_service import get_latest_scan, get_scan_session; print\\('import ok'\\)\")"
     ]
   }
 }

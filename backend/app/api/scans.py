@@ -65,7 +65,7 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
     )
 
 
-_VALID_SORT_FIELDS = {"final_score", "estimated_profit", "cheapest_buy_price", "roi", "confidence_score", "sellability_score"}
+_VALID_SORT_FIELDS = {"final_score", "estimated_profit", "cheapest_buy_price", "roi", "confidence_score", "sellability_score", "spread_percent"}
 
 
 @router.get("/scans/latest", response_model=ScanLatestResponse)
@@ -82,6 +82,9 @@ def latest_scan(
     min_confidence: float | None = Query(default=None, ge=0, le=100),
     hide_risky: bool = Query(default=False),
     category: str | None = Query(default=None),
+    min_spread: float | None = Query(default=None),
+    max_spread: float | None = Query(default=None),
+    subcategory: str | None = Query(default=None),
     sort_by: str = Query(default="final_score"),
     sort_direction: str = Query(default="desc"),
     db: Session = Depends(get_db),
@@ -96,7 +99,8 @@ def latest_scan(
     cache_key = (
         f"scans.latest.v2:{sorted_buy}|{sorted_sell}"
         f"|p={min_profit}|r={min_roi}|b={max_buy_price}|c={min_confidence}"
-        f"|hr={hide_risky}|cat={category or ''}|off={offset}|lim={limit}"
+        f"|hr={hide_risky}|cat={category or ''}|sub={subcategory or ''}"
+        f"|ms={min_spread}|xs={max_spread}|off={offset}|lim={limit}"
         f"|s={safe_sort_by}|sd={safe_sort_dir}"
     )
     ttl = 10.0
@@ -114,6 +118,9 @@ def latest_scan(
             min_confidence=min_confidence,
             hide_risky=hide_risky,
             category=category,
+            min_spread=min_spread,
+            max_spread=max_spread,
+            subcategory=subcategory,
             sort_by=safe_sort_by,
             sort_direction=safe_sort_dir,
         )

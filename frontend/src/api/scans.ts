@@ -23,8 +23,11 @@ export interface ScanFetchOptions {
   minRoi?: number;
   maxBuyPrice?: number;
   minConfidence?: number;
+  minSpread?: number;
+  maxSpread?: number;
   hideRisky?: boolean;
   category?: string;
+  subcategory?: string;
   sortBy?: string;
   sortDirection?: "asc" | "desc";
   offset?: number;
@@ -45,8 +48,11 @@ export function getLatestScan(options?: ScanFetchOptions): Promise<LatestScanRes
   if (options?.minRoi) params.set("min_roi", String(options.minRoi));
   if (options?.maxBuyPrice) params.set("max_buy_price", String(options.maxBuyPrice));
   if (options?.minConfidence) params.set("min_confidence", String(options.minConfidence));
+  if (options?.minSpread) params.set("min_spread", String(options.minSpread));
+  if (options?.maxSpread) params.set("max_spread", String(options.maxSpread));
   if (options?.hideRisky) params.set("hide_risky", "true");
   if (options?.category) params.set("category", options.category);
+  if (options?.subcategory) params.set("subcategory", options.subcategory);
   if (options?.sortBy && options.sortBy !== "final_score") params.set("sort_by", options.sortBy);
   if (options?.sortDirection && options.sortDirection !== "desc") params.set("sort_direction", options.sortDirection);
   const query = params.toString();

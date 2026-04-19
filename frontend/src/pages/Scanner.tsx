@@ -203,8 +203,11 @@ export function Scanner() {
     minRoi: filters.minRoi || null,
     maxBuyPrice: filters.maxBuyPrice || null,
     minConfidence: filters.minConfidence || null,
+    minSpread: filters.minSpread || null,
+    maxSpread: filters.maxSpread || null,
     hideRisky: filters.hideRisky || false,
     category: filters.category || null,
+    subcategory: filters.subcategory || null,
     sortBy: filters.sortBy,
     sortDirection: filters.sortDirection,
   };
@@ -219,8 +222,11 @@ export function Scanner() {
         minRoi: filters.minRoi ? Number(filters.minRoi) : undefined,
         maxBuyPrice: filters.maxBuyPrice ? Number(filters.maxBuyPrice) : undefined,
         minConfidence: filters.minConfidence ? Number(filters.minConfidence) : undefined,
+        minSpread: filters.minSpread ? Number(filters.minSpread) : undefined,
+        maxSpread: filters.maxSpread ? Number(filters.maxSpread) : undefined,
         hideRisky: filters.hideRisky || false,
         category: filters.category || undefined,
+        subcategory: filters.subcategory || undefined,
         sortBy: filters.sortBy,
         sortDirection: filters.sortDirection,
         offset: pageParam,
@@ -407,10 +413,10 @@ export function Scanner() {
     ...scanResultRealmOptions,
   ]);
   const trackedRealmFilterOptions = enabledTrackedRealmOptions;
-  // Backend now applies all numeric/category filters; client-side only handles realm scope + sort.
+  // Backend applies all numeric/category/spread/subcategory filters; client-side only handles realm scope + sort.
   const strictFilteredResults = filterScanResults(
     allLoadedResults.length > 0 ? allLoadedResults : asArray(persistedScan?.results),
-    { ...filters, minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", hideRisky: false, category: "" },
+    { ...filters, minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", hideRisky: false, category: "", minSpread: "", maxSpread: "", subcategory: "" },
     { trackedRealms: trackedRealmFilterOptions },
   );
   const trackedRealmLookup = new Set(trackedRealmFilterOptions.map((realm) => normalizeRealmLookupKey(realm)).filter(Boolean));
