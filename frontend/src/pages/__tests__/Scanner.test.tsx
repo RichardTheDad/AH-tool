@@ -100,6 +100,36 @@ const scanStatusResponse = {
   finished_at: null,
 };
 
+function makeScanResult(id: number, itemName: string, overrides: Partial<import("../../types/models").ScanResult> = {}) {
+  return {
+    id,
+    item_id: 900 + id,
+    item_name: itemName,
+    item_class_name: "Weapon",
+    cheapest_buy_realm: "Area 52",
+    cheapest_buy_price: 10000 + id,
+    best_sell_realm: "Zul'jin",
+    best_sell_price: 20000 + id,
+    observed_sell_price: 20000 + id,
+    estimated_profit: 9000 + id,
+    roi: 0.5,
+    confidence_score: 80,
+    sellability_score: 75,
+    liquidity_score: 70,
+    volatility_score: 30,
+    bait_risk_score: 10,
+    final_score: 80 - id / 100,
+    turnover_label: "steady",
+    explanation: `${itemName} explanation`,
+    sell_history_prices: [20000 + id],
+    generated_at: new Date().toISOString(),
+    has_stale_data: false,
+    is_risky: false,
+    has_missing_metadata: false,
+    ...overrides,
+  };
+}
+
 describe("Scanner page", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -449,70 +479,79 @@ describe("Scanner page", () => {
   });
 
   it("applies hard filters that remove non-matching rows", async () => {
-    vi.mocked(getLatestScan).mockResolvedValue({
-      latest: {
-        id: 1,
-        provider_name: "blizzard_auctions",
-        generated_at: new Date().toISOString(),
-        result_count: 2,
-        results: [
-          {
-            id: 10,
-            item_id: 873,
-            item_name: "Staff of Jordan",
-            item_class_name: "Weapon",
-            cheapest_buy_realm: "Area 52",
-            cheapest_buy_price: 12900,
-            best_sell_realm: "Zul'jin",
-            best_sell_price: 23900,
-            observed_sell_price: 24500,
-            estimated_profit: 9805,
-            roi: 0.76,
-            confidence_score: 92,
-            sellability_score: 88,
-            liquidity_score: 88,
-            volatility_score: 86,
-            bait_risk_score: 18,
-            final_score: 90,
-            turnover_label: "steady",
-            explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
-            sell_history_prices: [23900, 23000, 22000],
-            generated_at: new Date().toISOString(),
-            has_stale_data: false,
-            is_risky: false,
-            has_missing_metadata: false,
-          },
-          {
-            id: 11,
-            item_id: 874,
-            item_name: "Commander Helm",
-            item_class_name: "Armor",
-            cheapest_buy_realm: "Stormrage",
-            cheapest_buy_price: 7200,
-            best_sell_realm: "Zul'jin",
-            best_sell_price: 12900,
-            observed_sell_price: 13000,
-            estimated_profit: 5055,
-            roi: 0.702,
-            confidence_score: 98,
-            sellability_score: 91,
-            liquidity_score: 88,
-            volatility_score: 86,
-            bait_risk_score: 18,
-            final_score: 95,
-            turnover_label: "fast",
-            explanation: "Cheapest on Stormrage, strongest sell on Zul'jin, with acceptable liquidity.",
-            sell_history_prices: [12900, 12000],
-            generated_at: new Date().toISOString(),
-            has_stale_data: false,
-            is_risky: false,
-            has_missing_metadata: false,
-          },
-        ],
-        available_item_classes: [],
-        available_realms: [],
-        available_category_pairs: [],
-      },
+    const generatedAt = new Date().toISOString();
+    const staff = {
+      id: 10,
+      item_id: 873,
+      item_name: "Staff of Jordan",
+      item_class_name: "Weapon",
+      cheapest_buy_realm: "Area 52",
+      cheapest_buy_price: 12900,
+      best_sell_realm: "Zul'jin",
+      best_sell_price: 23900,
+      observed_sell_price: 24500,
+      estimated_profit: 9805,
+      roi: 0.76,
+      confidence_score: 92,
+      sellability_score: 88,
+      liquidity_score: 88,
+      volatility_score: 86,
+      bait_risk_score: 18,
+      final_score: 90,
+      turnover_label: "steady",
+      explanation: "Cheapest on Area 52, strongest sell on Zul'jin, with acceptable liquidity.",
+      sell_history_prices: [23900, 23000, 22000],
+      generated_at: generatedAt,
+      has_stale_data: false,
+      is_risky: false,
+      has_missing_metadata: false,
+    };
+    const helm = {
+      id: 11,
+      item_id: 874,
+      item_name: "Commander Helm",
+      item_class_name: "Armor",
+      cheapest_buy_realm: "Stormrage",
+      cheapest_buy_price: 7200,
+      best_sell_realm: "Zul'jin",
+      best_sell_price: 12900,
+      observed_sell_price: 13000,
+      estimated_profit: 5055,
+      roi: 0.702,
+      confidence_score: 98,
+      sellability_score: 91,
+      liquidity_score: 88,
+      volatility_score: 86,
+      bait_risk_score: 18,
+      final_score: 95,
+      turnover_label: "fast",
+      explanation: "Cheapest on Stormrage, strongest sell on Zul'jin, with acceptable liquidity.",
+      sell_history_prices: [12900, 12000],
+      generated_at: generatedAt,
+      has_stale_data: false,
+      is_risky: false,
+      has_missing_metadata: false,
+    };
+
+    vi.mocked(getLatestScan).mockImplementation(async (options) => {
+      const results = options?.minProfit ? [staff] : [staff, helm];
+      return {
+        latest: {
+          id: 1,
+          provider_name: "blizzard_auctions",
+          generated_at: generatedAt,
+          result_count: 2,
+          results,
+          available_item_classes: [],
+          available_realms: [],
+          available_category_pairs: [],
+          has_more: false,
+          next_offset: null,
+          filtered_count: results.length,
+        },
+        has_more: false,
+        next_offset: null,
+      };
     });
 
     renderWithProviders(<Scanner />, "/scanner");
@@ -522,7 +561,46 @@ describe("Scanner page", () => {
 
     fireEvent.change(screen.getByPlaceholderText("Min profit"), { target: { value: "9000" } });
 
-    expect(screen.getAllByText("Staff of Jordan").length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Staff of Jordan")).length).toBeGreaterThan(0);
     expect(screen.queryAllByText("Commander Helm")).toHaveLength(0);
+  });
+
+  it("appends paged scan results, dedupes repeated rows, and reports the rendered row count", async () => {
+    const generatedAt = new Date().toISOString();
+    const firstPageResults = [
+      makeScanResult(1, "Paged Item 1"),
+      makeScanResult(2, "Paged Item 2"),
+    ];
+    const secondPageResults = [
+      makeScanResult(2, "Paged Item 2"),
+      makeScanResult(3, "Paged Item 3"),
+      makeScanResult(4, "Paged Item 4"),
+    ];
+
+    vi.mocked(getLatestScan).mockImplementation(async (options) => ({
+      latest: {
+        id: 1,
+        provider_name: "blizzard_auctions",
+        generated_at: generatedAt,
+        result_count: 4,
+        results: options?.offset ? secondPageResults : firstPageResults,
+        available_item_classes: [],
+        available_realms: [],
+        available_category_pairs: [],
+        has_more: !options?.offset,
+        next_offset: options?.offset ? null : 2,
+        filtered_count: 4,
+      },
+      has_more: !options?.offset,
+      next_offset: options?.offset ? null : 2,
+    }));
+
+    renderWithProviders(<Scanner />, "/scanner");
+
+    expect((await screen.findAllByText("Paged Item 1")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Paged Item 4")).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/4 result rows loaded/)).toBeInTheDocument();
+    expect(screen.queryByText(/5 result rows loaded/)).not.toBeInTheDocument();
+    expect(vi.mocked(getLatestScan)).toHaveBeenCalledWith(expect.objectContaining({ offset: 2 }));
   });
 });

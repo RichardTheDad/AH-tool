@@ -14,7 +14,6 @@ import { GoldAmount } from "../components/common/GoldAmount";
 import { FilterSidebar } from "../components/filters/FilterSidebar";
 import { ScannerStatusBar } from "../components/scanner/ScannerStatusBar";
 import { ScannerTable } from "../components/scanner/ScannerTable";
-import { VirtualizedScannerList } from "../components/scanner/VirtualizedScannerList";
 import { useAuth } from "../contexts/AuthContext";
 import { useGuestPresets } from "../hooks/useGuestPresets";
 import { useGuestRealms } from "../hooks/useGuestRealms";
@@ -134,6 +133,37 @@ function normalizeRealmLookupKey(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+function scanResultKey(result: ScanResult) {
+  if (typeof result.id === "number" && Number.isFinite(result.id)) {
+    return `id:${result.id}`;
+  }
+
+  return [
+    "row",
+    result.item_id,
+    result.cheapest_buy_realm,
+    result.best_sell_realm,
+    result.cheapest_buy_price,
+    result.best_sell_price,
+  ].join(":");
+}
+
+function dedupeScanResults(results: ScanResult[]) {
+  const seen = new Set<string>();
+  const deduped: ScanResult[] = [];
+
+  results.forEach((result) => {
+    const key = scanResultKey(result);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    deduped.push(result);
+  });
+
+  return deduped;
+}
+
 function normalizeSession(session: ScanSession | null | undefined): ScanSession | null {
   if (!session) {
     return null;
@@ -160,7 +190,6 @@ export function Scanner() {
   const [selectedProvenanceResult, setSelectedProvenanceResult] = useState<ScanResult | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<{ itemId: number | null; index: number | null } | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [copyDiagnosticsStatus, setCopyDiagnosticsStatus] = useState<"idle" | "copied" | "failed">("idle");
   const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
   const { filters, updateFilters, restoreFiltersFromStorage } = useScannerFilters();
@@ -233,8 +262,6 @@ export function Scanner() {
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.has_more ? (lastPage.next_offset ?? undefined) : undefined),
-    maxPages: 5,
-    placeholderData: (prev) => prev,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
   });
@@ -265,9 +292,11 @@ export function Scanner() {
   });
   const firstPage = scanQuery.data?.pages[0];
   const latest = normalizeSession(firstPage?.latest);
-  const allLoadedResults = (scanQuery.data?.pages ?? []).flatMap((page) => page.latest?.results ?? []);
+  const allLoadedResults = dedupeScanResults((scanQuery.data?.pages ?? []).flatMap((page) => page.latest?.results ?? []));
   const recentScans: ScanSessionSummary[] = asArray(scanHistoryQuery.data?.scans);
-  const fallbackScanId = latest?.result_count ? null : recentScans.find((scan) => scan.id !== latest?.id && scan.result_count > 0)?.id ?? null;
+  const fallbackScanId = latest && latest.result_count === 0
+    ? recentScans.find((scan) => scan.id !== latest.id && scan.result_count > 0)?.id ?? null
+    : null;
   const fallbackScanQuery = useQuery({
     queryKey: ["scans", fallbackScanId, "persisted", 500],
     queryFn: () => getScan(fallbackScanId as number, 500),
@@ -357,16 +386,6 @@ export function Scanner() {
   }, [latestScanIdFromStatus, firstPage?.latest?.id, queryClient]);
 
   useEffect(() => {
-    const updateViewport = () => {
-      setIsMobileViewport(window.innerWidth < 768);
-    };
-
-    updateViewport();
-    window.addEventListener("resize", updateViewport);
-    return () => window.removeEventListener("resize", updateViewport);
-  }, []);
-
-  useEffect(() => {
     restoreFiltersFromStorage();
   }, [restoreFiltersFromStorage]);
 
@@ -452,7 +471,6 @@ export function Scanner() {
     mixedTrackedScopeActive &&
     noTrackedOverlapWithLatestScan;
   const results = broadRealmFallbackActive ? relaxedRealmResults : strictFilteredResults;
-  const useVirtualizedResults = results.length > 300 && !isMobileViewport;
   const categoryOptions = asArray(persistedScan?.available_item_classes).length > 0
     ? asArray(persistedScan?.available_item_classes)
     : Array.from(
@@ -473,6 +491,7 @@ export function Scanner() {
   const latestScanUnavailable = Boolean(scanQuery.error) && !scanQuery.data;
   const scanHistoryUnavailable = Boolean(scanHistoryQuery.error) && !scanHistoryQuery.data;
   const scanDataUnavailable = Boolean(!persistedScan && (latestScanUnavailable || scanHistoryUnavailable));
+  const loadingLatestScan = scanQuery.isLoading && !scanQuery.data;
   const scanDataUnavailableMessage = latestScanUnavailable
     ? "Latest scan data is temporarily unavailable. Make sure the backend API is running, then refresh the scanner."
     : "Scan history is temporarily unavailable. Make sure the backend API is running, then refresh the scanner.";
@@ -788,7 +807,7 @@ export function Scanner() {
   }
 
   useEffect(() => {
-    if (!restoreTarget || useVirtualizedResults) {
+    if (!restoreTarget) {
       return;
     }
     const targetId = restoreTarget.itemId;
@@ -806,7 +825,7 @@ export function Scanner() {
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [restoreTarget, useVirtualizedResults]);
+  }, [restoreTarget]);
 
   return (
     <div className="space-y-4">
@@ -1082,37 +1101,24 @@ export function Scanner() {
           </div>
         ) : null}
 
-        {loadingPersistedScan ? (
+        {loadingLatestScan ? (
+          <LoadingState label="Loading scan results..." />
+        ) : loadingPersistedScan ? (
           <LoadingState label="Loading last populated scan..." />
         ) : scanDataUnavailable ? (
           <ErrorState message={scanDataUnavailableMessage} />
         ) : showGuidedEmptyState ? (
           <EmptyState title={emptyState.title} description={emptyState.description} />
         ) : persistedScan ? (
-          useVirtualizedResults ? (
-            <VirtualizedScannerList
-              results={results}
-              sortBy={filters.sortBy}
-              sortDirection={filters.sortDirection}
-              onSortChange={handleFilterChange}
-              focusedModeActive={focusedModeActive}
-              onOpenProvenance={setSelectedProvenanceResult}
-              restoreItemId={restoreTarget?.itemId ?? null}
-              restoreIndex={restoreTarget?.index ?? null}
-              onRestoreComplete={() => setRestoreTarget(null)}
-              allowItemNavigation={!isGuest}
-            />
-          ) : (
-            <ScannerTable
-              results={results}
-              sortBy={filters.sortBy}
-              sortDirection={filters.sortDirection}
-              onSortChange={handleFilterChange}
-              focusedModeActive={focusedModeActive}
-              onOpenProvenance={setSelectedProvenanceResult}
-              allowItemNavigation={!isGuest}
-            />
-          )
+          <ScannerTable
+            results={results}
+            sortBy={filters.sortBy}
+            sortDirection={filters.sortDirection}
+            onSortChange={handleFilterChange}
+            focusedModeActive={focusedModeActive}
+            onOpenProvenance={setSelectedProvenanceResult}
+            allowItemNavigation={!isGuest}
+          />
         ) : (
           <EmptyState title="Scanner is empty" description="Wait for the next scheduled scan cycle to pull fresh listings from the Blizzard Auction House." />
         )}
@@ -1123,12 +1129,16 @@ export function Scanner() {
             {scanQuery.isFetchingNextPage && (
               <LoadingState label="Loading more results..." />
             )}
-            {!scanQuery.hasNextPage && allLoadedResults.length > 0 && (
+            {allLoadedResults.length > 0 && (
               <p className="py-2 text-center text-xs text-zinc-500">
-                {allLoadedResults.length} result{allLoadedResults.length !== 1 ? "s" : ""} loaded
+                {results.length} result row{results.length !== 1 ? "s" : ""} loaded
+                {results.length !== allLoadedResults.length
+                  ? ` from ${allLoadedResults.length} fetched`
+                  : ""}
                 {persistedScan.filtered_count != null && persistedScan.filtered_count !== allLoadedResults.length
                   ? ` of ${persistedScan.filtered_count} total`
                   : ""}
+                {scanQuery.hasNextPage ? ". Scroll for more." : ""}
               </p>
             )}
           </>
