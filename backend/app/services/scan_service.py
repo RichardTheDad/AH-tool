@@ -759,7 +759,7 @@ def get_scan_session(
     query = (
         session.query(ScanResult)
         .filter(ScanResult.scan_session_id == scan_session.id)
-        .order_by(order_expr, secondary)
+        .order_by(order_expr, secondary, ScanResult.id.asc())
     )
 
     if buy_realms:

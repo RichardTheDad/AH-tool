@@ -3,6 +3,7 @@ import { Scanner } from "../Scanner";
 import { renderWithProviders } from "../../test/test-utils";
 
 vi.mock("../../api/scans", () => ({
+  SCAN_PAGE_SIZE: 100,
   getLatestScan: vi.fn(),
   getScan: vi.fn(),
   getScanCalibration: vi.fn(),
@@ -565,7 +566,7 @@ describe("Scanner page", () => {
     expect(screen.queryAllByText("Commander Helm")).toHaveLength(0);
   });
 
-  it("appends paged scan results, dedupes repeated rows, and reports the rendered row count", async () => {
+  it("keeps appending scan pages beyond the first batch until the API is exhausted", async () => {
     const generatedAt = new Date().toISOString();
     const firstPageResults = [
       makeScanResult(1, "Paged Item 1"),
@@ -576,31 +577,42 @@ describe("Scanner page", () => {
       makeScanResult(3, "Paged Item 3"),
       makeScanResult(4, "Paged Item 4"),
     ];
+    const thirdPageResults = [
+      makeScanResult(5, "Paged Item 5"),
+      makeScanResult(6, "Paged Item 6"),
+    ];
 
-    vi.mocked(getLatestScan).mockImplementation(async (options) => ({
-      latest: {
-        id: 1,
-        provider_name: "blizzard_auctions",
-        generated_at: generatedAt,
-        result_count: 4,
-        results: options?.offset ? secondPageResults : firstPageResults,
-        available_item_classes: [],
-        available_realms: [],
-        available_category_pairs: [],
-        has_more: !options?.offset,
-        next_offset: options?.offset ? null : 2,
-        filtered_count: 4,
-      },
-      has_more: !options?.offset,
-      next_offset: options?.offset ? null : 2,
-    }));
+    vi.mocked(getLatestScan).mockImplementation(async (options) => {
+      const offset = options?.offset ?? 0;
+      const page = offset >= 4 ? thirdPageResults : offset >= 2 ? secondPageResults : firstPageResults;
+      const hasMore = offset < 4;
+      const nextOffset = hasMore ? offset + 2 : null;
+      return {
+        latest: {
+          id: 1,
+          provider_name: "blizzard_auctions",
+          generated_at: generatedAt,
+          result_count: 6,
+          results: page,
+          available_item_classes: [],
+          available_realms: [],
+          available_category_pairs: [],
+          has_more: hasMore,
+          next_offset: nextOffset,
+          filtered_count: 6,
+        },
+        has_more: hasMore,
+        next_offset: nextOffset,
+      };
+    });
 
     renderWithProviders(<Scanner />, "/scanner");
 
     expect((await screen.findAllByText("Paged Item 1")).length).toBeGreaterThan(0);
-    expect((await screen.findAllByText("Paged Item 4")).length).toBeGreaterThan(0);
-    expect(await screen.findByText(/4 result rows loaded/)).toBeInTheDocument();
-    expect(screen.queryByText(/5 result rows loaded/)).not.toBeInTheDocument();
+    expect((await screen.findAllByText("Paged Item 6")).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/6 result rows loaded/)).toBeInTheDocument();
+    expect(screen.queryByText(/7 result rows loaded/)).not.toBeInTheDocument();
     expect(vi.mocked(getLatestScan)).toHaveBeenCalledWith(expect.objectContaining({ offset: 2 }));
+    expect(vi.mocked(getLatestScan)).toHaveBeenCalledWith(expect.objectContaining({ offset: 4 }));
   });
 });

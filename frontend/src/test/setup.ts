@@ -12,15 +12,17 @@ class TestIntersectionObserver implements IntersectionObserver {
   unobserve = vi.fn();
 
   observe = vi.fn((target: Element) => {
-    this.callback(
-      [
-        {
-          isIntersecting: true,
-          target,
-        } as IntersectionObserverEntry,
-      ],
-      this,
-    );
+    window.setTimeout(() => {
+      this.callback(
+        [
+          {
+            isIntersecting: true,
+            target,
+          } as IntersectionObserverEntry,
+        ],
+        this,
+      );
+    }, 0);
   });
 }
 

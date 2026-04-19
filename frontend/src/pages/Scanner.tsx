@@ -1,10 +1,10 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getDefaultPreset, getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
 import { getRealms } from "../api/realms";
-import { getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../api/scans";
+import { SCAN_PAGE_SIZE, getLatestScan, getScan, getScanCalibration, getScanHistory, getScanReadiness, getScanStatus } from "../api/scans";
 import { applyTuningPreset, getTuningAudit } from "../api/settings";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
@@ -31,6 +31,7 @@ const CALIBRATION_CHART_HEIGHT = 180;
 const CALIBRATION_CHART_PADDING = 14;
 const TUNING_COOLDOWN_MS = 30 * 60 * 1000;
 const SCHEDULE_INTERVAL_MINUTES_FALLBACK = 65;
+const SCANNER_SCROLL_PRELOAD_PX = 800;
 
 interface ScannerNavigationState {
   restoreItemId?: number;
@@ -259,6 +260,7 @@ export function Scanner() {
         sortBy: filters.sortBy,
         sortDirection: filters.sortDirection,
         offset: pageParam,
+        limit: SCAN_PAGE_SIZE,
       }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => (lastPage.has_more ? (lastPage.next_offset ?? undefined) : undefined),
@@ -361,20 +363,51 @@ export function Scanner() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const requestNextScanPage = useCallback(() => {
+    if (!scanQuery.hasNextPage || scanQuery.isFetchingNextPage) {
+      return;
+    }
+    void scanQuery.fetchNextPage();
+  }, [scanQuery.fetchNextPage, scanQuery.hasNextPage, scanQuery.isFetchingNextPage]);
+
+  const loadMoreIfSentinelIsNearViewport = useCallback(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const rect = sentinel.getBoundingClientRect();
+    const isNearViewport = rect.top <= viewportHeight + SCANNER_SCROLL_PRELOAD_PX && rect.bottom >= -SCANNER_SCROLL_PRELOAD_PX;
+    if (isNearViewport) {
+      requestNextScanPage();
+    }
+  }, [requestNextScanPage]);
+
   useEffect(() => {
     const sentinel = scrollSentinelRef.current;
     if (!sentinel) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && scanQuery.hasNextPage && !scanQuery.isFetchingNextPage) {
-          void scanQuery.fetchNextPage();
+        if (entries.some((entry) => entry.isIntersecting)) {
+          requestNextScanPage();
         }
       },
-      { rootMargin: "300px" },
+      { rootMargin: `${SCANNER_SCROLL_PRELOAD_PX}px 0px` },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [scanQuery.hasNextPage, scanQuery.isFetchingNextPage, scanQuery.fetchNextPage]);
+  }, [requestNextScanPage]);
+
+  useEffect(() => {
+    loadMoreIfSentinelIsNearViewport();
+    window.addEventListener("scroll", loadMoreIfSentinelIsNearViewport, { passive: true });
+    window.addEventListener("resize", loadMoreIfSentinelIsNearViewport);
+    return () => {
+      window.removeEventListener("scroll", loadMoreIfSentinelIsNearViewport);
+      window.removeEventListener("resize", loadMoreIfSentinelIsNearViewport);
+    };
+  }, [allLoadedResults.length, loadMoreIfSentinelIsNearViewport]);
 
   const latestScanIdFromStatus = scanStatusQuery.data?.diagnostic_latest_scan_id ?? null;
   useEffect(() => {
@@ -1138,9 +1171,21 @@ export function Scanner() {
                 {persistedScan.filtered_count != null && persistedScan.filtered_count !== allLoadedResults.length
                   ? ` of ${persistedScan.filtered_count} total`
                   : ""}
-                {scanQuery.hasNextPage ? ". Scroll for more." : ""}
+                {scanQuery.hasNextPage ? ". Scroll for more." : ". End of results."}
               </p>
             )}
+            {scanQuery.hasNextPage && allLoadedResults.length > 0 ? (
+              <div className="flex justify-center py-2">
+                <button
+                  type="button"
+                  onClick={requestNextScanPage}
+                  disabled={scanQuery.isFetchingNextPage}
+                  className="rounded-full border border-white/20 bg-white/5 px-4 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-orange-400/50 hover:text-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {scanQuery.isFetchingNextPage ? "Loading more..." : `Load next ${SCAN_PAGE_SIZE}`}
+                </button>
+              </div>
+            ) : null}
           </>
         )}
 
