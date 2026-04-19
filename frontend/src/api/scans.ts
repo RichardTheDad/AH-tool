@@ -16,17 +16,45 @@ function normalizeScanSession(session: ScanSession | null | undefined): ScanSess
   };
 }
 
-export function getLatestScan(limit?: number, options?: { buyRealms?: string[]; sellRealms?: string[] }) {
+export interface ScanFetchOptions {
+  buyRealms?: string[];
+  sellRealms?: string[];
+  minProfit?: number;
+  minRoi?: number;
+  maxBuyPrice?: number;
+  minConfidence?: number;
+  hideRisky?: boolean;
+  category?: string;
+  sortBy?: string;
+  sortDirection?: "asc" | "desc";
+  offset?: number;
+  limit?: number;
+}
+
+export const SCAN_PAGE_SIZE = 100;
+
+export function getLatestScan(options?: ScanFetchOptions) {
   const params = new URLSearchParams();
-  if (typeof limit === "number") {
-    params.set("limit", String(Math.max(1, Math.floor(limit))));
+  params.set("limit", String(options?.limit ?? SCAN_PAGE_SIZE));
+  if (typeof options?.offset === "number" && options.offset > 0) {
+    params.set("offset", String(options.offset));
   }
   options?.buyRealms?.forEach((r) => { if (r.trim()) params.append("buy_realm", r.trim()); });
   options?.sellRealms?.forEach((r) => { if (r.trim()) params.append("sell_realm", r.trim()); });
+  if (options?.minProfit) params.set("min_profit", String(options.minProfit));
+  if (options?.minRoi) params.set("min_roi", String(options.minRoi));
+  if (options?.maxBuyPrice) params.set("max_buy_price", String(options.maxBuyPrice));
+  if (options?.minConfidence) params.set("min_confidence", String(options.minConfidence));
+  if (options?.hideRisky) params.set("hide_risky", "true");
+  if (options?.category) params.set("category", options.category);
+  if (options?.sortBy && options.sortBy !== "final_score") params.set("sort_by", options.sortBy);
+  if (options?.sortDirection && options.sortDirection !== "desc") params.set("sort_direction", options.sortDirection);
   const query = params.toString();
   return apiOptionalAuthRequest<LatestScanResponse>(`/scans/latest${query ? `?${query}` : ""}`).then((payload) => ({
     ...payload,
     latest: normalizeScanSession(payload?.latest),
+    has_more: payload?.has_more ?? false,
+    next_offset: payload?.next_offset ?? null,
   }));
 }
 

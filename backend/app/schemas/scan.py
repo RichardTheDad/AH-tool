@@ -54,6 +54,9 @@ class ScanSessionRead(BaseModel):
     available_item_classes: list[str] = Field(default_factory=list)
     available_realms: list[str] = Field(default_factory=list)
     available_category_pairs: list[dict[str, str | None]] = Field(default_factory=list)
+    has_more: bool = False
+    next_offset: int | None = None
+    filtered_count: int | None = None
 
 
 class ScanRunRequest(BaseModel):
@@ -66,6 +69,8 @@ class ScanRunRequest(BaseModel):
 
 class ScanLatestResponse(BaseModel):
     latest: ScanSessionRead | None = None
+    has_more: bool = False
+    next_offset: int | None = None
 
 
 class RealmScanReadiness(BaseModel):

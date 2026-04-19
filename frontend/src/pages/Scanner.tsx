@@ -1,5 +1,5 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getDefaultPreset, getPresets } from "../api/presets";
 import { getProviderStatus } from "../api/providers";
@@ -162,6 +162,7 @@ export function Scanner() {
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [copyDiagnosticsStatus, setCopyDiagnosticsStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const scrollSentinelRef = useRef<HTMLDivElement | null>(null);
   const { filters, updateFilters, restoreFiltersFromStorage } = useScannerFilters();
   const [showFilters, setShowFilters] = useState(false);
   const hasActiveFilters = Boolean(
@@ -195,13 +196,41 @@ export function Scanner() {
     return [filters.sellRealm];
   })();
 
-  const scanQuery = useQuery({
-    queryKey: ["scans", "latest", 50, scanBuyRealms ?? null, scanSellRealms ?? null],
-    queryFn: () => getLatestScan(50, { buyRealms: scanBuyRealms, sellRealms: scanSellRealms }),
-    refetchInterval: scanRefreshIntervalMs,
+  const scanFilterKey = {
+    buyRealms: scanBuyRealms ?? null,
+    sellRealms: scanSellRealms ?? null,
+    minProfit: filters.minProfit || null,
+    minRoi: filters.minRoi || null,
+    maxBuyPrice: filters.maxBuyPrice || null,
+    minConfidence: filters.minConfidence || null,
+    hideRisky: filters.hideRisky || false,
+    category: filters.category || null,
+    sortBy: filters.sortBy,
+    sortDirection: filters.sortDirection,
+  };
+
+  const scanQuery = useInfiniteQuery({
+    queryKey: ["scans", "latest", "infinite", scanFilterKey],
+    queryFn: ({ pageParam }) =>
+      getLatestScan({
+        buyRealms: scanBuyRealms,
+        sellRealms: scanSellRealms,
+        minProfit: filters.minProfit ? Number(filters.minProfit) : undefined,
+        minRoi: filters.minRoi ? Number(filters.minRoi) : undefined,
+        maxBuyPrice: filters.maxBuyPrice ? Number(filters.maxBuyPrice) : undefined,
+        minConfidence: filters.minConfidence ? Number(filters.minConfidence) : undefined,
+        hideRisky: filters.hideRisky || false,
+        category: filters.category || undefined,
+        sortBy: filters.sortBy,
+        sortDirection: filters.sortDirection,
+        offset: pageParam,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? (lastPage.next_offset ?? undefined) : undefined),
+    maxPages: 5,
+    placeholderData: (prev) => prev,
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
-    placeholderData: keepPreviousData,
   });
   const scanHistoryQuery = useQuery({
     queryKey: ["scans", "history"],
@@ -228,7 +257,9 @@ export function Scanner() {
     queryFn: () => getScan(previousScanId as number, 200),
     enabled: typeof previousScanId === "number",
   });
-  const latest = normalizeSession(scanQuery.data?.latest);
+  const firstPage = scanQuery.data?.pages[0];
+  const latest = normalizeSession(firstPage?.latest);
+  const allLoadedResults = (scanQuery.data?.pages ?? []).flatMap((page) => page.latest?.results ?? []);
   const recentScans: ScanSessionSummary[] = asArray(scanHistoryQuery.data?.scans);
   const fallbackScanId = latest?.result_count ? null : recentScans.find((scan) => scan.id !== latest?.id && scan.result_count > 0)?.id ?? null;
   const fallbackScanQuery = useQuery({
@@ -296,6 +327,30 @@ export function Scanner() {
   }, []);
 
   useEffect(() => {
+    const sentinel = scrollSentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && scanQuery.hasNextPage && !scanQuery.isFetchingNextPage) {
+          void scanQuery.fetchNextPage();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [scanQuery.hasNextPage, scanQuery.isFetchingNextPage, scanQuery.fetchNextPage]);
+
+  const latestScanIdFromStatus = scanStatusQuery.data?.diagnostic_latest_scan_id ?? null;
+  useEffect(() => {
+    if (latestScanIdFromStatus === null) return;
+    const currentLoadedId = firstPage?.latest?.id ?? null;
+    if (currentLoadedId !== null && latestScanIdFromStatus !== currentLoadedId) {
+      void queryClient.invalidateQueries({ queryKey: ["scans", "latest", "infinite"] });
+    }
+  }, [latestScanIdFromStatus, firstPage?.latest?.id, queryClient]);
+
+  useEffect(() => {
     const updateViewport = () => {
       setIsMobileViewport(window.innerWidth < 768);
     };
@@ -345,17 +400,22 @@ export function Scanner() {
   const scanResultRealmOptions = uniqueSortedRealms(
     asArray(persistedScan?.available_realms).length > 0
       ? asArray(persistedScan?.available_realms)
-      : asArray(persistedScan?.results).flatMap((result) => [result.cheapest_buy_realm, result.best_sell_realm]),
+      : allLoadedResults.flatMap((result) => [result.cheapest_buy_realm, result.best_sell_realm]),
   );
   const realmOptions = uniqueSortedRealms([
     ...enabledTrackedRealmOptions,
     ...scanResultRealmOptions,
   ]);
   const trackedRealmFilterOptions = enabledTrackedRealmOptions;
-  const strictFilteredResults = filterScanResults(asArray(persistedScan?.results), filters, { trackedRealms: trackedRealmFilterOptions });
+  // Backend now applies all numeric/category filters; client-side only handles realm scope + sort.
+  const strictFilteredResults = filterScanResults(
+    allLoadedResults.length > 0 ? allLoadedResults : asArray(persistedScan?.results),
+    { ...filters, minProfit: "", minRoi: "", maxBuyPrice: "", minConfidence: "", hideRisky: false, category: "" },
+    { trackedRealms: trackedRealmFilterOptions },
+  );
   const trackedRealmLookup = new Set(trackedRealmFilterOptions.map((realm) => normalizeRealmLookupKey(realm)).filter(Boolean));
-  const latestBuyRealms = uniqueSortedRealms(asArray(persistedScan?.results).map((result) => result.cheapest_buy_realm));
-  const latestSellRealms = uniqueSortedRealms(asArray(persistedScan?.results).map((result) => result.best_sell_realm));
+  const latestBuyRealms = uniqueSortedRealms(allLoadedResults.map((result) => result.cheapest_buy_realm));
+  const latestSellRealms = uniqueSortedRealms(allLoadedResults.map((result) => result.best_sell_realm));
   const trackedBuyOverlapCount = latestBuyRealms.filter((realm) => trackedRealmLookup.has(normalizeRealmLookupKey(realm))).length;
   const trackedSellOverlapCount = latestSellRealms.filter((realm) => trackedRealmLookup.has(normalizeRealmLookupKey(realm))).length;
   const mixedTrackedScopeActive =
@@ -367,10 +427,20 @@ export function Scanner() {
     trackedSellOverlapCount === 0;
   const relaxedRealmFilters = {
     ...filters,
+    minProfit: "",
+    minRoi: "",
+    maxBuyPrice: "",
+    minConfidence: "",
+    hideRisky: false as boolean,
+    category: "",
     buyRealm: filters.buyRealm === TRACKED_REALMS_FILTER_VALUE ? ALL_REALMS_FILTER_VALUE : filters.buyRealm,
     sellRealm: filters.sellRealm === TRACKED_REALMS_FILTER_VALUE ? ALL_REALMS_FILTER_VALUE : filters.sellRealm,
   };
-  const relaxedRealmResults = filterScanResults(asArray(persistedScan?.results), relaxedRealmFilters, { trackedRealms: trackedRealmFilterOptions });
+  const relaxedRealmResults = filterScanResults(
+    allLoadedResults.length > 0 ? allLoadedResults : asArray(persistedScan?.results),
+    relaxedRealmFilters,
+    { trackedRealms: trackedRealmFilterOptions },
+  );
   const broadRealmFallbackActive =
     strictFilteredResults.length === 0 &&
     mixedTrackedScopeActive &&
@@ -380,12 +450,12 @@ export function Scanner() {
   const categoryOptions = asArray(persistedScan?.available_item_classes).length > 0
     ? asArray(persistedScan?.available_item_classes)
     : Array.from(
-        new Set(asArray(persistedScan?.results).map((result) => result.item_class_name).filter((value): value is string => !!value)),
+        new Set(allLoadedResults.map((result) => result.item_class_name).filter((value): value is string => !!value)),
       ).sort((left, right) => left.localeCompare(right));
   const categoryGroups = buildCategoryGroupsFromResults(
     asArray(persistedScan?.available_category_pairs).length > 0
       ? asArray(persistedScan?.available_category_pairs)
-      : asArray(persistedScan?.results),
+      : allLoadedResults,
   );
   const inferredPreset = presets.find((preset) => matchesPreset(filters, preset)) ?? null;
   const activePreset =
@@ -408,8 +478,9 @@ export function Scanner() {
   const focusedModeActive =
     (filters.buyRealm !== TRACKED_REALMS_FILTER_VALUE || filters.sellRealm !== TRACKED_REALMS_FILTER_VALUE) &&
     !(filters.buyRealm === ALL_REALMS_FILTER_VALUE && filters.sellRealm === ALL_REALMS_FILTER_VALUE);
-  const focusedExcludedCount = Math.max(0, asArray(persistedScan?.results).length - results.length);
-  const hasAnyResults = asArray(persistedScan?.results).length > 0;
+  const totalLoadedCount = allLoadedResults.length;
+  const focusedExcludedCount = Math.max(0, totalLoadedCount - results.length);
+  const hasAnyResults = totalLoadedCount > 0 || (persistedScan?.result_count ?? 0) > 0;
   const hasFocusedEmptyState = hasAnyResults && results.length === 0 && focusedModeActive;
   const diagnosticActiveScope = scanStatus.diagnostic_active_scope ?? deriveActiveScope(filters.buyRealm, filters.sellRealm);
   const statusDiagnosticsPending = !scanStatusQuery.data && (scanStatusQuery.isLoading || scanStatusQuery.isFetching);
@@ -467,17 +538,18 @@ export function Scanner() {
       return null;
     }
 
+    const currentResults = allLoadedResults.length > 0 ? allLoadedResults : persistedScan.results;
     const previousByItem = new Map(previousScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
-    const currentByItem = new Map(persistedScan.results.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
+    const currentByItem = new Map(currentResults.map((result, index) => [result.item_id, { result, rank: index + 1 }]));
 
-    const newItems = persistedScan.results
+    const newItems = currentResults
       .map((result, index) => ({ result, rank: index + 1 }))
       .filter(({ result }) => !previousByItem.has(result.item_id));
     const droppedItems = previousScan.results
       .map((result, index) => ({ result, rank: index + 1 }))
       .filter(({ result }) => !currentByItem.has(result.item_id));
 
-    const sharedItems = persistedScan.results
+    const sharedItems = currentResults
       .map((result, index) => {
         const previous = previousByItem.get(result.item_id);
         if (!previous) {
@@ -539,7 +611,7 @@ export function Scanner() {
       return counts;
     };
 
-    const currentClassCounts = classCounts(persistedScan.results);
+    const currentClassCounts = classCounts(currentResults);
     const previousClassCounts = classCounts(previousScan.results);
     const classDeltas = Array.from(new Set([...currentClassCounts.keys(), ...previousClassCounts.keys()]))
       .map((name) => ({
@@ -550,7 +622,7 @@ export function Scanner() {
       .sort((left, right) => Math.abs(right.delta) - Math.abs(left.delta))
       .slice(0, 4);
 
-    const currentRealmCounts = realmCounts(persistedScan.results);
+    const currentRealmCounts = realmCounts(currentResults);
     const previousRealmCounts = realmCounts(previousScan.results);
     const realmDeltas = Array.from(new Set([...currentRealmCounts.keys(), ...previousRealmCounts.keys()]))
       .map((realm) => ({
@@ -562,11 +634,11 @@ export function Scanner() {
       .slice(0, 4);
 
     const totalComparedUniverse = new Set([
-      ...persistedScan.results.map((result) => result.item_id),
+      ...currentResults.map((result) => result.item_id),
       ...previousScan.results.map((result) => result.item_id),
     ]).size;
 
-    const totalCurrent = persistedScan.results.length;
+    const totalCurrent = currentResults.length;
     const totalPrevious = previousScan.results.length;
     const netOpportunityDelta = totalCurrent - totalPrevious;
     const changedShare = totalComparedUniverse > 0 ? (materiallyChanged.size / totalComparedUniverse) * 100 : 0;
@@ -635,7 +707,7 @@ export function Scanner() {
     const endpointLatestSellRealmCount = scanStatusQuery.data?.diagnostic_latest_sell_realm_count ?? 0;
     const endpointTrackedRealmCount = scanStatusQuery.data?.diagnostic_tracked_realm_count ?? trackedRealmFilterOptions.length;
     const effectiveLatestScanId = endpointLatestScanId ?? persistedScan?.id ?? null;
-    const effectiveLatestScanResultCount = endpointLatestScanResultCount || asArray(persistedScan?.results).length;
+    const effectiveLatestScanResultCount = endpointLatestScanResultCount || totalLoadedCount || (persistedScan?.result_count ?? 0);
 
     const payload = {
       status: "scanner-filter-diagnostics",
@@ -649,7 +721,7 @@ export function Scanner() {
       latestBuyRealmCount: endpointLatestBuyRealmCount,
       latestSellRealmCount: endpointLatestSellRealmCount,
       displayedScanId: persistedScan?.id ?? null,
-      displayedResultCount: asArray(persistedScan?.results).length,
+      displayedResultCount: totalLoadedCount,
       effectiveLatestScanId,
       effectiveLatestScanResultCount,
       statusDiagnosticsPending,
@@ -658,7 +730,7 @@ export function Scanner() {
       broadRealmFallbackActive,
       focusedExcludedCount,
       filteredResultCount: results.length,
-      totalResultCount: asArray(persistedScan?.results).length,
+      totalResultCount: totalLoadedCount,
       trackedBuyOverlapCount,
       trackedSellOverlapCount,
       latestBuyRealms: latestBuyRealms.slice(0, 8),
@@ -779,7 +851,7 @@ export function Scanner() {
 
         {focusedModeActive && (
           <div className="rounded-2xl border border-amber-300/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            Focused mode is on. Showing {results.length} of {asArray(persistedScan?.results).length} opportunities; {focusedExcludedCount} hidden because they fall outside your selected buy/sell realms.
+            Focused mode is on. Showing {results.length} of {totalLoadedCount} loaded results; {focusedExcludedCount} hidden because they fall outside your selected buy/sell realms.
             {broadRealmFallbackActive ? (
               <div className="mt-1 text-xs text-amber-100/90">
                 Tracked realms do not overlap the current scan realm universe, so scanner temporarily broadened realm scope to avoid an empty state.
@@ -1037,6 +1109,23 @@ export function Scanner() {
           )
         ) : (
           <EmptyState title="Scanner is empty" description="Wait for the next scheduled scan cycle to pull fresh listings from the Blizzard Auction House." />
+        )}
+
+        {persistedScan && (
+          <>
+            <div ref={scrollSentinelRef} className="h-1" aria-hidden="true" />
+            {scanQuery.isFetchingNextPage && (
+              <LoadingState label="Loading more results..." />
+            )}
+            {!scanQuery.hasNextPage && allLoadedResults.length > 0 && (
+              <p className="py-2 text-center text-xs text-zinc-500">
+                {allLoadedResults.length} result{allLoadedResults.length !== 1 ? "s" : ""} loaded
+                {persistedScan.filtered_count != null && persistedScan.filtered_count !== allLoadedResults.length
+                  ? ` of ${persistedScan.filtered_count} total`
+                  : ""}
+              </p>
+            )}
+          </>
         )}
 
         {previousScanQuery.isLoading ? (

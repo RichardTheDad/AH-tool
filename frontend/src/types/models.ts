@@ -82,6 +82,9 @@ export interface ScanSession {
   available_item_classes: string[];
   available_realms: string[];
   available_category_pairs: Array<{ item_class_name: string | null; item_subclass_name: string | null }>;
+  has_more?: boolean;
+  next_offset?: number | null;
+  filtered_count?: number | null;
 }
 
 export interface ScanSessionSummary {
@@ -93,6 +96,8 @@ export interface ScanSessionSummary {
 
 export interface LatestScanResponse {
   latest: ScanSession | null;
+  has_more?: boolean;
+  next_offset?: number | null;
 }
 
 export interface RealmScanReadiness {

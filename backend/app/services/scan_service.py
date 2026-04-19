@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from sqlalchemy import distinct, func, or_
+from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -714,49 +714,84 @@ def run_user_scan(session: Session, user_id: str, payload: ScanRunRequest, realm
         raise
 
 
+_SORT_COLUMNS: dict[str, object] = {
+    "final_score": ScanResult.final_score,
+    "estimated_profit": ScanResult.estimated_profit,
+    "cheapest_buy_price": ScanResult.cheapest_buy_price,
+    "roi": ScanResult.roi,
+    "spread_percent": ScanResult.spread_percent,
+    "confidence_score": ScanResult.confidence_score,
+    "sellability_score": ScanResult.sellability_score,
+}
+
+
 def get_scan_session(
     session: Session,
     scan_id: int,
     user_id: str,
     *,
     limit: int | None = None,
+    offset: int = 0,
     buy_realms: list[str] | None = None,
     sell_realms: list[str] | None = None,
+    min_profit: float | None = None,
+    min_roi: float | None = None,
+    max_buy_price: float | None = None,
+    min_confidence: float | None = None,
+    hide_risky: bool = False,
+    category: str | None = None,
+    sort_by: str = "final_score",
+    sort_direction: str = "desc",
 ) -> ScanSessionRead | None:
     scan_session = session.get(ScanSession, scan_id)
     if scan_session is None or scan_session.user_id != user_id:
         return None
 
-    has_realm_filter = bool(buy_realms or sell_realms)
-    # When realm filters are provided, fetch all matching results (up to 2000) so
-    # client-side numeric/category filters operate on the full realm-relevant set
-    # rather than just the global top-N by score.
-    if has_realm_filter:
-        effective_limit = 2000
-    else:
-        effective_limit = 200 if limit is None else max(1, min(limit, 2000))
+    page_size = max(1, min(limit or 100, 500))
+
+    sort_col = _SORT_COLUMNS.get(sort_by, ScanResult.final_score)
+    order_expr = sort_col.asc() if sort_direction == "asc" else sort_col.desc()  # type: ignore[union-attr]
+    secondary = ScanResult.estimated_profit.desc() if sort_by != "estimated_profit" else ScanResult.final_score.desc()
 
     query = (
         session.query(ScanResult)
         .filter(ScanResult.scan_session_id == scan_session.id)
-        .order_by(ScanResult.final_score.desc(), ScanResult.estimated_profit.desc())
+        .order_by(order_expr, secondary)
     )
 
-    if has_realm_filter:
-        realm_conditions = []
-        if buy_realms:
-            lower_buy = [r.strip().lower() for r in buy_realms if r.strip()]
-            if lower_buy:
-                realm_conditions.append(func.lower(ScanResult.cheapest_buy_realm).in_(lower_buy))
-        if sell_realms:
-            lower_sell = [r.strip().lower() for r in sell_realms if r.strip()]
-            if lower_sell:
-                realm_conditions.append(func.lower(ScanResult.best_sell_realm).in_(lower_sell))
-        if realm_conditions:
-            query = query.filter(or_(*realm_conditions))
+    if buy_realms:
+        lower_buy = [r.strip().lower() for r in buy_realms if r.strip()]
+        if lower_buy:
+            query = query.filter(func.lower(ScanResult.cheapest_buy_realm).in_(lower_buy))
+    if sell_realms:
+        lower_sell = [r.strip().lower() for r in sell_realms if r.strip()]
+        if lower_sell:
+            query = query.filter(func.lower(ScanResult.best_sell_realm).in_(lower_sell))
 
-    query = query.limit(effective_limit)
-    ordered_results = query.all()
+    if min_profit is not None:
+        query = query.filter(ScanResult.estimated_profit >= min_profit)
+    if min_roi is not None:
+        query = query.filter(ScanResult.roi >= min_roi)
+    if max_buy_price is not None:
+        query = query.filter(ScanResult.cheapest_buy_price <= max_buy_price)
+    if min_confidence is not None:
+        query = query.filter(ScanResult.confidence_score >= min_confidence)
+    if hide_risky:
+        query = query.filter(ScanResult.is_risky == False)  # noqa: E712
+    if category:
+        item_ids_for_category = (
+            session.query(Item.item_id)
+            .filter(func.lower(Item.class_name) == category.strip().lower())
+            .subquery()
+        )
+        query = query.filter(ScanResult.item_id.in_(item_ids_for_category))
+
+    filtered_count = query.count()
+
+    ordered_results = query.offset(offset).limit(page_size).all()
+
+    has_more = (offset + len(ordered_results)) < filtered_count
+    next_offset = (offset + page_size) if has_more else None
 
     total_result_count = int(
         session.query(func.count(ScanResult.id))
@@ -821,6 +856,9 @@ def get_scan_session(
         available_item_classes=all_item_classes,
         available_realms=all_realms,
         available_category_pairs=all_category_pairs,
+        has_more=has_more,
+        next_offset=next_offset,
+        filtered_count=filtered_count,
     )
 
 
@@ -829,16 +867,38 @@ def get_latest_scan(
     user_id: str,
     *,
     limit: int | None = None,
+    offset: int = 0,
     buy_realms: list[str] | None = None,
     sell_realms: list[str] | None = None,
+    min_profit: float | None = None,
+    min_roi: float | None = None,
+    max_buy_price: float | None = None,
+    min_confidence: float | None = None,
+    hide_risky: bool = False,
+    category: str | None = None,
+    sort_by: str = "final_score",
+    sort_direction: str = "desc",
 ) -> ScanSessionRead | None:
     """Retrieve latest scan with timeout protection."""
     try:
         latest = session.query(ScanSession).filter(ScanSession.user_id == user_id).order_by(ScanSession.generated_at.desc()).first()
         if latest is None:
             return None
-        effective_limit = 50 if limit is None else limit
-        return get_scan_session(session, latest.id, user_id, limit=effective_limit, buy_realms=buy_realms, sell_realms=sell_realms)
+        return get_scan_session(
+            session, latest.id, user_id,
+            limit=limit,
+            offset=offset,
+            buy_realms=buy_realms,
+            sell_realms=sell_realms,
+            min_profit=min_profit,
+            min_roi=min_roi,
+            max_buy_price=max_buy_price,
+            min_confidence=min_confidence,
+            hide_risky=hide_risky,
+            category=category,
+            sort_by=sort_by,
+            sort_direction=sort_direction,
+        )
     except Exception as exc:
         logger.error("Latest scan query failed (may indicate connection pool exhaustion): %s", exc)
         return None

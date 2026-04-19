@@ -65,32 +65,65 @@ def run_scan_route(request: Request, payload: ScanRunRequest, db: Session = Depe
     )
 
 
+_VALID_SORT_FIELDS = {"final_score", "estimated_profit", "cheapest_buy_price", "roi", "spread_percent", "confidence_score", "sellability_score"}
+
+
 @router.get("/scans/latest", response_model=ScanLatestResponse)
-@limiter.limit("30/minute")
+@limiter.limit("60/minute")
 def latest_scan(
     request: Request,
-    limit: int | None = Query(default=50, ge=1, le=2000),
+    limit: int | None = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     buy_realm: list[str] | None = Query(default=None),
     sell_realm: list[str] | None = Query(default=None),
+    min_profit: float | None = Query(default=None, ge=0),
+    min_roi: float | None = Query(default=None, ge=0),
+    max_buy_price: float | None = Query(default=None, ge=0),
+    min_confidence: float | None = Query(default=None, ge=0, le=100),
+    hide_risky: bool = Query(default=False),
+    category: str | None = Query(default=None),
+    sort_by: str = Query(default="final_score"),
+    sort_direction: str = Query(default="desc"),
     db: Session = Depends(get_db),
     current_user: str | None = Depends(get_optional_user),
 ) -> ScanLatestResponse:
     del request
     del current_user
-    has_realm_filter = bool(buy_realm or sell_realm)
-    if has_realm_filter:
-        sorted_buy = ",".join(sorted(r.strip().lower() for r in (buy_realm or []) if r.strip()))
-        sorted_sell = ",".join(sorted(r.strip().lower() for r in (sell_realm or []) if r.strip()))
-        cache_key = f"scans.latest.realm:{sorted_buy}|{sorted_sell}"
-        ttl = 10.0
-    else:
-        cache_key = f"scans.latest:{limit}"
-        ttl = 20.0
-    return _read_through_cache(
-        cache_key,
-        ttl,
-        lambda: ScanLatestResponse(latest=get_latest_scan(db, SYSTEM_USER_ID, limit=limit, buy_realms=buy_realm, sell_realms=sell_realm)),
+    safe_sort_by = sort_by if sort_by in _VALID_SORT_FIELDS else "final_score"
+    safe_sort_dir = "asc" if sort_direction == "asc" else "desc"
+    sorted_buy = ",".join(sorted(r.strip().lower() for r in (buy_realm or []) if r.strip()))
+    sorted_sell = ",".join(sorted(r.strip().lower() for r in (sell_realm or []) if r.strip()))
+    cache_key = (
+        f"scans.latest.v2:{sorted_buy}|{sorted_sell}"
+        f"|p={min_profit}|r={min_roi}|b={max_buy_price}|c={min_confidence}"
+        f"|hr={hide_risky}|cat={category or ''}|off={offset}|lim={limit}"
+        f"|s={safe_sort_by}|sd={safe_sort_dir}"
     )
+    ttl = 10.0
+
+    def _load() -> ScanLatestResponse:
+        session_read = get_latest_scan(
+            db, SYSTEM_USER_ID,
+            limit=limit,
+            offset=offset,
+            buy_realms=buy_realm,
+            sell_realms=sell_realm,
+            min_profit=min_profit,
+            min_roi=min_roi,
+            max_buy_price=max_buy_price,
+            min_confidence=min_confidence,
+            hide_risky=hide_risky,
+            category=category,
+            sort_by=safe_sort_by,
+            sort_direction=safe_sort_dir,
+        )
+        return ScanLatestResponse(
+            latest=session_read,
+            has_more=session_read.has_more if session_read else False,
+            next_offset=session_read.next_offset if session_read else None,
+        )
+
+    return _read_through_cache(cache_key, ttl, _load)
 
 
 @router.get("/scans/history", response_model=ScanHistoryResponse)
