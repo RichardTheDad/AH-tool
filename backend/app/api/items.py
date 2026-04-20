@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_optional_user
+from app.core.config import SYSTEM_USER_ID
 from app.core.limiter import limiter
 from app.db.session import get_db
 from app.schemas.item import ItemDetail, ItemRefreshRequest, ItemSearchRequest, ItemSearchResult
@@ -20,8 +21,8 @@ def search_items(payload: ItemSearchRequest, db: Session = Depends(get_db), curr
 
 
 @router.get("/items/{item_id}", response_model=ItemDetail)
-def get_item(item_id: int, refresh_metadata_if_missing: bool = Query(default=True), db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> ItemDetail:
-    item = metadata_service.get_item_detail(db, item_id, current_user, refresh_metadata_if_missing=refresh_metadata_if_missing)
+def get_item(item_id: int, refresh_metadata_if_missing: bool = Query(default=True), db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> ItemDetail:
+    item = metadata_service.get_item_detail(db, item_id, current_user or SYSTEM_USER_ID, refresh_metadata_if_missing=refresh_metadata_if_missing)
     if item is None:
         raise HTTPException(status_code=404, detail="Item not found.")
     return item
@@ -45,5 +46,5 @@ def refresh_missing_metadata(request: Request, db: Session = Depends(get_db), cu
 
 
 @router.get("/items/{item_id}/live-listings", response_model=LiveListingLookupResponse)
-def get_live_item_listings(item_id: int, db: Session = Depends(get_db), current_user: str = Depends(get_current_user)) -> LiveListingLookupResponse:
-    return metadata_service.get_live_item_listings(db, item_id, current_user)
+def get_live_item_listings(item_id: int, db: Session = Depends(get_db), current_user: str | None = Depends(get_optional_user)) -> LiveListingLookupResponse:
+    return metadata_service.get_live_item_listings(db, item_id, current_user or SYSTEM_USER_ID)

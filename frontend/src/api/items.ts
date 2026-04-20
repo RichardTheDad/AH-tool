@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { apiOptionalAuthRequest, apiRequest } from "./client";
 import type { ItemDetail, ItemSummary, LiveListingLookupResponse } from "../types/models";
 
 function asArray<T>(value: T[] | null | undefined): T[] {
@@ -35,11 +35,11 @@ export function searchItems(query: string, limit = 25) {
 }
 
 export function getItem(itemId: number) {
-  return apiRequest<ItemDetail>(`/items/${itemId}`).then(normalizeItemDetail);
+  return apiOptionalAuthRequest<ItemDetail>(`/items/${itemId}`).then(normalizeItemDetail);
 }
 
 export function getLiveItemListings(itemId: number) {
-  return apiRequest<LiveListingLookupResponse>(`/items/${itemId}/live-listings`).then(normalizeLiveLookup);
+  return apiOptionalAuthRequest<LiveListingLookupResponse>(`/items/${itemId}/live-listings`).then(normalizeLiveLookup);
 }
 
 export function refreshMetadata(itemIds: number[]) {

@@ -32,7 +32,7 @@ function AppRoutes() {
           <Route path="/realms" element={<ProtectedRoute guestAllowed><Realms /></ProtectedRoute>} />
           <Route path="/presets" element={<ProtectedRoute guestAllowed><Presets /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-          <Route path="/items/:itemId" element={<ProtectedRoute><ItemDetail /></ProtectedRoute>} />
+          <Route path="/items/:itemId" element={<ProtectedRoute guestAllowed><ItemDetail /></ProtectedRoute>} />
         </Routes>
       </AppShell>
     </AppErrorBoundary>
@@ -43,7 +43,7 @@ function LegacyItemDetailRoute() {
   const location = useLocation();
 
   return (
-    <ProtectedRoute>
+    <ProtectedRoute guestAllowed>
       <AppErrorBoundary resetKey={location.pathname}>
         <AppShell>
           <ItemDetail />
